@@ -1,0 +1,17 @@
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+/.venv/
+/models/
+/checkpoints/
+/outputs_lstm/
+/src/models/
+/src/__pycache__/
+uv.lock
+pyproject.toml
+*.mp4
+.python-version

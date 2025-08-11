@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+::-webkit-scrollbar{
+    width: 0px;
+    height: 0px;
+}
+
+/* Toast theme variables */
+:root {
+  --toast-bg: rgba(255, 255, 255, 0.95);
+  --toast-text: #374151;
+  --toast-border: #e5e7eb;
+}
+
+.dark {
+  --toast-bg: rgba(31, 41, 55, 0.95);
+  --toast-text: #f9fafb;
+  --toast-border: #4b5563;
+}
+
+/* Custom toast animations */
+@keyframes toast-enter {
+  0% {
+    transform: translate3d(100%, 0, 0) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-exit {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(100%, 0, 0) scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* Apply to react-hot-toast */
+[data-sonner-toast],
+[data-sonner-toast][data-styled] {
+  animation: toast-enter 0.4s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+[data-sonner-toast][data-removed="true"] {
+  animation: toast-exit 0.35s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
+}
