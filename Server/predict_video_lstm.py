@@ -60,7 +60,7 @@ def predict_video(video_path, model, processor, config, device):
 
 def main():
     # --- !!! EDIT THIS LINE WITH THE PATH TO YOUR VIDEO !!! ---
-    video_to_predict_path = "/home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/Celeb-synthesis/id2_id4_0002.mp4"
+    video_to_predict_path = "D:\\Slantie@LDRP\\7th Semester\\NTRO\\Website\\Server\\id0_0001.mp4"
     # -----------------------------------------------------------
 
     if not os.path.exists(video_to_predict_path):

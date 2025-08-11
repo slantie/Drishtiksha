@@ -8,21 +8,21 @@ datasource db {
 }
 
 model User {
-  id        String         @id @default(uuid())
-  email     String         @unique
+  id        String   @id @default(uuid())
+  email     String   @unique
   firstName String
   lastName  String
   password  String
   bio       String?
   phone     String?
   avatar    String?
-  role      Role           @default(USER)
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   refreshTokens RefreshToken[]
-  videos       Video[] 
+  videos        Video[]
 
   @@map("users")
 }
@@ -39,19 +39,60 @@ model RefreshToken {
 }
 
 model Video {
-  id          String   @id @default(uuid())
+  id          String            @id @default(uuid())
   filename    String
   filepath    String
   mimetype    String
   size        Int
   description String?
+  status      VideoStatus       @default(UPLOADED)
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis    DeepfakeAnalysis?
+  analysisId  String?           @unique
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("videos")
+}
+
+model DeepfakeAnalysis {
+  id             String         @id @default(uuid())
+  videoId        String         @unique
+  video          Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  prediction     PredictionType
+  confidence     Float
+  processingTime Float? // in seconds
+  modelVersion   String
+  status         AnalysisStatus @default(PENDING)
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("deepfake_analyses")
 }
 
 enum Role {
   USER
   ADMIN
   MODERATOR
+}
+
+enum VideoStatus {
+  UPLOADED
+  PROCESSING
+  ANALYZED
+  FAILED
+}
+
+enum PredictionType {
+  REAL
+  FAKE
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
