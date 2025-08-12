@@ -43,12 +43,6 @@ function Home() {
                 <span>Get Started</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
               </a>
-              <a
-                href="/setup"
-                className="bg-light-muted-background dark:bg-dark-muted-background border-2 border-light-muted-text/20 dark:border-dark-muted-text/20 hover:border-light-highlight dark:hover:border-dark-highlight font-semibold py-4 px-10 rounded-xl transition-all duration-300 hover:shadow-md"
-              >
-                View Documentation
-              </a>
             </div>
           </div>
         </div>

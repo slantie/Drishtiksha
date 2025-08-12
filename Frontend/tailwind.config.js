@@ -9,44 +9,42 @@ export default {
           "main": "#f56565",
           "light": "#ff7070",
           "lighter": "#fc6f6f",
-          "dark": "#",
-          "darker": "#"
+          // REMOVED: Empty dark and darker keys
         },
 
         "dark": {
           "text": "#DFDFD6",
-          "background": "#1B1B1F",
+          "background": "#1B1B1F",       // For the main page background in dark mode
           "highlight": "#fc6f6f",
           "muted": {
             "text": "#FFFFFF",
-            "background": "#202127",
+            "background": "#202127",   // For component backgrounds (cards, tables) in dark mode
           },
           "noisy":{
             "text": "#98989F",
             "background": "#161618",
           },
           "hover": "#414853",
-          "secondary": "#32363F",
+          "secondary": "#32363F",       // For borders and dividers in dark mode
           "tertiary": "#98989F"
         },
 
         "light": {
           "text": "#3C3C43",
-          "background": "#FFFFFF",
+          "background": "#FFFFFF",         // CORRECTED: For component backgrounds (cards, tables) in light mode
           "highlight": "#F56565",
           "muted": {
             "text": "#67676C",
-            "background": "#F6F6F7",
+            "background": "#F6F6F7",   // For the main page background in light mode
           },
           "noisy":{
             "text": "#67676C",
             "background": "#C2C2C4",
           },
           "hover": "#E4E4E9",
-          "secondary": "#EBEBEF",
+          "secondary": "#EBEBEF",       // For borders and dividers in light mode
           "tertiary": "#98989F"
         }
-
       },
       fontFamily: {
         sans: [

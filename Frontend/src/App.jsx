@@ -10,18 +10,17 @@ import Profile from "./components/user/profile";
 
 // Pages
 import Home from "./pages/Home";
-import Setup from "./pages/Setup";
 import Authentication from "./pages/Authentication";
 import { Dashboard } from "./pages/Dashboard";
+import { Results } from "./pages/Results";
 
 // Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 
-// Toast Provider
+// Toast and Error Components
 import ToastProvider from "./providers/ToastProvider";
 import Error from "./components/Error";
-import { UploadPage } from "./pages/Upload";
 
 function App() {
     return (
@@ -33,15 +32,6 @@ function App() {
                     element={
                         <Layout>
                             <Home />
-                        </Layout>
-                    }
-                />
-
-                <Route
-                    path="/setup"
-                    element={
-                        <Layout>
-                            <Setup />
                         </Layout>
                     }
                 />
@@ -70,7 +60,7 @@ function App() {
                     }
                 />
 
-                {/* Protected Routes with Role Requirements */}
+                {/* Admin Route - Role-specific access */}
                 <Route
                     path="/admin"
                     element={
@@ -99,18 +89,19 @@ function App() {
                     }
                 />
 
-                {/* Upload Route - Any authenticated user */}
+                {/* ADDED: Results Page Route - Any authenticated user */}
                 <Route
-                    path="/upload"
+                    path="/results/:videoId"
                     element={
                         <ProtectedRoute>
                             <Layout>
-                                <UploadPage />
+                                <Results />
                             </Layout>
                         </ProtectedRoute>
                     }
                 />
 
+                {/* Wildcard/Error Route */}
                 <Route
                     path="*"
                     element={

@@ -9,14 +9,11 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const navItems = [
     { path: "/", label: "Home" },
-    { path: "/Setup", label: "Setup" },
 ];
 
 const authenticatedNavItems = [
-    { path: "/", label: "Home" },
+    // { path: "/", label: "Home" },
     { path: "/dashboard", label: "Dashboard" },
-    { path: "/upload", label: "Upload" },
-    { path: "/Setup", label: "Setup" },
 ];
 
 function Header() {
@@ -84,7 +81,7 @@ function Header() {
             sessionStorage.removeItem("user");
             sessionStorage.removeItem("isAuthenticated");
 
-            // Update state
+            // date state
             setIsAuthenticated(false);
             setUser(null);
             setShowUserMenu(false);
@@ -153,7 +150,7 @@ function Header() {
                     onClick={() => navigate("/")}
                 >
                     <div className="flex items-center">
-                        <img src="/Logo.png" alt="Logo" className="w-8 h-8" />
+                        <img src="/Logo.svg" alt="Logo" className="w-10 h-10" />
                     </div>
                     <h1 className="text-xl md:text-2xl font-semibold tracking-wide hover:text-light-highlight dark:hover:text-dark-highlight truncate">
                         {projectName}
@@ -351,7 +348,7 @@ function Header() {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
                                     <img
-                                        src="/Logo.png"
+                                        src="/Logo.svg"
                                         alt="Logo"
                                         className="w-8 h-8"
                                     />

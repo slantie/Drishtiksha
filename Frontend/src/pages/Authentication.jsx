@@ -169,7 +169,7 @@ function Authentication() {
           if (redirectPath) {
             window.location.href = decodeURIComponent(redirectPath);
           } else {
-            window.location.href = "/";
+            window.location.href = "/dashboard";
           }
         }, 2000);
       } else {
