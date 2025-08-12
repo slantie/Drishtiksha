@@ -2,8 +2,8 @@
 "use client";
 
 import React from "react";
-import PropTypes from "prop-types"; // ADDED: For runtime type checking in JSX
-import { Card } from "./Card"; // Assuming "@/components/ui" maps to src/components/ui
+import PropTypes from "prop-types";
+import { Card } from "./Card";
 import CountUp from "react-countup";
 import { AlertCircle } from "lucide-react";
 import clsx from "clsx";

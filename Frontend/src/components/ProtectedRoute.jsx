@@ -1,70 +1,45 @@
+// src/components/ProtectedRoute.jsx
+
 import React from "react";
-import { showToast } from "../utils/toast";
 import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth.js";
+import { showToast } from "../utils/toast.js";
+import LoadingSpinner from "./ui/LoadingSpinner.jsx"; // Assuming you have a loading spinner
 
-const ProtectedRoute = ({
-  children,
-  roles = [],
-  fallbackPath = "/auth?view=login",
-  requireAuth = true,
-}) => {
-  const location = useLocation();
+const ProtectedRoute = ({ children, roles = [] }) => {
+    const { isAuthenticated, user, isLoading } = useAuth();
+    const location = useLocation();
 
-  // Check authentication status
-  const getAuthData = () => {
-    try {
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-      const userData =
-        localStorage.getItem("user") || sessionStorage.getItem("user");
-      const authStatus =
-        localStorage.getItem("isAuthenticated") ||
-        sessionStorage.getItem("isAuthenticated");
-
-      if (token && userData && authStatus === "true") {
-        return {
-          isAuthenticated: true,
-          user: JSON.parse(userData),
-          token,
-        };
-      }
-      return { isAuthenticated: false, user: null, token: null };
-    } catch (error) {
-      console.error("Error checking auth status:", error);
-      return { isAuthenticated: false, user: null, token: null };
+    // 1. Show a loading state while the auth status is being checked.
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <LoadingSpinner />
+            </div>
+        );
     }
-  };
 
-  const { isAuthenticated, user } = getAuthData();
-
-  // If authentication is required but user is not authenticated
-  if (requireAuth && !isAuthenticated) {
-    showToast.error("Please log in to access this page");
-    // Redirect to login with current location as return URL
-    return (
-      <Navigate
-        to={`${fallbackPath}&redirect=${encodeURIComponent(location.pathname)}`}
-        replace
-      />
-    );
-  }
-
-  // If specific roles are required, check user role
-  if (isAuthenticated && roles.length > 0 && user) {
-    const userRole = user.role?.toUpperCase();
-    const hasRequiredRole = roles.some(
-      (role) => role.toUpperCase() === userRole
-    );
-
-    if (!hasRequiredRole) {
-      showToast.error("You don't have permission to access this page");
-      return <Navigate to="/" replace />;
+    // 2. If not authenticated, redirect to the login page.
+    if (!isAuthenticated) {
+        // The toast can be triggered on the login page itself if needed,
+        // but for now, let's keep it simple.
+        return (
+            <Navigate
+                to={`/auth?redirect=${encodeURIComponent(location.pathname)}`}
+                replace
+            />
+        );
     }
-  }
 
-  // If all checks pass, render the protected content
-  return children;
+    // 3. If the route requires specific roles, check if the user has one.
+    if (roles.length > 0 && !roles.includes(user?.role)) {
+        // This side-effect is safe because it happens after the redirect check.
+        showToast.error("You don't have permission to access this page.");
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    // 4. If all checks pass, render the child components.
+    return children;
 };
 
 export default ProtectedRoute;

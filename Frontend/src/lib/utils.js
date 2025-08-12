@@ -1,9 +1,4 @@
-/**
- * @file src/lib/utils.js
- * @description Utility for merging Tailwind and conditional classes
- */
-
-"use client";
+// src/lib/utils.js
 
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";

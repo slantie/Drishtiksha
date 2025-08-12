@@ -1,47 +1,34 @@
-/**
- * @fileoverview A simple in-memory queue for video processing tasks.
- * This file is a placeholder to resolve the 'ERR_MODULE_NOT_FOUND' error.
- * For a production environment, you would use a dedicated queue system like BullMQ or RabbitMQ.
- */
+// src/queue/videoProcessorQueue.js
 
 import logger from "../utils/logger.js";
-import { runVideoAnalysis } from "../services/analysisService.js";
+import { videoService } from "../services/video.service.js";
 
-// A simple in-memory array to act as a task queue
 const processingQueue = [];
 let isProcessing = false;
 
-/**
- * Adds a new video processing job to the queue.
- * @param {object} videoData - The video data to be processed.
- * @param {string} videoData.videoId - The ID of the video to analyze.
- * @param {string} videoData.userId - The ID of the user who uploaded the video.
- */
-export const videoProcessorQueue = (videoData) => {
-  logger.info(`Adding video ${videoData.videoId} to the processing queue.`);
-  processingQueue.push(videoData);
-  // Start the processing loop if it's not already running
-  if (!isProcessing) {
-    processQueue();
-  }
+export const videoProcessorQueue = (jobData) => {
+    logger.info(`Adding video ${jobData.videoId} to the processing queue.`);
+    processingQueue.push(jobData);
+    if (!isProcessing) {
+        processQueue();
+    }
 };
 
-/**
- * Processes the next video in the queue.
- */
 const processQueue = async () => {
-  isProcessing = true;
-  while (processingQueue.length > 0) {
-    const job = processingQueue.shift();
-    logger.info(`Processing video ${job.videoId} from the queue.`);
-    try {
-      await runVideoAnalysis(job.videoId, job.userId);
-      logger.info(`Successfully processed video ${job.videoId}.`);
-    } catch (error) {
-      logger.error(`Failed to process video ${job.videoId}: ${error.message}`);
-      // In a real application, you might handle retries here
+    isProcessing = true;
+    while (processingQueue.length > 0) {
+        const job = processingQueue.shift();
+        logger.info(`Processing job for video ${job.videoId} from the queue.`);
+        try {
+            // Call the method on the new video service
+            await videoService.runFullAnalysis(job.videoId);
+            logger.info(`Successfully processed job for video ${job.videoId}.`);
+        } catch (error) {
+            logger.error(
+                `Failed to process job for video ${job.videoId}: ${error.message}`
+            );
+        }
     }
-  }
-  isProcessing = false;
-  logger.info("Video processing queue is now empty.");
+    isProcessing = false;
+    logger.info("Video processing queue is now empty.");
 };

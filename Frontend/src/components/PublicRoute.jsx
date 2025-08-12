@@ -1,32 +1,28 @@
+// src/components/PublicRoute.jsx
+
 import React from "react";
 import { Navigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth.js";
+import LoadingSpinner from "./ui/LoadingSpinner.jsx";
 
-const PublicRoute = ({ children, redirectPath = "/" }) => {
-  // Check if user is already authenticated
-  const getAuthData = () => {
-    try {
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-      const authStatus =
-        localStorage.getItem("isAuthenticated") ||
-        sessionStorage.getItem("isAuthenticated");
-      return token && authStatus === "true";
-    } catch (error) {
-      console.error("Error checking auth status:", error);
-      return false;
+const PublicRoute = ({ children }) => {
+    const { isAuthenticated, isLoading } = useAuth();
+
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <LoadingSpinner />
+            </div>
+        );
     }
-  };
 
-  const isAuthenticated = getAuthData();
+    if (isAuthenticated) {
+        // If the user is logged in, redirect them away from public pages (like login/signup)
+        return <Navigate to="/dashboard" replace />;
+    }
 
-  // If user is authenticated, redirect them away from login/signup pages
-  if (isAuthenticated) {
-    return <Navigate to={redirectPath} replace />;
-  }
-
-  // If not authenticated, show the public page (login/signup)
-  return children;
+    // If not authenticated, render the public page.
+    return children;
 };
 
 export default PublicRoute;

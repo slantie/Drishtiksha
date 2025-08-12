@@ -1,118 +1,86 @@
+// src/App.jsx
+
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext.jsx";
 
-// Layout Components
+// Layout and Page Components
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
-
-// User Profile Component
-import Profile from "./components/user/profile";
-
-// Pages
-import Home from "./pages/Home";
-import Authentication from "./pages/Authentication";
-import { Dashboard } from "./pages/Dashboard";
-import { Results } from "./pages/Results";
-
-// Route Guards
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
-
-// Toast and Error Components
 import ToastProvider from "./providers/ToastProvider";
 import Error from "./components/Error";
+import Home from "./pages/Home";
+import Authentication from "./pages/Authentication";
+import Profile from "./pages/Profile.jsx";
+import Dashboard from "./pages/Dashboard";
+import Results from "./pages/Results";
 
 function App() {
     return (
         <Router>
-            <Routes>
-                {/* Public Routes with Main Layout */}
-                <Route
-                    path="/"
-                    element={
-                        <Layout>
-                            <Home />
-                        </Layout>
-                    }
-                />
-
-                {/* Auth Routes with Auth Layout - Redirect if already logged in */}
-                <Route
-                    path="/auth"
-                    element={
-                        <PublicRoute>
-                            <AuthLayout>
-                                <Authentication />
-                            </AuthLayout>
-                        </PublicRoute>
-                    }
-                />
-
-                {/* Dashboard Route - Any authenticated user */}
-                <Route
-                    path="/dashboard"
-                    element={
-                        <ProtectedRoute>
+            <AuthProvider>
+                <Routes>
+                    <Route
+                        path="/"
+                        element={
                             <Layout>
-                                <Dashboard />
+                                <Home />
                             </Layout>
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Admin Route - Role-specific access */}
-                <Route
-                    path="/admin"
-                    element={
-                        <ProtectedRoute roles={["ADMIN"]}>
+                        }
+                    />
+                    <Route
+                        path="/auth"
+                        element={
+                            <PublicRoute>
+                                <AuthLayout>
+                                    <Authentication />
+                                </AuthLayout>
+                            </PublicRoute>
+                        }
+                    />
+                    <Route
+                        path="/dashboard"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <Dashboard />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/profile"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <Profile />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/results/:videoId"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <Results />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="*"
+                        element={
                             <Layout>
-                                <div className="p-8">
-                                    <h1 className="text-2xl font-bold">
-                                        Admin Dashboard
-                                    </h1>
-                                    <p>This page is only for administrators.</p>
-                                </div>
+                                <Error />
                             </Layout>
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Profile Route - Any authenticated user */}
-                <Route
-                    path="/profile"
-                    element={
-                        <ProtectedRoute>
-                            <Layout>
-                                <Profile />
-                            </Layout>
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* ADDED: Results Page Route - Any authenticated user */}
-                <Route
-                    path="/results/:videoId"
-                    element={
-                        <ProtectedRoute>
-                            <Layout>
-                                <Results />
-                            </Layout>
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Wildcard/Error Route */}
-                <Route
-                    path="*"
-                    element={
-                        <Layout>
-                            <Error />
-                        </Layout>
-                    }
-                />
-            </Routes>
-
-            <ToastProvider />
+                        }
+                    />
+                </Routes>
+                <ToastProvider />
+            </AuthProvider>
         </Router>
     );
 }
