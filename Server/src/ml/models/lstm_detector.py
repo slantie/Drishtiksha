@@ -19,13 +19,15 @@ class LSTMDetector(BaseModel):
         model_def_config = self.config.get("model_definition", {})
 
         try:
+            start_time = time.time()
             self.model = create_lstm_model(model_def_config)
             self.model.load_state_dict(torch.load(self.config["model_path"], map_location=self.device))
             self.model.to(self.device)
             self.model.eval()
             
-            self.processor = AutoProcessor.from_pretrained(self.config["processor_path"])
-            print(f"✅ LSTMDetector '{self.config['name']}' loaded successfully on device '{self.device}'.")
+            self.processor = AutoProcessor.from_pretrained(self.config["processor_path"], use_fast=False)
+            end_time = time.time()
+            print(f"✅ '{self.config['name'].upper()}' Model loaded on '{self.device.upper()}' in {end_time - start_time:.2f} seconds.")
 
         except Exception as e:
             raise RuntimeError(f"Failed to load LSTMDetector model: {e}")

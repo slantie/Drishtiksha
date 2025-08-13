@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     app_state["model_manager"] = ModelManager(settings.models)
     try:
         # Pre-load the default model to ensure it's ready and handle any loading errors on startup
-        print(f"Pre-loading default model: '{settings.default_model_name}'...")
+        print(f"Pre-loading default model: '{settings.default_model_name.upper()}'...")
         app_state["model_manager"].get_model(settings.default_model_name)
         yield
     finally:

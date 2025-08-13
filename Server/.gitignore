@@ -1,7 +1,11 @@
 .env
 
 /.venv/
-/assets/
+/assets/*.png
+/assets/*.jpg
+/assets/*.jpeg
+/assets/*.mp3
+/assets/*.mp4
 /models/*.pth
 /src/__pycache__
 /src/app/__pycache__

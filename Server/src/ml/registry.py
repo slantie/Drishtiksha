@@ -28,7 +28,7 @@ class ModelManager:
     def get_model(self, name: str) -> BaseModel:
         """Loads a model if not already cached, then returns it."""
         if name not in self._models:
-            print(f"Model '{name}' not in cache. Initializing...")
+            print(f"Model '{name.upper()}' not in cache. Initializing...")
             if name not in self.model_configs:
                 raise ValueError(f"Configuration for model '{name}' not found in config.yaml.")
             
