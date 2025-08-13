@@ -9,7 +9,7 @@ models:
   siglip-lstm-v1:
     class_name: "LSTMDetector"
     description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
-    model_path: "models/siglip_lstm_deepfake_detector_best.pth"
+    model_path: "models/siglip_lstm_best.pth"
     # --- CHANGE THIS LINE ---
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
