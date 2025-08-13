@@ -3,9 +3,24 @@
 import React, { useState, useContext } from "react"; // Import useContext
 import { useParams, Link } from "react-router-dom";
 import {
-    Loader2, AlertTriangle, ArrowLeft, Cpu, ShieldCheck, ShieldAlert,
-    RefreshCw, Edit, Trash, Calendar, FileText, HardDrive, Clock,
-    Activity, TrendingUp, Video as VideoIcon, Download, FileDown,
+    Loader2,
+    AlertTriangle,
+    ArrowLeft,
+    Cpu,
+    ShieldCheck,
+    ShieldAlert,
+    RefreshCw,
+    Edit,
+    Trash,
+    Calendar,
+    FileText,
+    HardDrive,
+    Clock,
+    Activity,
+    TrendingUp,
+    Video as VideoIcon,
+    Download,
+    FileDown,
 } from "lucide-react";
 import { useVideoDetails } from "../hooks/useVideoDetails.js";
 import { Button } from "../components/ui/Button";
@@ -19,8 +34,16 @@ import { AuthContext } from "../contexts/AuthContext.jsx";
 import showToast from "../utils/toast.js";
 
 // Helper functions remain the same...
-const formatBytes = (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A");
-const formatDate = (dateString) => new Date(dateString).toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const formatBytes = (bytes) =>
+    bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A";
+const formatDate = (dateString) =>
+    new Date(dateString).toLocaleString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 const formatProcessingTime = (timeInSeconds) => {
     if (!timeInSeconds) return "N/A";
     if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
@@ -29,12 +52,26 @@ const formatProcessingTime = (timeInSeconds) => {
     return `${minutes}m ${seconds}s`;
 };
 const getStatusColor = (status) => {
-    const statusColors = { UPLOADED: "bg-blue-500/10 text-blue-600 border-blue-200", PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200", ANALYZED: "bg-green-500/10 text-green-600 border-green-200", FAILED: "bg-red-500/10 text-red-600 border-red-200" };
-    return statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200";
+    const statusColors = {
+        UPLOADED: "bg-blue-500/10 text-blue-600 border-blue-200",
+        PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
+        ANALYZED: "bg-green-500/10 text-green-600 border-green-200",
+        FAILED: "bg-red-500/10 text-red-600 border-red-200",
+    };
+    return (
+        statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200"
+    );
 };
 const getAnalysisStatusColor = (status) => {
-    const statusColors = { PENDING: "bg-gray-500/10 text-gray-600 border-gray-200", PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200", COMPLETED: "bg-green-500/10 text-green-600 border-green-200", FAILED: "bg-red-500/10 text-red-600 border-red-200" };
-    return statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200";
+    const statusColors = {
+        PENDING: "bg-gray-500/10 text-gray-600 border-gray-200",
+        PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
+        COMPLETED: "bg-green-500/10 text-green-600 border-green-200",
+        FAILED: "bg-red-500/10 text-red-600 border-red-200",
+    };
+    return (
+        statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200"
+    );
 };
 
 // UI Components (ResultsHeader, AnalysisCard, etc.) remain unchanged...
@@ -61,7 +98,11 @@ const ResultsHeader = ({ video, onRefresh, onEditClick, onDeleteClick }) => (
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <Button onClick={onRefresh} variant="outline" className="py-3 px-4">
+                    <Button
+                        onClick={onRefresh}
+                        variant="outline"
+                        className="py-3 px-4"
+                    >
                         <RefreshCw className="mr-2 h-5 w-5" /> Refresh
                     </Button>
                     <Button
@@ -251,10 +292,10 @@ const VideoDetailsCard = ({
     video,
     onDownloadVideo,
     onDownloadPDF,
-    onDownloadHTML,
+    // onDownloadHTML,
     isDownloadingVideo,
     isDownloadingPDF,
-    isDownloadingHTML,
+    // isDownloadingHTML,
 }) => (
     <Card>
         {/* Video Player */}
@@ -447,11 +488,11 @@ const AnalysisSummary = ({ analyses }) => {
     );
 };
 
-
 // Main Results Component
 export const Results = () => {
     const { videoId } = useParams();
-    const { video, isLoading, error, fetchVideo, updateVideo, deleteVideo } = useVideoDetails(videoId);
+    const { video, isLoading, error, fetchVideo, updateVideo, deleteVideo } =
+        useVideoDetails(videoId);
     const { user } = useContext(AuthContext); // Get user from context
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -503,9 +544,13 @@ export const Results = () => {
             <div className="text-center p-8 max-w-md mx-auto">
                 <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Error Loading Video</h2>
-                <p className="text-light-muted-text dark:text-dark-muted-text mb-6">{error}</p>
+                <p className="text-light-muted-text dark:text-dark-muted-text mb-6">
+                    {error}
+                </p>
                 <Link to="/dashboard">
-                    <Button><ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard</Button>
+                    <Button>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                    </Button>
                 </Link>
             </div>
         );
@@ -518,7 +563,10 @@ export const Results = () => {
             {/* Header */}
             <ResultsHeader
                 video={video}
-                onRefresh={()=>{fetchVideo(); showToast.success("Video Data Refreshed Successfully!")}}
+                onRefresh={() => {
+                    fetchVideo();
+                    showToast.success("Video Data Refreshed Successfully!");
+                }}
                 onEditClick={() => setIsEditModalOpen(true)}
                 onDeleteClick={() => setIsDeleteModalOpen(true)}
             />
@@ -548,7 +596,10 @@ export const Results = () => {
                                 Analysis Results
                             </h2>
                             {video.analyses.map((analysis) => (
-                                <AnalysisCard key={analysis.id} analysis={analysis} />
+                                <AnalysisCard
+                                    key={analysis.id}
+                                    analysis={analysis}
+                                />
                             ))}
                         </>
                     ) : (
@@ -558,12 +609,25 @@ export const Results = () => {
                                     <Activity className="h-8 w-8 text-gray-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold mb-2">No Analyses Available</h2>
+                                    <h2 className="text-xl font-bold mb-2">
+                                        No Analyses Available
+                                    </h2>
                                     <p className="text-light-muted-text dark:text-dark-muted-text mb-4">
-                                        This video is still being processed or analysis has not started yet.
+                                        This video is still being processed or
+                                        analysis has not started yet.
                                     </p>
-                                    <Button onClick={fetchVideo} variant="outline">
-                                        <RefreshCw className="mr-2 h-4 w-4" /> Check Again
+                                    <Button
+                                        onClick={() => {
+                                            fetchVideo();
+                                            showToast.success(
+                                                "Video Data Refreshed Successfully!"
+                                            );
+                                        }}
+                                        variant="outline"
+                                        className="py-3 px-4"
+                                    >
+                                        <RefreshCw className="mr-2 h-5 w-5" />{" "}
+                                        Refresh
                                     </Button>
                                 </div>
                             </div>

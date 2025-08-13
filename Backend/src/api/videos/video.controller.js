@@ -1,6 +1,7 @@
 // src/api/videos/video.controller.js
 
 import { videoService } from "../../services/video.service.js";
+import { modelAnalysisService } from "../../services/modelAnalysis.service.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
@@ -52,10 +53,45 @@ const deleteVideo = asyncHandler(async (req, res) => {
     );
 });
 
+const getModelStatus = asyncHandler(async (req, res) => {
+    const isAvailable = modelAnalysisService.isAvailable();
+    let modelInfo = null;
+    let healthStatus = null;
+
+    if (isAvailable) {
+        try {
+            [healthStatus, modelInfo] = await Promise.allSettled([
+                modelAnalysisService.checkHealth(),
+                modelAnalysisService.getModelInfo(),
+            ]);
+
+            healthStatus =
+                healthStatus.status === "fulfilled" ? healthStatus.value : null;
+            modelInfo =
+                modelInfo.status === "fulfilled" ? modelInfo.value : null;
+        } catch (error) {
+            // Health check failed, but that's okay - we'll report it
+        }
+    }
+
+    res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                isConfigured: isAvailable,
+                health: healthStatus,
+                modelInfo: modelInfo,
+            },
+            "Model service status retrieved successfully."
+        )
+    );
+});
+
 export const videoController = {
     uploadVideo,
     getAllVideos,
     getVideoById,
     updateVideo,
     deleteVideo,
+    getModelStatus,
 };

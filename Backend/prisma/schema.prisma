@@ -8,18 +8,18 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  firstName     String
-  lastName      String
-  password      String
-  bio           String?
-  phone         String?
-  avatar        String?
-  role          Role           @default(USER)
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  password  String
+  bio       String?
+  phone     String?
+  avatar    String?
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   refreshTokens RefreshToken[]
   videos        Video[]
@@ -39,7 +39,7 @@ model RefreshToken {
 }
 
 model Video {
-  id          String         @id @default(uuid())
+  id          String      @id @default(uuid())
   filename    String
   // ADDED: Fields to store the Cloudinary URL and public ID
   url         String
@@ -49,11 +49,11 @@ model Video {
   mimetype    String
   size        Int
   description String?
-  status      VideoStatus    @default(UPLOADED)
+  status      VideoStatus @default(UPLOADED)
   userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   analyses DeepfakeAnalysis[]
 
@@ -68,8 +68,10 @@ model DeepfakeAnalysis {
   confidence     Float
   processingTime Float? // in seconds
   model          AnalysisModel
+  modelVersion   String?
   status         AnalysisStatus @default(PENDING)
   errorMessage   String?
+  timestamp      DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -103,7 +105,7 @@ enum AnalysisStatus {
 }
 
 enum AnalysisModel {
-  SIGLIPV1
+  LSTM_SIGLIP
   RPPG
   COLORCUES
 }

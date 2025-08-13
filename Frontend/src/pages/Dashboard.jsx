@@ -135,7 +135,7 @@ export const Dashboard = () => {
                     return `${completedAnalyses}/${totalModels}`;
                 },
                 render: (item) => {
-                    const totalModels = 3; // Expected total models
+                    const totalModels = 4; // Expected total models
                     const completedAnalyses = item.analyses
                         ? item.analyses.filter(
                               (analysis) => analysis.status === "COMPLETED"

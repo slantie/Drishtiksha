@@ -16,6 +16,9 @@ router
     .get(videoController.getAllVideos)
     .post(upload.single("video"), videoController.uploadVideo);
 
+// Model service status endpoint
+router.get("/model/status", videoController.getModelStatus);
+
 router
     .route("/:id")
     .get(videoController.getVideoById)

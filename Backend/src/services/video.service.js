@@ -7,9 +7,11 @@ import {
 } from "../utils/cloudinary.js";
 import { ApiError } from "../utils/ApiError.js";
 import { videoProcessorQueue } from "../queue/videoProcessorQueue.js";
+import { modelAnalysisService } from "./modelAnalysis.service.js";
 import logger from "../utils/logger.js";
+import path from "path";
 
-const ANALYSIS_MODELS = ["SIGLIPV1", "RPPG", "COLORCUES"];
+const ANALYSIS_MODELS = ["LSTM_SIGLIP", "RPPG", "COLORCUES"];
 
 const generateMockAnalysis = (filename, fileSize, model) => {
     const isLikelyReal = Math.random() > 0.3;
@@ -123,17 +125,53 @@ export const videoService = {
                     continue;
                 }
 
-                logger.info(
-                    `Running mock analysis for video ${videoId} with model ${model}.`
-                );
-                await new Promise((resolve) =>
-                    setTimeout(resolve, 1000 + Math.random() * 1500)
-                );
-                const results = generateMockAnalysis(
-                    video.filename,
-                    video.size,
-                    model
-                );
+                let results;
+
+                if (model === "LSTM_SIGLIP") {
+                    // Use real LSTM model analysis
+                    try {
+                        logger.info(
+                            `Running LSTM model analysis for video ${videoId}.`
+                        );
+
+                        // Get the local video file path for analysis
+                        const videoPath = await this.getLocalVideoPath(video);
+
+                        results =
+                            await modelAnalysisService.analyzeVideoWithFallback(
+                                videoPath,
+                                videoId,
+                                { filename: video.filename, size: video.size }
+                            );
+
+                        // Clean up local file if it was downloaded
+                        await this.cleanupLocalVideoPath(videoPath, video);
+                    } catch (error) {
+                        logger.error(
+                            `LSTM analysis failed for video ${videoId}: ${error.message}`
+                        );
+                        // Fall back to mock data for LSTM model
+                        results = generateMockAnalysis(
+                            video.filename,
+                            video.size,
+                            model
+                        );
+                    }
+                } else {
+                    // Use mock analysis for other models
+                    logger.info(
+                        `Running mock analysis for video ${videoId} with model ${model}.`
+                    );
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, 1000 + Math.random() * 1500)
+                    );
+                    results = generateMockAnalysis(
+                        video.filename,
+                        video.size,
+                        model
+                    );
+                }
+
                 await videoRepository.createAnalysis({ videoId, ...results });
             }
             await videoRepository.update(videoId, { status: "ANALYZED" });
@@ -143,6 +181,114 @@ export const videoService = {
                 `Failed to complete video analysis for ID ${videoId}: ${error.message}`
             );
             await videoRepository.update(videoId, { status: "FAILED" });
+        }
+    },
+
+    /**
+     * Gets local video path for analysis - downloads from Cloudinary if needed
+     * @param {Object} video - Video object with URL and metadata
+     * @returns {string} Local file path
+     */
+    async getLocalVideoPath(video) {
+        const fs = await import("fs");
+        const https = await import("https");
+        const http = await import("http");
+        const { promisify } = await import("util");
+        const pipeline = promisify((await import("stream")).pipeline);
+
+        // Check for local file first (development setup)
+        const uploadsDir = path.join(process.cwd(), "uploads", "videos");
+        const possibleLocalPaths = [
+            path.join(uploadsDir, `video-${video.id}.mp4`),
+            path.join(uploadsDir, video.filename),
+            path.join(uploadsDir, `${video.id}.mp4`),
+        ];
+
+        for (const localPath of possibleLocalPaths) {
+            if (fs.existsSync(localPath)) {
+                logger.info(`Using local video file: ${localPath}`);
+                return localPath;
+            }
+        }
+
+        // If no local file found, download from Cloudinary
+        logger.info(
+            `Local video file not found for ${video.id}, downloading from Cloudinary`
+        );
+
+        if (!video.url) {
+            throw new Error(`No URL available for video ${video.id}`);
+        }
+
+        // Create temporary file path
+        const tempDir = path.join(process.cwd(), "temp");
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        const tempFilePath = path.join(
+            tempDir,
+            `temp-${video.id}-${Date.now()}.mp4`
+        );
+
+        try {
+            // Download video from Cloudinary
+            const httpModule = video.url.startsWith("https:") ? https : http;
+
+            await new Promise((resolve, reject) => {
+                const request = httpModule.get(video.url, (response) => {
+                    if (response.statusCode !== 200) {
+                        reject(
+                            new Error(
+                                `Failed to download video: HTTP ${response.statusCode}`
+                            )
+                        );
+                        return;
+                    }
+
+                    const writeStream = fs.createWriteStream(tempFilePath);
+                    pipeline(response, writeStream).then(resolve).catch(reject);
+                });
+
+                request.on("error", reject);
+                request.setTimeout(30000, () => {
+                    request.destroy();
+                    reject(new Error("Download timeout"));
+                });
+            });
+
+            logger.info(`Video downloaded successfully to: ${tempFilePath}`);
+            return tempFilePath;
+        } catch (error) {
+            // Clean up partial download
+            if (fs.existsSync(tempFilePath)) {
+                fs.unlinkSync(tempFilePath);
+            }
+            logger.error(
+                `Failed to download video ${video.id}: ${error.message}`
+            );
+            throw error;
+        }
+    },
+
+    /**
+     * Cleans up temporary video files if they were downloaded
+     * @param {string} videoPath - Path to the video file
+     * @param {Object} video - Video object
+     */
+    async cleanupLocalVideoPath(videoPath, video) {
+        const fs = await import("fs");
+
+        // Only clean up temporary files (those in temp directory)
+        if (videoPath.includes("temp") && fs.existsSync(videoPath)) {
+            try {
+                fs.unlinkSync(videoPath);
+                logger.debug(`Cleaned up temporary video file: ${videoPath}`);
+            } catch (error) {
+                logger.warn(
+                    `Failed to cleanup temporary file ${videoPath}: ${error.message}`
+                );
+            }
         }
     },
 };
