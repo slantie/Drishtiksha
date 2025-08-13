@@ -2,842 +2,435 @@
 
 import html2pdf from "html2pdf.js";
 
-// Helper functions remain the same
-const formatBytes = (bytes) =>
-    bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A";
+/**
+ * @file Service for generating and downloading video analysis reports.
+ * This version focuses on creating a high-fidelity, A4-formatted report
+ * that looks professional both on-screen and when printed.
+ */
 
-const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+//================================================================================================
+// CONFIGURATION
+//================================================================================================
+
+const ReportConfig = {
+    brandName: "Drishtiksha",
+    mainTitle: "Video Analysis Report",
+    // Icons
+    icons: {
+        real: "✅",
+        fake: "⚠️",
+        info: "ℹ️",
+        summary: "📊",
+        details: "🔍",
+        error: "⚠️",
+    },
+    // Colors
+    colors: {
+        primary: "#1d4ed8",
+        authentic: "#16a34a",
+        deepfake: "#dc2626",
+        textPrimary: "#111827",
+        textSecondary: "#374151",
+        textMuted: "#6b7280",
+        background: "#f9fafb",
+        border: "#e5e7eb",
+        pageBackground: "#f0f2f5",
+    },
 };
 
-const formatProcessingTime = (timeInSeconds) => {
-    if (!timeInSeconds) return "N/A";
-    if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = (timeInSeconds % 60).toFixed(1);
-    return `${minutes}m ${seconds}s`;
+//================================================================================================
+// PRIVATE HELPERS & DATA PROCESSING
+//================================================================================================
+
+const formatters = {
+    bytes: (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A"),
+    date: (dateString) => {
+        if (!dateString) return "N/A";
+        return new Date(dateString).toLocaleString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    },
+    processingTime: (timeInSeconds) => {
+        if (timeInSeconds === null || typeof timeInSeconds === "undefined") return "N/A";
+        if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
+        const minutes = Math.floor(timeInSeconds / 60);
+        const seconds = (timeInSeconds % 60).toFixed(1);
+        return `${minutes}m ${seconds}s`;
+    },
 };
 
-// Generate professional HTML template for PDF conversion
-const generateReportHTML = (video) => {
-    const completedAnalyses =
-        video.analyses?.filter((a) => a.status === "COMPLETED") || [];
-    const realDetections = completedAnalyses.filter(
-        (a) => a.prediction === "REAL"
-    ).length;
-    const fakeDetections = completedAnalyses.filter(
-        (a) => a.prediction === "FAKE"
-    ).length;
+const prepareReportData = (video) => {
+    const completedAnalyses = video.analyses?.filter((a) => a.status === "COMPLETED") || [];
+    const realDetections = completedAnalyses.filter((a) => a.prediction === "REAL").length;
+    const fakeDetections = completedAnalyses.filter((a) => a.prediction === "FAKE").length;
 
-    // Determine overall assessment
-    let overallAssessment = "INCONCLUSIVE";
-    let assessmentColor = "#6b7280";
+    let overallAssessment = "Inconclusive";
+    let assessmentColor = ReportConfig.colors.textMuted;
     if (fakeDetections > realDetections) {
-        overallAssessment = "LIKELY DEEPFAKE";
-        assessmentColor = "#ef4444";
+        overallAssessment = "Likely Deepfake";
+        assessmentColor = ReportConfig.colors.deepfake;
     } else if (realDetections > fakeDetections) {
-        overallAssessment = "LIKELY AUTHENTIC";
-        assessmentColor = "#22c55e";
+        overallAssessment = "Likely Authentic";
+        assessmentColor = ReportConfig.colors.authentic;
     }
 
-    return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Analysis Report - ${video.filename}</title>
+    return { ...video, completedAnalyses, realDetections, fakeDetections, overallAssessment, assessmentColor };
+};
+
+//================================================================================================
+// HTML STYLING (CSS)
+//================================================================================================
+
+const getReportStyles = (data) => `
     <style>
-        @page {
-            size: A4;
-            margin: 0.5in;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @page { size: A4; margin: 0; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+            background-color: ${ReportConfig.colors.pageBackground};
+            font-family: 'Inter', sans-serif;
+            font-size: 11pt;
             line-height: 1.6;
-            color: #1f2937;
-            font-size: 11pt;
-            background: white;
-        }
-        
-        .report-container {
-            max-width: 100%;
-            margin: 0 auto;
-            background: white;
-        }
-        
-        /* Header Styles */
-        .header {
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-            color: white;
-            padding: 30px 25px;
-            text-align: center;
-            margin-bottom: 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .header h1 {
-            font-size: 26pt;
-            font-weight: 700;
-            margin-bottom: 8px;
-            letter-spacing: -0.5px;
-        }
-        
-        .header .subtitle {
-            font-size: 14pt;
-            opacity: 0.95;
-            margin-bottom: 5px;
-        }
-        
-        .header .timestamp {
-            font-size: 11pt;
-            opacity: 0.8;
-        }
-        
-        /* Video Title */
-        .video-title {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border-left: 6px solid #2563eb;
-            padding: 20px 25px;
-            margin-bottom: 25px;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .video-title h2 {
-            font-size: 18pt;
-            font-weight: 600;
-            color: #1e40af;
-            word-break: break-all;
-        }
-        
-        /* Section Styles */
-        .section {
-            margin-bottom: 30px;
-            break-inside: avoid;
-        }
-        
-        .section-title {
-            font-size: 16pt;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 15px;
-            padding-bottom: 8px;
-            border-bottom: 3px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .section-icon {
-            font-size: 18pt;
-        }
-        
-        /* Table Styles */
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        
-        .info-table th {
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-            color: white;
-            padding: 15px 20px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12pt;
-        }
-        
-        .info-table td {
-            padding: 12px 20px;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 11pt;
-        }
-        
-        .info-table tr:nth-child(even) {
-            background: #f8fafc;
-        }
-        
-        .info-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        .info-table .property-cell {
-            font-weight: 600;
-            color: #374151;
-            width: 35%;
-        }
-        
-        /* Summary Grid */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-        
-        .summary-card {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 25px 20px;
-            text-align: center;
-            transition: transform 0.2s;
-        }
-        
-        .summary-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .summary-card .number {
-            font-size: 32pt;
-            font-weight: 700;
-            color: #2563eb;
-            display: block;
-            margin-bottom: 8px;
-        }
-        
-        .summary-card .label {
-            font-size: 11pt;
-            color: #6b7280;
-            font-weight: 500;
-        }
-        
-        .summary-card.overall {
-            grid-column: span 2;
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        }
-        
-        .summary-card.overall .number {
-            font-size: 16pt;
-            color: ${assessmentColor};
-            font-weight: 700;
-        }
-        
-        /* Analysis Cards */
-        .analysis-card {
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            margin: 20px 0;
-            overflow: hidden;
-            break-inside: avoid;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .analysis-card.real {
-            border-left: 6px solid #22c55e;
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        }
-        
-        .analysis-card.fake {
-            border-left: 6px solid #ef4444;
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-        }
-        
-        .analysis-header {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(10px);
-            padding: 20px 25px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .model-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .model-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 16pt;
-        }
-        
-        .model-name {
-            font-size: 16pt;
-            font-weight: 700;
-            color: #1f2937;
-        }
-        
-        .model-subtitle {
-            font-size: 10pt;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-        
-        .prediction-badge {
-            padding: 10px 20px;
-            border-radius: 25px;
-            color: white;
-            font-weight: 700;
-            font-size: 11pt;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .prediction-badge.real {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-        }
-        
-        .prediction-badge.fake {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        }
-        
-        .confidence-section {
-            text-align: center;
-            padding: 30px 25px;
-        }
-        
-        .confidence-number {
-            font-size: 48pt;
-            font-weight: 700;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .confidence-number.real {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .confidence-number.fake {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .confidence-label {
-            font-size: 14pt;
-            color: #6b7280;
-            font-weight: 500;
-            margin-bottom: 5px;
-        }
-        
-        .confidence-description {
-            font-size: 18pt;
-            font-weight: 600;
-            color: #374151;
-        }
-        
-        /* Details Table */
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
+            color: ${ReportConfig.colors.textPrimary};
             margin: 0;
-        }
-        
-        .details-table td {
-            padding: 12px 25px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .details-table td:first-child {
-            font-weight: 600;
-            color: #374151;
-            width: 40%;
-            background: rgba(255, 255, 255, 0.5);
-        }
-        
-        .details-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        /* Error Box */
-        .error-box {
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-            border: 2px solid #fecaca;
-            color: #dc2626;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin: 15px 25px;
+            padding: 2rem 0;
             display: flex;
-            align-items: flex-start;
-            gap: 10px;
-        }
-        
-        .error-icon {
-            color: #dc2626;
-            font-size: 16pt;
-            margin-top: 2px;
-        }
-        
-        .error-content {
-            flex: 1;
-        }
-        
-        .error-title {
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-        
-        /* No Analysis State */
-        .no-analysis {
-            text-align: center;
-            padding: 50px 30px;
-            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-            border: 2px dashed #d1d5db;
-            border-radius: 12px;
-            color: #6b7280;
-        }
-        
-        .no-analysis-icon {
-            font-size: 48pt;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .no-analysis h3 {
-            font-size: 18pt;
-            margin-bottom: 10px;
-            color: #374151;
-        }
-        
-        .no-analysis p {
-            font-size: 12pt;
-        }
-        
-        /* Footer */
-        .footer {
-            margin-top: 40px;
-            padding: 25px 0;
-            border-top: 3px solid #e5e7eb;
-            text-align: center;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border-radius: 8px;
-        }
-        
-        .footer .brand {
-            font-size: 14pt;
-            font-weight: 700;
-            color: #1e40af;
-            margin-bottom: 5px;
-        }
-        
-        .footer .confidential {
-            font-size: 10pt;
-            color: #6b7280;
-            display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm 18mm;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            page-break-after: always;
+        }
+        .page:last-of-type {
+            page-break-after: auto;
+            margin-bottom: 0;
+        }
+
+        h1, h2, h3 { font-weight: 700; color: ${ReportConfig.colors.textPrimary}; line-height: 1.2; }
+        h1 { font-size: 24pt; margin-bottom: 0.5em; }
+        h2 {
+            font-size: 18pt;
+            border-bottom: 2px solid ${ReportConfig.colors.border};
+            padding-bottom: 0.5rem;
+            /* Use padding-top instead of margin-top to avoid page-break issues */
+            padding-top: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+        h3 { font-size: 14pt; }
+        .section { break-inside: avoid; }
+
+        .report-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding-bottom: 1.5rem; border-bottom: 3px solid ${ReportConfig.colors.primary}; margin-bottom: 2rem;
+        }
+        .report-header .title-block { max-width: 65%; }
+        .report-header .brand { font-weight: 600; color: ${ReportConfig.colors.primary}; font-size: 12pt; }
+        .report-header .meta-block { text-align: right; font-size: 10pt; color: ${ReportConfig.colors.textMuted}; }
+        .meta-block strong { color: ${ReportConfig.colors.textSecondary}; }
+        .meta-block > div { margin-bottom: 0.25rem; }
+
+        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+        .summary-card {
+            background-color: ${ReportConfig.colors.background}; border: 1px solid ${ReportConfig.colors.border};
+            border-top: 4px solid; border-radius: 8px; padding: 1.25rem;
+        }
+        .summary-card .label { font-size: 11pt; font-weight: 500; color: ${ReportConfig.colors.textSecondary}; margin-bottom: 0.5rem; }
+        .summary-card .value { font-size: 24pt; font-weight: 700; }
+        .summary-card.overall { grid-column: 1 / -1; border-top-color: ${data.assessmentColor}; }
+        .summary-card.overall .value { color: ${data.assessmentColor}; font-size: 20pt; }
+        .summary-card.authentic { border-top-color: ${ReportConfig.colors.authentic}; }
+        .summary-card.authentic .value { color: ${ReportConfig.colors.authentic}; }
+        .summary-card.deepfake { border-top-color: ${ReportConfig.colors.deepfake}; }
+        .summary-card.deepfake .value { color: ${ReportConfig.colors.deepfake}; }
         
-        /* Print Optimizations */
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .details-table td { padding: 0.75rem 0; border-bottom: 1px solid ${ReportConfig.colors.border}; vertical-align: top; }
+        .details-table tr:last-child td { border-bottom: none; }
+        .details-table .property-cell { font-weight: 600; color: ${ReportConfig.colors.textSecondary}; width: 30%; }
+
+        .analysis-card {
+            border: 1px solid ${ReportConfig.colors.border}; border-radius: 8px;
+            margin-bottom: 1.5rem; break-inside: avoid; overflow: hidden;
+        }
+        .analysis-card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 1.25rem; background-color: ${ReportConfig.colors.background};
+            border-bottom: 1px solid ${ReportConfig.colors.border};
+        }
+        .analysis-card-header .model-name { font-size: 14pt; font-weight: 600; }
+        .prediction-badge { padding: 0.4rem 1rem; border-radius: 999px; font-weight: 600; color: white; font-size: 10pt; }
+        .prediction-badge.real { background-color: ${ReportConfig.colors.authentic}; }
+        .prediction-badge.fake { background-color: ${ReportConfig.colors.deepfake}; }
+
+        .analysis-card-body { display: grid; grid-template-columns: 1fr 1fr; padding: 1.5rem 1.25rem; align-items: center; }
+        .confidence-display { text-align: center; }
+        .confidence-display .label { font-size: 11pt; color: ${ReportConfig.colors.textMuted}; margin-bottom: 0.25rem; }
+        .confidence-display .value { font-size: 40pt; font-weight: 700; line-height: 1; }
+        .confidence-display .value.real { color: ${ReportConfig.colors.authentic}; }
+        .confidence-display .value.fake { color: ${ReportConfig.colors.deepfake}; }
+
+        .no-analysis-placeholder {
+            text-align: center; padding: 4rem 2rem; background-color: ${ReportConfig.colors.background};
+            border: 2px dashed ${ReportConfig.colors.border}; border-radius: 8px; color: ${ReportConfig.colors.textMuted};
+        }
+
+        .report-footer {
+            margin-top: auto; /* Push footer to the bottom of the page */
+            padding-top: 2rem;
+            border-top: 1px solid ${ReportConfig.colors.border};
+            text-align: center; font-size: 9pt; color: ${ReportConfig.colors.textMuted};
+        }
+
         @media print {
-            body { 
-                font-size: 10pt;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-            }
-            
-            .header h1 { font-size: 22pt; }
-            .confidence-number { font-size: 36pt; }
-            
-            .analysis-card {
-                break-inside: avoid;
-                page-break-inside: avoid;
-            }
-            
-            .section {
-                break-inside: avoid;
-                page-break-inside: avoid;
-            }
+            body { background-color: white; padding: 0; display: block; }
+            .page { box-shadow: none; margin: 0; padding: 15mm 18mm; min-height: 0; }
         }
-        
-        /* Utility Classes */
-        .text-center { text-align: center; }
-        .font-bold { font-weight: 700; }
-        .text-sm { font-size: 10pt; }
-        .text-lg { font-size: 14pt; }
-        .mb-2 { margin-bottom: 8px; }
-        .mb-4 { margin-bottom: 16px; }
     </style>
-</head>
-<body>
-    <div class="report-container">
-        <!-- Header -->
-        <div class="header">
-            <h1>🛡️ VIDEO ANALYSIS REPORT</h1>
-            <div class="subtitle">VidVigilante Deepfake Detection System</div>
-            <div class="timestamp">Generated: ${new Date().toLocaleString()}</div>
-        </div>
+`;
 
-        <!-- Video Title -->
-        <div class="video-title">
-            <h2>📁 ${video.filename}</h2>
-        </div>
+//================================================================================================
+// HTML COMPONENT RENDERERS
+//================================================================================================
 
-        <!-- Video Information Section -->
-        <div class="section">
-            <div class="section-title">
-                <span class="section-icon">📊</span>
-                VIDEO INFORMATION
-            </div>
-            <table class="info-table">
-                <thead>
-                    <tr>
-                        <th>Property</th>
-                        <th>Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="property-cell">Filename</td>
-                        <td>${video.filename}</td>
-                    </tr>
-                    <tr>
-                        <td class="property-cell">File Size</td>
-                        <td>${formatBytes(video.size)}</td>
-                    </tr>
-                    <tr>
-                        <td class="property-cell">Format</td>
-                        <td>${
-                            video.mimetype?.split("/")[1]?.toUpperCase() ||
-                            "Unknown"
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td class="property-cell">Upload Date</td>
-                        <td>${formatDate(video.createdAt)}</td>
-                    </tr>
-                    <tr>
-                        <td class="property-cell">Status</td>
-                        <td><strong>${video.status}</strong></td>
-                    </tr>
-                    ${
-                        video.description
-                            ? `
-                    <tr>
-                        <td class="property-cell">Description</td>
-                        <td>${video.description}</td>
-                    </tr>`
-                            : ""
-                    }
-                </tbody>
-            </table>
+const renderHeader = (data, user) => `
+    <div class="report-header">
+        <div class="title-block">
+            <div class="brand">${ReportConfig.brandName}</div>
+            <h1>${ReportConfig.mainTitle}</h1>
+            <div>File: ${data.filename} - <a href="${data.url.replace('/upload/','/upload/f_auto,q_auto/')}">View</a></div>
         </div>
-
-        ${
-            video.analyses?.length > 0
-                ? `
-        <!-- Analysis Summary -->
-        <div class="section">
-            <div class="section-title">
-                <span class="section-icon">📈</span>
-                ANALYSIS SUMMARY
-            </div>
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <span class="number">${completedAnalyses.length}</span>
-                    <div class="label">Completed Analyses</div>
-                </div>
-                <div class="summary-card">
-                    <span class="number" style="color: #22c55e;">${realDetections}</span>
-                    <div class="label">Authentic Detections</div>
-                </div>
-                <div class="summary-card">
-                    <span class="number" style="color: #ef4444;">${fakeDetections}</span>
-                    <div class="label">Deepfake Detections</div>
-                </div>
-                <div class="summary-card overall">
-                    <span class="number">${overallAssessment}</span>
-                    <div class="label">Overall Assessment</div>
-                </div>
-            </div>
+        <div class="meta-block">
+            <div><strong>Report Date:</strong> ${new Date().toLocaleDateString("en-US")}</div>
+            <div style="margin-top: 1rem;"><strong>File:</strong> ${data.filename}</div>
+            ${user ? `
+                <div style="margin-top: 1rem;"><strong>Generated By:</strong></div>
+                <div>${user.firstName || 'N/A'} ${user.lastName || ''} (${user.email || 'N/A'})</div>
+            ` : ''}
         </div>
+    </div>
+`;
 
-        <!-- Detailed Analysis Results -->
-        <div class="section">
-            <div class="section-title">
-                <span class="section-icon">🔍</span>
-                DETAILED ANALYSIS RESULTS
+const renderSummary = (data) => `
+    <div class="section">
+        <h2>${ReportConfig.icons.summary} Executive Summary</h2>
+        <div class="summary-grid">
+            <div class="summary-card overall">
+                <div class="label">Overall Assessment</div>
+                <div class="value">${data.overallAssessment}</div>
             </div>
-            
-            ${video.analyses
-                .map((analysis) => {
-                    const isReal = analysis.prediction === "REAL";
-                    const confidence = (analysis.confidence * 100).toFixed(1);
-
-                    return `
-                <div class="analysis-card ${isReal ? "real" : "fake"}">
-                    <div class="analysis-header">
-                        <div class="model-info">
-                            <div class="model-icon">🤖</div>
-                            <div>
-                                <div class="model-name">${
-                                    analysis.model
-                                } MODEL</div>
-                                <div class="model-subtitle">AI Detection System</div>
-                            </div>
-                        </div>
-                        <div class="prediction-badge ${
-                            isReal ? "real" : "fake"
-                        }">
-                            <span>${isReal ? "✅" : "⚠️"}</span>
-                            ${isReal ? "AUTHENTIC" : "DEEPFAKE"}
-                        </div>
-                    </div>
-                    
-                    <div class="confidence-section">
-                        <div class="confidence-number ${
-                            isReal ? "real" : "fake"
-                        }">${confidence}%</div>
-                        <div class="confidence-label">Confidence Level</div>
-                        <div class="confidence-description">${
-                            isReal
-                                ? "Likely Authentic Video"
-                                : "Likely Deepfake Content"
-                        }</div>
-                    </div>
-                    
-                    <table class="details-table">
-                        <tr>
-                            <td>Analysis Status</td>
-                            <td><strong>${analysis.status}</strong></td>
-                        </tr>
-                        <tr>
-                            <td>Analysis Date</td>
-                            <td>${formatDate(analysis.createdAt)}</td>
-                        </tr>
-                        ${
-                            analysis.processingTime
-                                ? `
-                        <tr>
-                            <td>Processing Time</td>
-                            <td>${formatProcessingTime(
-                                analysis.processingTime
-                            )}</td>
-                        </tr>`
-                                : ""
-                        }
-                    </table>
-                    
-                    ${
-                        analysis.errorMessage
-                            ? `
-                    <div class="error-box">
-                        <div class="error-icon">⚠️</div>
-                        <div class="error-content">
-                            <div class="error-title">Analysis Error</div>
-                            <div>${analysis.errorMessage}</div>
-                        </div>
-                    </div>`
-                            : ""
-                    }
-                </div>`;
-                })
-                .join("")}
-        </div>
-        `
-                : `
-        <!-- No Analysis Results -->
-        <div class="section">
-            <div class="section-title">
-                <span class="section-icon">🔍</span>
-                ANALYSIS RESULTS
+            <div class="summary-card authentic">
+                <div class="label">Authentic Detections</div>
+                <div class="value">${data.realDetections}</div>
             </div>
-            <div class="no-analysis">
-                <div class="no-analysis-icon">📋</div>
-                <h3>No Analysis Results Available</h3>
-                <p>This video has not been analyzed yet or analysis is still in progress.</p>
-            </div>
-        </div>
-        `
-        }
-
-        <!-- Footer -->
-        <div class="footer">
-            <div class="brand">🛡️ VidVigilante - Advanced Deepfake Detection System</div>
-            <div class="confidential">
-                <span>🔒</span>
-                <span>CONFIDENTIAL ANALYSIS REPORT</span>
+            <div class="summary-card deepfake">
+                <div class="label">Deepfake Detections</div>
+                <div class="value">${data.fakeDetections}</div>
             </div>
         </div>
     </div>
-</body>
-</html>`;
+`;
+
+const renderVideoInfo = (data) => `
+    <div class="section">
+        <h2>${ReportConfig.icons.info} Video Information</h2>
+        <table class="details-table">
+            <tbody>
+                <tr><td class="property-cell">Filename</td><td>${data.filename}</td></tr>
+                <tr><td class="property-cell">File Size</td><td>${formatters.bytes(data.size)}</td></tr>
+                <tr><td class="property-cell">Format</td><td>${data.mimetype?.split("/")[1]?.toUpperCase() || "N/A"}</td></tr>
+                <tr><td class="property-cell">Upload Date</td><td>${formatters.date(data.createdAt)}</td></tr>
+                <tr><td class="property-cell">Video Status</td><td>${data.status}</td></tr>
+                ${data.description ? `<tr><td class="property-cell">Description</td><td>${data.description}</td></tr>` : ""}
+            </tbody>
+        </table>
+    </div>
+`;
+
+const renderAnalysisCard = (analysis) => {
+    const isReal = analysis.prediction === "REAL";
+    const confidence = (analysis.confidence * 100).toFixed(1);
+    const badgeClass = isReal ? "real" : "fake";
+
+    return `
+        <div class="analysis-card">
+            <div class="analysis-card-header">
+                <div class="model-name">${analysis.model} Model</div>
+                <div class="prediction-badge ${badgeClass}">${isReal ? "Authentic" : "Deepfake"}</div>
+            </div>
+            <div class="analysis-card-body">
+                <div class="confidence-display">
+                    <div class="label">Confidence Score</div>
+                    <div class="value ${badgeClass}">${confidence}%</div>
+                </div>
+                <table class="details-table">
+                    <tr><td class="property-cell">Prediction</td><td>${analysis.prediction}</td></tr>
+                    <tr><td class="property-cell">Analysis Date</td><td>${formatters.date(analysis.createdAt)}</td></tr>
+                    <tr><td class="property-cell">Processing Time</td><td>${formatters.processingTime(analysis.processingTime)}</td></tr>
+                </table>
+            </div>
+        </div>
+    `;
 };
 
-// Main PDF generation function using html2pdf.js
-export const generateAndDownloadPDF = async (video) => {
-    try {
-        // Generate the HTML content
-        const htmlContent = generateReportHTML(video);
+const renderDetailedAnalyses = (data) => `
+    <div class="section">
+        <h2>${ReportConfig.icons.details} Detailed Analysis</h2>
+        ${data.analyses.map(renderAnalysisCard).join("")}
+    </div>
+`;
 
-        // Create a temporary container with the full HTML document
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = htmlContent;
+const renderNoAnalysesPlaceholder = () => `
+    <div class="section">
+        <h2>${ReportConfig.icons.details} Analysis Results</h2>
+        <div class="no-analysis-placeholder">
+            <h3>No Analysis Completed</h3>
+            <p>This video is pending analysis or could not be processed.</p>
+        </div>
+    </div>
+`;
 
-        // Get the actual content (skip html, head tags)
-        const reportContainer =
-            tempDiv.querySelector(".report-container") ||
-            tempDiv.firstElementChild;
+const renderFooter = (pageNumber, VideoID) => `
+    <div class="report-footer">
+        ${ReportConfig.brandName} | Page ${pageNumber} | ${VideoID}
+    </div>
+`;
 
-        if (!reportContainer) {
-            throw new Error("Could not find report content");
-        }
+//================================================================================================
+// MAIN HTML GENERATOR
+//================================================================================================
 
-        // Configure html2pdf options for better compatibility
-        const options = {
-            margin: 0.5,
-            filename: `${video.filename.replace(
-                /\.[^/.]+$/,
-                ""
-            )}_analysis_report.pdf`,
-            image: {
-                type: "jpeg",
-                quality: 0.98,
-            },
-            html2canvas: {
-                scale: 1.5,
-                useCORS: true,
-                logging: false,
-                letterRendering: true,
-                allowTaint: true,
-                backgroundColor: "#ffffff",
-            },
-            jsPDF: {
-                unit: "in",
-                format: "a4",
-                orientation: "portrait",
-            },
-            pagebreak: {
-                mode: ["avoid-all", "css"],
-            },
-        };
+const generateReportHTML = (video, user) => {
+    const data = prepareReportData(video);
 
-        // Generate and download the PDF
-        await html2pdf().set(options).from(reportContainer).save();
-    } catch (error) {
-        console.error("Error generating PDF:", error);
+    const mainContent = `
+        ${renderHeader(data, user)}
+        ${renderSummary(data)}
+        ${renderVideoInfo(data)}
+    `;
 
-        // Fallback to print method if html2pdf fails
-        console.log("Falling back to print method...");
-        await generateAndDownloadPDFPrint(video);
-    }
+    const detailContent = data.analyses?.length > 0
+        ? renderDetailedAnalyses(data)
+        : renderNoAnalysesPlaceholder();
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Video Analysis Report - ${data.filename}</title>
+            ${getReportStyles(data)}
+        </head>
+        <body>
+            <div class="page" style="display: flex; flex-direction: column;">
+                ${mainContent}
+                ${renderFooter(1, data.id)}
+            </div>
+            ${data.analyses?.length > 0 ? `
+            <div class="page" style="display: flex; flex-direction: column;">
+                ${detailContent}
+                ${renderFooter(2, data.id)}
+            </div>
+            ` : ''}
+        </body>
+        </html>
+    `;
 };
 
-// Alternative method using print dialog for better browser compatibility
-export const generateAndDownloadPDFPrint = async (video) => {
-    try {
-        const htmlContent = generateReportHTML(video);
+//================================================================================================
+// PUBLIC API (EXPORTED SERVICE)
+//================================================================================================
 
-        // Create a new window for printing
-        const printWindow = window.open("", "_blank", "width=800,height=600");
+export const DownloadService = {
+    async generateAndDownloadPDF(video, user) {
+        try {
+            const htmlContent = generateReportHTML(video, user);
+            const element = document.createElement('div');
+            element.innerHTML = htmlContent;
+            const body = element.querySelector('body');
 
-        if (!printWindow) {
-            throw new Error(
-                "Popup blocked. Please allow popups and try again."
-            );
+            const options = {
+                margin: 0,
+                filename: `${video.filename.replace(/\.[^/.]+$/, "")}_report.pdf`,
+                image: { type: "jpeg", quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: null },
+                jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            };
+
+            await html2pdf().from(body).set(options).save();
+        } catch (error) {
+            console.error("Error generating PDF with html2pdf:", error);
+            await this.generateAndDownloadPDFPrint(video, user);
         }
+    },
 
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-
-        // Wait for content to load, then print
-        printWindow.onload = () => {
-            printWindow.focus();
-            printWindow.print();
-
-            // Close the window after a delay
+    async generateAndDownloadPDFPrint(video, user) {
+        try {
+            const htmlContent = generateReportHTML(video, user);
+            const printWindow = window.open("", "_blank");
+            if (!printWindow) {
+                alert("Popup blocked. Please allow popups to generate the report.");
+                throw new Error("Popup blocked by browser.");
+            }
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
             setTimeout(() => {
-                printWindow.close();
-            }, 1000);
-        };
-
-        // Handle cases where onload doesn't fire
-        setTimeout(() => {
-            if (printWindow && !printWindow.closed) {
                 printWindow.focus();
                 printWindow.print();
-            }
-        }, 500);
-    } catch (error) {
-        console.error("Error generating PDF via print:", error);
-        throw new Error(`Failed to generate PDF report: ${error.message}`);
-    }
-};
-
-// Keep existing functions unchanged
-export const downloadVideo = async (videoUrl, filename) => {
-    try {
-        const response = await fetch(videoUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+                setTimeout(() => { if (!printWindow.closed) printWindow.close(); }, 2000);
+            }, 750);
+        } catch (error) {
+            console.error("Error generating PDF via print dialog:", error);
+            alert(`Failed to generate PDF report: ${error.message}`);
         }
+    },
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error("Error downloading video:", error);
-        throw new Error(`Failed to download video: ${error.message}`);
-    }
-};
+    async downloadVideo(videoUrl, filename) {
+        try {
+            const response = await fetch(videoUrl);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error downloading video:", error);
+            alert(`Failed to download video: ${error.message}`);
+        }
+    },
 
-export const downloadHTMLReport = async (video) => {
-    try {
-        const htmlContent = generateReportHTML(video);
-        const blob = new Blob([htmlContent], {
-            type: "text/html;charset=utf-8",
-        });
-        const url = URL.createObjectURL(blob);
-
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${video.filename.replace(
-            /\.[^/.]+$/,
-            ""
-        )}_analysis_report.html`;
-        link.style.display = "none";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        console.log("HTML report downloaded successfully");
-    } catch (error) {
-        console.error("Error generating HTML report:", error);
-        throw new Error(`Failed to generate HTML report: ${error.message}`);
-    }
+    async downloadHTMLReport(video, user) {
+        try {
+            const htmlContent = generateReportHTML(video, user);
+            const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${video.filename.replace(/\.[^/.]+$/, "")}_analysis_report.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error downloading HTML report:", error);
+            alert(`Failed to generate HTML report: ${error.message}`);
+        }
+    },
 };

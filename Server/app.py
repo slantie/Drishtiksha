@@ -223,7 +223,7 @@ def model_info():
     })
 
 if __name__ == '__main__':
-    print("Starting VidVigilante AI Server...")
+    print("Starting Drishtiksha AI Server...")
     
     # Initialize model
     if initialize_model():

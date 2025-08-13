@@ -1,4 +1,4 @@
-# VidVigilante 🚀
+# Drishtiksha 🚀
 
 A modern full-stack web application starter template built with **React**, **Node.js**, **Express**, **Prisma**, and **Tailwind CSS**. This starter pack provides a complete development environment with authentication, database integration, and a beautiful dark/light theme system.
 

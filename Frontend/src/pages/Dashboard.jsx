@@ -1,6 +1,6 @@
 // src/pages/Dashboard.jsx
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Upload,
@@ -12,11 +12,10 @@ import {
     Trash2,
     Clock,
     Loader2 as ProcessingIcon,
-    Eye,
-    Link,
     Copy,
-    ChartArea,
-    ChartCandlestick,
+    ShieldX,
+    ShieldCheck,
+    ChartNetwork,
 } from "lucide-react";
 import { useVideos } from "../hooks/useVideos.js";
 import { StatCard } from "../components/ui/StatCard";
@@ -179,7 +178,7 @@ export const Dashboard = () => {
                                 navigate(`/results/${item.id}`);
                             }}
                         >
-                            <ChartCandlestick className="h-4 w-4" />
+                            <ChartNetwork className="h-4 w-4" />
                         </Button>
                         <Button
                             variant="ghost"
@@ -281,19 +280,19 @@ export const Dashboard = () => {
                 <StatCard
                     title="Videos Analyzed"
                     value={stats.analyzed}
-                    icon={CheckCircle}
+                    icon={ChartNetwork}
                     onClick={() => console.log("Analyzed Videos Clicked")}
                 />
                 <StatCard
-                    title="Real Videos"
+                    title="Real Detections"
                     value={stats.realDetections}
-                    icon={AlertTriangle}
+                    icon={ShieldCheck}
                     onClick={() => console.log("Real Videos Clicked")}
                 />
                 <StatCard
-                    title="Fake Videos"
+                    title="Fake Detections"
                     value={stats.fakeDetections}
-                    icon={AlertTriangle}
+                    icon={ShieldX}
                     onClick={() => console.log("Fake Videos Clicked")}
                 />
             </div>

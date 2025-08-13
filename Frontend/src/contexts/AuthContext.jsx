@@ -42,6 +42,8 @@ export const AuthProvider = ({ children }) => {
         setUser(data.data.user);
         setIsAuthenticated(true);
 
+        console.log("User Data:", data.data.user)
+
         // Only navigate to dashboard after successful login
         navigate("/dashboard");
     };

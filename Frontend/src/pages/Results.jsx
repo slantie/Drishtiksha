@@ -1,26 +1,11 @@
 // src/pages/Results.jsx
 
-import React, { useState } from "react";
+import React, { useState, useContext } from "react"; // Import useContext
 import { useParams, Link } from "react-router-dom";
 import {
-    Loader2,
-    AlertTriangle,
-    ArrowLeft,
-    Cpu,
-    ShieldCheck,
-    ShieldAlert,
-    RefreshCw,
-    Edit,
-    Trash,
-    Calendar,
-    FileText,
-    HardDrive,
-    Clock,
-    Activity,
-    TrendingUp,
-    Video as VideoIcon,
-    Download,
-    FileDown,
+    Loader2, AlertTriangle, ArrowLeft, Cpu, ShieldCheck, ShieldAlert,
+    RefreshCw, Edit, Trash, Calendar, FileText, HardDrive, Clock,
+    Activity, TrendingUp, Video as VideoIcon, Download, FileDown,
 } from "lucide-react";
 import { useVideoDetails } from "../hooks/useVideoDetails.js";
 import { Button } from "../components/ui/Button";
@@ -29,26 +14,13 @@ import { PageLoader } from "../components/ui/LoadingSpinner";
 import { EditVideoModal } from "../components/videos/EditVideoModal";
 import { DeleteVideoModal } from "../components/videos/DeleteVideoModal";
 import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
-import {
-    downloadVideo,
-    generateAndDownloadPDF,
-    downloadHTMLReport,
-} from "../services/DownloadReport.js";
+import { DownloadService } from "../services/DownloadReport.js";
+import { AuthContext } from "../contexts/AuthContext.jsx";
+import showToast from "../utils/toast.js";
 
-// Helper functions for UI components
-const formatBytes = (bytes) =>
-    bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A";
-
-const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-};
-
+// Helper functions remain the same...
+const formatBytes = (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A");
+const formatDate = (dateString) => new Date(dateString).toLocaleString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const formatProcessingTime = (timeInSeconds) => {
     if (!timeInSeconds) return "N/A";
     if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
@@ -56,32 +28,16 @@ const formatProcessingTime = (timeInSeconds) => {
     const seconds = (timeInSeconds % 60).toFixed(1);
     return `${minutes}m ${seconds}s`;
 };
-
 const getStatusColor = (status) => {
-    const statusColors = {
-        UPLOADED: "bg-blue-500/10 text-blue-600 border-blue-200",
-        PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-        ANALYZED: "bg-green-500/10 text-green-600 border-green-200",
-        FAILED: "bg-red-500/10 text-red-600 border-red-200",
-    };
-    return (
-        statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200"
-    );
+    const statusColors = { UPLOADED: "bg-blue-500/10 text-blue-600 border-blue-200", PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200", ANALYZED: "bg-green-500/10 text-green-600 border-green-200", FAILED: "bg-red-500/10 text-red-600 border-red-200" };
+    return statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200";
 };
-
 const getAnalysisStatusColor = (status) => {
-    const statusColors = {
-        PENDING: "bg-gray-500/10 text-gray-600 border-gray-200",
-        PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-        COMPLETED: "bg-green-500/10 text-green-600 border-green-200",
-        FAILED: "bg-red-500/10 text-red-600 border-red-200",
-    };
-    return (
-        statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200"
-    );
+    const statusColors = { PENDING: "bg-gray-500/10 text-gray-600 border-gray-200", PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200", COMPLETED: "bg-green-500/10 text-green-600 border-green-200", FAILED: "bg-red-500/10 text-red-600 border-red-200" };
+    return statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200";
 };
 
-// UI Components
+// UI Components (ResultsHeader, AnalysisCard, etc.) remain unchanged...
 const ResultsHeader = ({ video, onRefresh, onEditClick, onDeleteClick }) => (
     <Card>
         <div className="flex flex-col space-y-4">
@@ -307,7 +263,7 @@ const VideoDetailsCard = ({
         </div>
 
         {/* Download Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <Button
                 onClick={() => onDownloadVideo(video.url, video.filename)}
                 className="w-full"
@@ -334,7 +290,7 @@ const VideoDetailsCard = ({
                 )}
                 {isDownloadingPDF ? "Generating PDF..." : "PDF Report"}
             </Button>
-            <Button
+            {/* <Button
                 onClick={() => onDownloadHTML(video)}
                 className="w-full"
                 variant="outline"
@@ -346,7 +302,7 @@ const VideoDetailsCard = ({
                     <FileText className="mr-2 h-4 w-4" />
                 )}
                 {isDownloadingHTML ? "Generating..." : "HTML Report"}
-            </Button>
+            </Button> */}
         </div>
 
         {/* Video Information */}
@@ -491,11 +447,12 @@ const AnalysisSummary = ({ analyses }) => {
     );
 };
 
+
 // Main Results Component
 export const Results = () => {
     const { videoId } = useParams();
-    const { video, isLoading, error, fetchVideo, updateVideo, deleteVideo } =
-        useVideoDetails(videoId);
+    const { video, isLoading, error, fetchVideo, updateVideo, deleteVideo } = useVideoDetails(videoId);
+    const { user } = useContext(AuthContext); // Get user from context
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -503,11 +460,10 @@ export const Results = () => {
     const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
     const [isDownloadingHTML, setIsDownloadingHTML] = useState(false);
 
-    // Enhanced download functions with loading states and error handling
     const handleDownloadVideo = async (videoUrl, filename) => {
         setIsDownloadingVideo(true);
         try {
-            await downloadVideo(videoUrl, filename);
+            await DownloadService.downloadVideo(videoUrl, filename);
         } catch (error) {
             alert(error.message || "Failed to download video");
         } finally {
@@ -518,7 +474,7 @@ export const Results = () => {
     const handleDownloadPDF = async (video) => {
         setIsDownloadingPDF(true);
         try {
-            await generateAndDownloadPDF(video);
+            await DownloadService.generateAndDownloadPDF(video, user);
         } catch (error) {
             alert(error.message || "Failed to generate PDF report");
         } finally {
@@ -529,7 +485,8 @@ export const Results = () => {
     const handleDownloadHTML = async (video) => {
         setIsDownloadingHTML(true);
         try {
-            await downloadHTMLReport(video);
+            // Pass the user object to the service
+            await DownloadService.downloadHTMLReport(video, user);
         } catch (error) {
             alert(error.message || "Failed to generate HTML report");
         } finally {
@@ -546,13 +503,9 @@ export const Results = () => {
             <div className="text-center p-8 max-w-md mx-auto">
                 <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Error Loading Video</h2>
-                <p className="text-light-muted-text dark:text-dark-muted-text mb-6">
-                    {error}
-                </p>
+                <p className="text-light-muted-text dark:text-dark-muted-text mb-6">{error}</p>
                 <Link to="/dashboard">
-                    <Button>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-                    </Button>
+                    <Button><ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard</Button>
                 </Link>
             </div>
         );
@@ -565,7 +518,7 @@ export const Results = () => {
             {/* Header */}
             <ResultsHeader
                 video={video}
-                onRefresh={fetchVideo}
+                onRefresh={()=>{fetchVideo(); showToast.success("Video Data Refreshed Successfully!")}}
                 onEditClick={() => setIsEditModalOpen(true)}
                 onDeleteClick={() => setIsDeleteModalOpen(true)}
             />
@@ -575,7 +528,6 @@ export const Results = () => {
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* Video Details */}
                 <div className="xl:col-span-1">
                     <VideoDetailsCard
                         video={video}
@@ -588,7 +540,6 @@ export const Results = () => {
                     />
                 </div>
 
-                {/* Analysis Results */}
                 <div className="xl:col-span-2 space-y-6">
                     {video.analyses?.length > 0 ? (
                         <>
@@ -597,10 +548,7 @@ export const Results = () => {
                                 Analysis Results
                             </h2>
                             {video.analyses.map((analysis) => (
-                                <AnalysisCard
-                                    key={analysis.id}
-                                    analysis={analysis}
-                                />
+                                <AnalysisCard key={analysis.id} analysis={analysis} />
                             ))}
                         </>
                     ) : (
@@ -610,19 +558,12 @@ export const Results = () => {
                                     <Activity className="h-8 w-8 text-gray-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold mb-2">
-                                        No Analyses Available
-                                    </h2>
+                                    <h2 className="text-xl font-bold mb-2">No Analyses Available</h2>
                                     <p className="text-light-muted-text dark:text-dark-muted-text mb-4">
-                                        This video is still being processed or
-                                        analysis has not started yet.
+                                        This video is still being processed or analysis has not started yet.
                                     </p>
-                                    <Button
-                                        onClick={fetchVideo}
-                                        variant="outline"
-                                    >
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        Check Again
+                                    <Button onClick={fetchVideo} variant="outline">
+                                        <RefreshCw className="mr-2 h-4 w-4" /> Check Again
                                     </Button>
                                 </div>
                             </div>
