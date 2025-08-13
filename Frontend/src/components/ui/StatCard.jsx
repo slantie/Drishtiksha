@@ -26,7 +26,7 @@ export const StatCard = ({
             // Use clsx for cleaner conditional class application
             className={clsx(
                 "relative overflow-hidden transition-all duration-300 rounded-2xl",
-                "bg-light-background dark:bg-dark-muted-background",
+                "bg-light-background dark:bg-dark-noisy-background",
                 "border border-light-secondary dark:border-dark-secondary",
                 "flex flex-col justify-between", // Ensure content is spaced
                 {

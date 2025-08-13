@@ -14,10 +14,10 @@ import { cn } from "../../lib/utils";
 const cardVariants = cva("rounded-lg border transition-colors", {
     variants: {
         variant: {
-            default: "bg-light-background border-light-secondary dark:bg-dark-background dark:border-dark-secondary",
-            elevated: "bg-light-background border-light-secondary shadow-md dark:bg-dark-background dark:border-dark-secondary dark:shadow-lg",
+            default: "bg-light-background border-light-secondary dark:bg-dark-noisy-background dark:border-dark-secondary",
+            elevated: "bg-light-background border-light-secondary shadow-md dark:bg-dark-noisy-background dark:border-dark-secondary dark:shadow-lg",
             outlined: "bg-transparent border-2 border-light-secondary dark:border-dark-secondary",
-            ghost: "bg-transparent border-transparent hover:bg-light-hover dark:hover:bg-dark-hover",
+            ghost: "bg-transparent border-transparent hover:bg-light-hover dark:hover:bg-dark-noisy-background",
             gradient: "bg-gradient-to-br from-primary-lighter to-light-background border-primary-light dark:from-dark-background dark:to-dark-secondary dark:border-dark-secondary", // Adjusted dark gradient
         },
         padding: {

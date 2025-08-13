@@ -1,17 +1,10 @@
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+.env
 
 /.venv/
-/models/
-/checkpoints/
-/outputs_lstm/
-/src/models/
-/src/__pycache__/
-uv.lock
-pyproject.toml
-*.mp4
-.python-version
+/assets/
+/models/*.pth
+/src/__pycache__
+/src/app/__pycache__
+/src/ml/__pycache__
+/src/ml/models/__pycache__
+/src/training/__pycache__

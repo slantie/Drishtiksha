@@ -1,0 +1,27 @@
+[project]
+name = "server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116.1",
+    "flask-cors>=6.0.1",
+    "matplotlib>=3.10.5",
+    "numpy>=2.3.2",
+    "opencv-python-headless>=4.11.0.86",
+    "pillow>=11.3.0",
+    "protobuf>=6.31.1",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.10.1",
+    "python-multipart>=0.0.20",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.7.1",
+    "seaborn>=0.13.2",
+    "sentencepiece>=0.2.1",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "tqdm>=4.67.1",
+    "transformers>=4.55.1",
+    "uvicorn[standard]>=0.35.0",
+]

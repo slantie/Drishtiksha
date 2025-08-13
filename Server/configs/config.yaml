@@ -1,0 +1,42 @@
+# configs/config.yaml
+
+# Global settings used by the API and training scripts
+project_name: "Drishtiksha AI Deepfake Detection Service"
+device: "cuda"
+
+# --- Model-specific configurations for INFERENCE ---
+models:
+  siglip-lstm-v1:
+    class_name: "LSTMDetector"
+    description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
+    model_path: "models/siglip_lstm_deepfake_detector_best.pth"
+    # --- CHANGE THIS LINE ---
+    processor_path: "google/siglip-base-patch16-224"
+    num_frames: 120
+    
+    model_definition:
+      # --- AND CHANGE THIS LINE ---
+      base_model_path: "google/siglip-base-patch16-224"
+      lstm_hidden_size: 512
+      lstm_num_layers: 2
+      num_classes: 1 
+
+# --- TRAINING-specific configurations ---
+# (No changes needed here as it inherits from the 'models' section)
+training:
+  target_model: "siglip-lstm-v1" 
+  real_data_paths:
+    - /home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/Celeb-real
+    - /home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/YouTube-real
+  fake_data_paths:
+    - /home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/Celeb-synthesis
+  validation_split: 0.2
+  num_workers: 4
+  num_epochs: 25
+  batch_size: 1
+  accumulation_steps: 16
+  learning_rate: 0.00001
+  optimizer: "AdamW"
+  patience: 5
+  checkpoint_path: "checkpoints/lstm_latest_checkpoint.pth"
+  output_dir: "outputs_lstm"

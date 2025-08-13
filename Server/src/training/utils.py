@@ -1,4 +1,4 @@
-# /home/dell-pc-03/Deepfake/deepfake-detection/Raj/src/utils.py
+# src/training/utils.py
 
 import yaml
 

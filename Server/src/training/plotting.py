@@ -1,17 +1,14 @@
-# /home/dell-pc-03/Deepfake/deepfake-detection/Raj/src/plotting.py
+# src/training/plotting.py
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 from sklearn.metrics import confusion_matrix
 import os
 
 def plot_confusion_matrix(y_true, y_pred, epoch, output_dir):
-    """
-    Generates and saves a confusion matrix plot.
-    """
+    """Generates and saves a confusion matrix plot."""
     class_names = ["Real", "Fake"]
-    cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
@@ -26,13 +23,12 @@ def plot_confusion_matrix(y_true, y_pred, epoch, output_dir):
     print(f"Saved confusion matrix to {save_path}")
 
 def plot_training_history(history, output_dir):
-    """
-    Generates and saves plots for training/validation accuracy and loss.
-    """
+    """Generates and saves plots for training/validation accuracy and loss."""
     epochs = range(1, len(history['train_acc']) + 1)
     
+    plt.figure(figsize=(14, 6))
+    
     # Plot 1: Accuracy
-    plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
     plt.plot(epochs, history['train_acc'], 'bo-', label='Training Accuracy')
     plt.plot(epochs, history['val_acc'], 'ro-', label='Validation Accuracy')
