@@ -2,7 +2,7 @@
 
 from typing import Dict, Type
 from src.ml.base import BaseModel
-from src.ml.models.lstm_detector import LSTMDetector
+from src.ml.models.lstm_detector_v2 import LSTMDetector
 
 # This dictionary maps class names from config.yaml to actual Python classes.
 MODEL_REGISTRY: Dict[str, Type[BaseModel]] = {

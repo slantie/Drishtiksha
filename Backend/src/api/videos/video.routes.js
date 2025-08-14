@@ -25,4 +25,6 @@ router
     .patch(validate(videoUpdateSchema), videoController.updateVideo)
     .delete(videoController.deleteVideo);
 
+router.route("/:id/visualize").post(videoController.createVisualAnalysis);
+
 export default router;

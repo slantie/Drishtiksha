@@ -142,3 +142,38 @@ export const useVideoStats = () => {
         error,
     };
 };
+
+/**
+ * Hook for visual analysis generation mutation
+ */
+export const useVisualAnalysisMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: videoApi.generateVisualAnalysis, // The API function to call
+        onSuccess: (data) => {
+            const updatedVideo = data?.data || data;
+            const videoId = updatedVideo?.id;
+
+            if (!videoId) return;
+
+            // When the mutation is successful, invalidate the queries
+            // for the main video list and the specific video detail.
+            // This will trigger a refetch and update the UI with the new `visualizedUrl`.
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.videos.lists(),
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.videos.detail(videoId),
+            });
+            showToast.success("Visual analysis generated successfully!");
+        },
+        onError: (error) => {
+            showToast.error(error.message || "Visual analysis generation failed.");
+        },
+        onMutate: () => {
+            // Optional: Show a toast when the process starts
+            showToast.info("Generating visual analysis... This may take several minutes.");
+        },
+    });
+};

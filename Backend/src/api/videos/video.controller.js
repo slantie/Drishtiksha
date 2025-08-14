@@ -87,6 +87,18 @@ const getModelStatus = asyncHandler(async (req, res) => {
     );
 });
 
+const createVisualAnalysis = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const updatedVideo = await videoService.createVisualAnalysis(id, req.user);
+    res.status(200).json(
+        new ApiResponse(
+            200,
+            updatedVideo,
+            "Visual analysis generation started and completed successfully."
+        )
+    );
+});
+
 export const videoController = {
     uploadVideo,
     getAllVideos,
@@ -94,4 +106,5 @@ export const videoController = {
     updateVideo,
     deleteVideo,
     getModelStatus,
+    createVisualAnalysis
 };

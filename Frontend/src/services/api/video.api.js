@@ -40,6 +40,18 @@ export const videoApi = {
     },
 
     /**
+     * Triggers the generation of a visualized analysis video.
+     * @param {string} videoId - The ID of the video to analyze.
+     * @returns {Promise} Response with the updated video data, including the new visualizedUrl.
+     */
+    generateVisualAnalysis: async (videoId) => {
+        // This is a long-running operation, so we increase the timeout specifically for it.
+        return await axiosInstance.post(`/videos/${videoId}/visualize`, {}, {
+            timeout: 600000, // 10 minute timeout
+        });
+    },
+
+    /**
      * Delete a video
      * @param {string} videoId - The video ID
      * @returns {Promise} Response confirming deletion

@@ -3,9 +3,13 @@
 import os
 import uuid
 import tempfile
+import aiofiles
+from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 
 from src.config import settings
 from src.ml.registry import ModelManager
@@ -71,9 +75,58 @@ async def analyze_video(
         )
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
-    except Exception as e:
+    except Exception as e:              
         print(f"An unexpected error occurred during analysis: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Analysis failed: {e}")
     finally:
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.remove(temp_path)
+
+def cleanup_files(*paths: str):
+    """Deletes all provided file paths."""
+    for path in paths:
+        if path and os.path.exists(path):
+            os.remove(path)
+            print(f"Cleaned up temporary file: {path}")
+
+async def file_iterator(file_path: str) -> AsyncGenerator[bytes, None]:
+    """Asynchronously reads a file in chunks."""
+    async with aiofiles.open(file_path, "rb") as f:
+        while chunk := await f.read(1024 * 1024):
+            yield chunk
+
+@app.post("/analyze/visualize", tags=["Analysis"], dependencies=[Depends(get_api_key)])
+async def analyze_video_visualized(
+    video: UploadFile = File(..., description="The video file to generate a visualized analysis for.")
+):
+    """
+    Analyzes a video and returns a new video file with an overlaid graph.
+    """
+    manager = app_state.get("model_manager")
+    model = manager.get_model(settings.default_model_name)
+    
+    input_temp_path = None
+    output_video_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video.filename)[1]) as tmp:
+            tmp.write(await video.read())
+            input_temp_path = tmp.name
+        
+        output_video_path = model.predict_visualized(input_temp_path)
+        
+        # Define the cleanup task for BOTH files
+        cleanup_task = BackgroundTask(cleanup_files, input_temp_path, output_video_path)
+        
+        # The file_iterator only needs the path. The cleanup is handled by the `background` param.
+        return StreamingResponse(
+            file_iterator(output_video_path),
+            media_type="video/mp4",
+            headers={"Content-Disposition": f"attachment; filename=visual_analysis_{video.filename}"},
+            background=cleanup_task
+        )
+
+    except Exception as e:
+        # If an error happens before we return the response, clean up manually.
+        cleanup_files(input_temp_path, output_video_path)
+        print(f"An unexpected error occurred during visual analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Visual analysis failed: {e}")

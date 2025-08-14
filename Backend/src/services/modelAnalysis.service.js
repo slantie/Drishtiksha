@@ -207,12 +207,60 @@ class ModelAnalysisService {
             prediction,
             confidence,
             processingTime,
-            model: "LSTM_SIGLIP_MOCK",
+            model: "LSTM_SIGLIP",
             modelVersion: "fallback",
             status: "COMPLETED",
             timestamp: new Date().toISOString(),
             isMockData: true,
         };
+    }
+    /**
+     * Generates a visualized analysis video by calling the Python service.
+     * @param {string} videoPath - Path to the video file to be visualized.
+     * @returns {Promise<Stream>} A readable stream of the generated video file.
+     */
+    async generateVisualAnalysis(videoPath) {
+        if (!this.isAvailable()) {
+            throw new ApiError(503, "Visual analysis service is not configured");
+        }
+        if (!fs.existsSync(videoPath)) {
+            throw new ApiError(400, "Video file for visualization not found");
+        }
+
+        try {
+            logger.info(`Requesting visual analysis for video at: ${videoPath}`);
+
+            const formData = new FormData();
+            formData.append("video", fs.createReadStream(videoPath));
+
+            const response = await axios.post(
+                `${this.serverUrl}/analyze/visualize`,
+                formData,
+                {
+                    headers: {
+                        ...formData.getHeaders(),
+                        "X-API-Key": this.apiKey,
+                    },
+                    responseType: 'stream', // CRITICAL: This tells axios to handle the response as a stream
+                    timeout: 600000, // 10 minutes timeout for this intensive process
+                }
+            );
+
+            logger.info(`Successfully received visual analysis stream for: ${videoPath}`);
+            return response.data; // This is now a readable stream
+        } catch (error) {
+            logger.error(`Visual analysis generation failed: ${error.message}`);
+            // Handle various errors as in the analyzeVideo method
+            if (error.response) {
+                const status = error.response.status;
+                const message = error.response.data?.detail || "Visual analysis failed";
+                throw new ApiError(status, message);
+            }
+            // ... other error handling ...
+            else {
+                throw new ApiError(500, `Visual analysis generation failed: ${error.message}`);
+            }
+        }
     }
 }
 

@@ -41,11 +41,9 @@ model RefreshToken {
 model Video {
   id          String      @id @default(uuid())
   filename    String
-  // ADDED: Fields to store the Cloudinary URL and public ID
   url         String
+  visualizedUrl String?
   publicId    String
-  // REMOVED: The local filepath is no longer needed
-  // filepath    String
   mimetype    String
   size        Int
   description String?

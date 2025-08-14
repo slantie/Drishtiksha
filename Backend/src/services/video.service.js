@@ -1,17 +1,37 @@
 // src/services/video.service.js
 
+// import { videoRepository } from "../repositories/video.repository.js";
+// import {
+//     uploadOnCloudinary,
+//     deleteFromCloudinary,
+// } from "../utils/cloudinary.js";
+// import { ApiError } from "../utils/ApiError.js";
+// import { videoProcessorQueue } from "../queue/videoProcessorQueue.js";
+// import { modelAnalysisService } from "./modelAnalysis.service.js";
+// import logger from "../utils/logger.js";
+// import axios from "axios";
+// import { fileURLToPath } from "url";
+// import fs from "fs/promises";
+// import path from "path";
+
+import { promises as fs } from "fs"; // Import the promise-based API as 'fs'
+import { createWriteStream } from "fs"; // Import createWriteStream separately
+import path from "path";
+import { fileURLToPath } from "url";
 import { videoRepository } from "../repositories/video.repository.js";
-import {
-    uploadOnCloudinary,
-    deleteFromCloudinary,
-} from "../utils/cloudinary.js";
+import { uploadOnCloudinary, uploadStreamToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiError } from "../utils/ApiError.js";
 import { videoProcessorQueue } from "../queue/videoProcessorQueue.js";
-import { modelAnalysisService } from "./modelAnalysis.service.js";
 import logger from "../utils/logger.js";
-import path from "path";
+import { modelAnalysisService } from "./modelAnalysis.service.js";
+import axios from "axios";
+
 
 const ANALYSIS_MODELS = ["LSTM_SIGLIP", "RPPG", "COLORCUES"];
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.join(__dirname, '..', '..');
 
 const generateMockAnalysis = (filename, fileSize, model) => {
     const isLikelyReal = Math.random() > 0.3;
@@ -291,4 +311,69 @@ export const videoService = {
             }
         }
     },
+    
+    async createVisualAnalysis(videoId, user) {
+        const video = await this.getVideoById(videoId, user); // Reuse permission check
+
+        if (!video.url) {
+            throw new ApiError(400, "Original video URL not found. Cannot perform visual analysis.");
+        }
+
+        const tempDir = path.join(projectRoot, 'temp');
+        await fs.mkdir(tempDir, { recursive: true });
+
+        const originalVideoTempPath = path.join(tempDir, `original_${videoId}.mp4`);
+        
+        try {
+            // 1. Download the original video from Cloudinary
+            logger.info(`Downloading original video from Cloudinary: ${video.url}`);
+            const writer = createWriteStream(originalVideoTempPath);// Note: createWriteStream is from the core 'fs'
+            const response = await axios({ url: video.url, method: 'GET', responseType: 'stream' });
+            response.data.pipe(writer);
+            await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+            logger.info(`Successfully downloaded original video to: ${originalVideoTempPath}`);
+
+            // 2. Send the local file to the Python service
+            const visualAnalysisStream = await modelAnalysisService.generateVisualAnalysis(originalVideoTempPath);
+
+            // 3. Upload the resulting stream directly to Cloudinary
+            let uploadResult;
+            try {
+                logger.info(`Uploading visualized analysis stream to Cloudinary for video: ${videoId}`);
+                uploadResult = await uploadStreamToCloudinary(visualAnalysisStream, {
+                    resource_type: "video",
+                    folder: "visual_analyses",
+                    public_id: `visual_${video.publicId}`
+                });
+            } catch (uploadError) {
+                // This will catch the rejection from the promise in uploadStreamToCloudinary
+                logger.error(`Caught an error during Cloudinary stream upload for video ${videoId}:`, uploadError);
+                throw new ApiError(500, "The generated visual analysis failed to upload.");
+            }
+            if (!uploadResult || !uploadResult.secure_url) {
+                throw new ApiError(500, "Upload of visualized video succeeded but returned no URL.");
+            }
+            
+            return await videoRepository.update(videoId, {
+                visualizedUrl: uploadResult.secure_url,
+            });
+
+        } finally {
+            // 5. Clean up the temporary local file using an async try/catch block
+            try {
+                await fs.unlink(originalVideoTempPath);
+                logger.info(`Cleaned up temporary file: ${originalVideoTempPath}`);
+            } catch (cleanupError) {
+                // If the file doesn't exist, the error code will be 'ENOENT'.
+                // We can safely ignore this error, as it means the file is already gone.
+                // For any other error, we should log it.
+                if (cleanupError.code !== 'ENOENT') {
+                    logger.error(`Error cleaning up temporary file ${originalVideoTempPath}:`, cleanupError);
+                }
+            }
+        }
+    }
 };

@@ -21,11 +21,13 @@ import {
     Video as VideoIcon,
     Download,
     FileDown,
+    Film
 } from "lucide-react";
 import {
     useVideoQuery,
     useUpdateVideoMutation,
     useDeleteVideoMutation,
+    useVisualAnalysisMutation
 } from "../hooks/useVideosQuery.js";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -78,8 +80,62 @@ const getAnalysisStatusColor = (status) => {
     );
 };
 
+const VisualAnalysisCard = ({ video }) => {
+    // Get the mutation hook for generating visuals
+    const { mutate: generateVisuals, isPending: isVisualizing } = useVisualAnalysisMutation();
+
+    const handleGenerateClick = () => {
+        if (video?.id) {
+            generateVisuals(video.id);
+        }
+    };
+
+    const isAnalyzed = video.status === "ANALYZED";
+    const hasVisuals = !!video.visualizedUrl;
+
+    return (
+        <Card>
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+                <Film className="h-5 w-5" />
+                Visual Analysis
+            </h3>
+            {hasVisuals ? (
+                // If the visualizedUrl exists, show the video player
+                <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                    <VideoPlayer videoUrl={video.visualizedUrl} />
+                </div>
+            ) : (
+                // Otherwise, show the placeholder and the "Generate" button
+                <div className="aspect-video rounded-lg bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center text-center p-6">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        {isAnalyzed
+                            ? "A real-time analysis graph video can be generated."
+                            : "The initial analysis must be complete before generating visuals."
+                        }
+                    </p>
+                    <Button
+                        onClick={handleGenerateClick}
+                        disabled={!isAnalyzed || isVisualizing}
+                    >
+                        {isVisualizing ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Generating...
+                            </>
+                        ) : (
+                            "Generate Visuals"
+                        )}
+                    </Button>
+                </div>
+            )}
+        </Card>
+    );
+};
+
 // UI Components (ResultsHeader, AnalysisCard, etc.) remain unchanged...
-const ResultsHeader = ({ video, onRefresh, onEditClick, onDeleteClick }) => (
+const ResultsHeader = ({ video, onRefresh, onEditClick, onDeleteClick, 
+    onVisualizeClick,
+    isVisualizing, }) => (
     <Card>
         <div className="flex flex-col space-y-4">
             {/* Main Header */}
@@ -109,6 +165,26 @@ const ResultsHeader = ({ video, onRefresh, onEditClick, onDeleteClick }) => (
                     >
                         <RefreshCw className="mr-2 h-5 w-5" /> Refresh
                     </Button>
+                    {!video.visualizedUrl && (
+                         <Button
+                            onClick={onVisualizeClick}
+                            variant="outline"
+                            className="py-3 px-4"
+                            disabled={video.status !== 'ANALYZED' || isVisualizing}
+                        >
+                            {isVisualizing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <Film className="h-5 w-5 mr-2" />
+                                    Run Detailed Analysis
+                                </>
+                            )}
+                        </Button>
+                    )}
                     <Button
                         onClick={onEditClick}
                         variant="outline"
@@ -303,9 +379,12 @@ const VideoDetailsCard = ({
 }) => (
     <Card>
         {/* Video Player */}
-        <div className="aspect-video rounded-lg overflow-hidden bg-black mb-6">
-            <VideoPlayer videoUrl={video.url} />
+        <div className="rounded-lg overflow-hidden bg-black mb-6">
+            {video.visualizedUrl? 
+            <VisualAnalysisCard video={video} /> : <VideoPlayer videoUrl={video.url} />
+            }
         </div>
+
 
         {/* Download Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
@@ -514,6 +593,15 @@ export const Results = () => {
     const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
     const [isDownloadingHTML, setIsDownloadingHTML] = useState(false);
 
+    const { mutate: generateVisuals, isPending: isVisualizing } = useVisualAnalysisMutation();
+
+    const handleVisualizeClick = () => {
+        if (video?.id) {
+            // This calls the mutation from useVideosQuery.js
+            generateVisuals(video.id);
+        }
+    };
+
     const handleDownloadVideo = async (videoUrl, filename) => {
         setIsDownloadingVideo(true);
         try {
@@ -586,6 +674,8 @@ export const Results = () => {
                 }}
                 onEditClick={() => setIsEditModalOpen(true)}
                 onDeleteClick={() => setIsDeleteModalOpen(true)}
+                onVisualizeClick={handleVisualizeClick}
+                isVisualizing={isVisualizing}  
             />
 
             {/* Analysis Summary */}
@@ -603,6 +693,7 @@ export const Results = () => {
                         isDownloadingPDF={isDownloadingPDF}
                         isDownloadingHTML={isDownloadingHTML}
                     />
+                    
                 </div>
 
                 <div className="xl:col-span-2 space-y-6">
