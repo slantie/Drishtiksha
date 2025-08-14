@@ -1,90 +1,66 @@
 // src/hooks/useVideos.js
+// ⚠️ DEPRECATED: This hook is deprecated. Use hooks from useVideosQuery.js instead.
+// This hook is kept for backward compatibility but will be removed in a future version.
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { videoApiService } from "../services/videoApiService.js";
-import { showToast } from "../utils/toast.js";
+import {
+    useVideosQuery,
+    useUploadVideoMutation,
+    useUpdateVideoMutation,
+    useDeleteVideoMutation,
+    useVideoStats,
+} from "./useVideosQuery.js";
 
+/**
+ * @deprecated Use individual hooks from useVideosQuery.js instead:
+ * - useVideosQuery() for fetching videos
+ * - useUploadVideoMutation() for uploading
+ * - useUpdateVideoMutation() for updating
+ * - useDeleteVideoMutation() for deleting
+ * - useVideoStats() for statistics
+ *
+ * This legacy wrapper is kept for compatibility but will be removed.
+ */
 export const useVideos = () => {
-    const [videos, setVideos] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
+    console.warn(
+        "⚠️ useVideos hook is deprecated. Please use individual hooks from useVideosQuery.js instead. " +
+            "See TANSTACK_MIGRATION.md for migration guide."
+    );
 
-    const fetchVideos = useCallback(async () => {
-        try {
-            setIsLoading(true);
-            const response = await videoApiService.getAllVideos();
-            if (response.success) {
-                setVideos(response.data);
-                console.log("Videos Data fetched successfully!", response.data);
-                // showToast.success("Videos Data fetched successfully!");
-            } else {
-                throw new Error(response.message || "Failed to fetch videos");
-            }
-        } catch (err) {
-            setError(err.message);
-            showToast.error(err.message);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchVideos();
-    }, [fetchVideos]);
+    const {
+        data: videos = [],
+        isLoading,
+        error,
+        refetch: fetchVideos,
+    } = useVideosQuery();
+    const uploadMutation = useUploadVideoMutation();
+    const updateMutation = useUpdateVideoMutation();
+    const deleteMutation = useDeleteVideoMutation();
+    const { stats } = useVideoStats();
 
     const uploadVideo = async (formData) => {
-        try {
-            await videoApiService.uploadVideo(formData);
-            showToast.success("Video uploaded!");
-            showToast.info("Video Analysis has started.");
-            fetchVideos();
-        } catch (err) {
-            showToast.error(err.message || "Upload failed.");
-            throw err;
-        }
+        return uploadMutation.mutateAsync(formData);
     };
 
     const updateVideo = async (videoId, updateData) => {
-        try {
-            await videoApiService.updateVideo(videoId, updateData);
-            showToast.success("Video Data updated successfully.");
-            fetchVideos();
-        } catch (err) {
-            showToast.error(err.message || "Update failed.");
-            throw err;
-        }
+        return updateMutation.mutateAsync({ videoId, updateData });
     };
 
     const deleteVideo = async (videoId) => {
-        try {
-            await videoApiService.deleteVideo(videoId);
-            showToast.success("Video deleted successfully.");
-            fetchVideos();
-        } catch (err) {
-            showToast.error(err.message || "Deletion failed.");
-            throw err;
-        }
+        return deleteMutation.mutateAsync(videoId);
     };
-
-    const stats = useMemo(() => {
-        return videos.reduce(
-            (acc, v) => {
-                acc.total++;
-                if (v.status === "ANALYZED") acc.analyzed++;
-                v.analyses.forEach((a) => {
-                    if (a.prediction === "REAL") acc.realDetections++;
-                    if (a.prediction === "FAKE") acc.fakeDetections++;
-                });
-                return acc;
-            },
-            { total: 0, analyzed: 0, realDetections: 0, fakeDetections: 0 }
-        );
-    }, [videos]);
 
     return {
         videos,
-        isLoading,
-        error,
+        isLoading:
+            isLoading ||
+            uploadMutation.isPending ||
+            updateMutation.isPending ||
+            deleteMutation.isPending,
+        error:
+            error ||
+            uploadMutation.error ||
+            updateMutation.error ||
+            deleteMutation.error,
         stats,
         fetchVideos,
         uploadVideo,

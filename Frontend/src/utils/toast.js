@@ -59,7 +59,7 @@ export const authToast = {
     authenticating: () => showToast.loading("Authenticating..."),
     creatingAccount: () => showToast.loading("Creating your account..."),
     logoutSuccess: () =>
-        showToast.success("Logged out successfully", { duration: 2000 }),
+        showToast.success("Logged out successfully!", { duration: 2000 }),
     sessionExpired: () =>
         showToast.warning("Your session has expired. Please login again.", {
             duration: 5000,

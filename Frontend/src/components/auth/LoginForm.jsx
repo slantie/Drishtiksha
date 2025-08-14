@@ -30,10 +30,9 @@ const LoginForm = ({ onSwitchToSignup }) => {
         }
         setIsLoading(true);
         try {
-            // The login function now handles navigation internally via useEffect.
-            // We just need to wait for it to complete.
+            // The login function now handles toasts and navigation internally
             await login(formData.email, formData.password, formData.rememberMe);
-            authToast.loginSuccess();
+            // No need for authToast.loginSuccess() here - handled by the mutation
         } catch (error) {
             authToast.loginError(error.message || "Invalid credentials.");
             setIsLoading(false); // Ensure loading is stopped on error

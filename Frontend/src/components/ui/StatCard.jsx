@@ -98,7 +98,7 @@ export const StatCard = ({
                     )}
                 </div>
                 {/* Icon scaled up and slightly repositioned on hover */}
-                <Icon className="h-20 w-20 text-primary-main/70 group-hover:text-primary-main transition-all duration-300 group-hover:scale-110 flex-shrink-0" />{" "}
+                <Icon className="h-20 w-20 text-primary-main/80 group-hover:text-primary-main transition-all duration-300 group-hover:scale-110 flex-shrink-0" />{" "}
                 {/* Larger icon, subtle default color, primary on hover */}
             </div>
         </Card>

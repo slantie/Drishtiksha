@@ -1,8 +1,12 @@
 // src/contexts/AuthContext.jsx
 
 import React, { createContext, useState, useEffect } from "react";
-import { authApiService } from "../services/apiService.js";
-import { useNavigate } from "react-router-dom";
+import {
+    useLoginMutation,
+    useSignupMutation,
+    useLogoutMutation,
+    useProfileQuery,
+} from "../hooks/useAuthQuery.js";
 
 export const AuthContext = createContext(null);
 
@@ -13,7 +17,14 @@ export const AuthProvider = ({ children }) => {
     );
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const navigate = useNavigate();
+
+    // TanStack Query mutations
+    const loginMutation = useLoginMutation();
+    const signupMutation = useSignupMutation();
+    const logoutMutation = useLogoutMutation();
+
+    // Profile query to sync user data
+    const { data: profileData } = useProfileQuery();
 
     useEffect(() => {
         const storedUser =
@@ -31,48 +42,69 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false);
     }, [token]);
 
+    // Update user state when profile data changes
+    useEffect(() => {
+        if (profileData) {
+            setUser(profileData);
+            const storage = localStorage.getItem("user")
+                ? localStorage
+                : sessionStorage;
+            storage.setItem("user", JSON.stringify(profileData));
+        }
+    }, [profileData]);
+
     const login = async (email, password, rememberMe) => {
-        const data = await authApiService.login(email, password);
-        const storage = rememberMe ? localStorage : sessionStorage;
+        const result = await loginMutation.mutateAsync({
+            email,
+            password,
+            rememberMe,
+        });
 
-        storage.setItem("authToken", data.data.token);
-        storage.setItem("user", JSON.stringify(data.data.user));
+        // Update local auth state immediately after successful login
+        const userData = result.data.user;
+        const authToken = result.data.token;
 
-        setToken(data.data.token);
-        setUser(data.data.user);
+        setToken(authToken);
+        setUser(userData);
         setIsAuthenticated(true);
 
-        console.log("User Data:", data.data.user)
-
-        // Only navigate to dashboard after successful login
-        navigate("/dashboard");
+        return result;
     };
 
     const signup = async (signupData) => {
-        await authApiService.signup(signupData);
+        return signupMutation.mutateAsync(signupData);
     };
 
     const logout = () => {
-        sessionStorage.removeItem("authToken");
-        sessionStorage.removeItem("user");
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("user");
-
+        // Clear local state immediately
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
 
-        navigate("/auth");
+        // Clear storage immediately
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("user");
+        sessionStorage.removeItem("authToken");
+        sessionStorage.removeItem("user");
+
+        // Then trigger the mutation (which will handle toast and navigation)
+        logoutMutation.mutate();
     };
 
     const value = {
         user,
         token,
         isAuthenticated,
-        isLoading,
+        isLoading:
+            isLoading || loginMutation.isPending || signupMutation.isPending,
         login,
         signup,
         logout,
+        // Expose mutation states for better UX
+        loginError: loginMutation.error,
+        signupError: signupMutation.error,
+        isLoggingIn: loginMutation.isPending,
+        isSigningUp: signupMutation.isPending,
     };
 
     return (

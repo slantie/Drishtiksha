@@ -24,6 +24,10 @@ export function DataTable({
     searchPlaceholder = "Search...",
     onRowClick,
     showCard = true,
+    title,
+    subtitle,
+    headerActions,
+    disableInternalSorting = false,
 }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [sortConfig, setSortConfig] = useState(null);
@@ -44,7 +48,7 @@ export function DataTable({
     const processedData = useMemo(() => {
         let filteredData = [...data];
 
-        if (searchTerm.trim()) {
+        if (showSearch && searchTerm.trim()) {
             const lowercasedSearchTerm = searchTerm.toLowerCase();
             filteredData = filteredData.filter((item) =>
                 columns.some((column) => {
@@ -75,7 +79,8 @@ export function DataTable({
             );
         }
 
-        if (sortConfig !== null) {
+        // Only apply internal sorting if not disabled and sortConfig exists
+        if (!disableInternalSorting && sortConfig !== null) {
             filteredData.sort((a, b) => {
                 const column = columns.find((c) => c.key === sortConfig.key);
                 // Use accessor to get the sortable value
@@ -95,7 +100,14 @@ export function DataTable({
         }
 
         return filteredData;
-    }, [data, searchTerm, sortConfig, columns]);
+    }, [
+        data,
+        searchTerm,
+        sortConfig,
+        columns,
+        showSearch,
+        disableInternalSorting,
+    ]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -118,20 +130,47 @@ export function DataTable({
 
     const tableContent = (
         <div className="w-full">
+            {/* Title Section */}
+            {(title || subtitle || headerActions) && (
+                <div className="p-2 pb-4 border-light-secondary dark:border-dark-secondary">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            {title && (
+                                <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
+                                    {title}
+                                </h3>
+                            )}
+                        </div>
+                        {subtitle && (
+                            <div className="flex items-center gap-2">
+                                {subtitle && (
+                                    <p className="text-sm text-light-muted-text dark:text-dark-muted-text mt-1">
+                                        {subtitle}
+                                    </p>
+                                )}
+                                {/* {headerActions} */}
+                            </div>
+                            // </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {showSearch && (
-                <div className="p-4 border-b border-light-secondary dark:border-dark-secondary">
+                <div className="px-6 py-4 border-light-secondary dark:border-dark-secondary rounded-xl">
                     <Input
                         leftIcon={<Search className="w-5 h-5" />}
                         type="text"
                         placeholder={searchPlaceholder}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-md"
                     />
                 </div>
             )}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full w-full table-auto">
-                    <thead>
+                    <thead className="bg-light-muted-background dark:bg-dark-muted-background">
                         <tr>
                             {columns.map((column) => (
                                 <th
@@ -140,8 +179,10 @@ export function DataTable({
                                         column.sortable &&
                                         handleSort(column.key)
                                     }
-                                    className={`px-6 py-3 text-left text-sm font-semibold uppercase tracking-wider ${
-                                        column.sortable ? "cursor-pointer" : ""
+                                    className={`px-6 py-4 text-left text-sm font-semibold text-light-muted-text dark:text-dark-muted-text uppercase tracking-wider transition-colors ${
+                                        column.sortable
+                                            ? "cursor-pointer hover:bg-light-hover dark:hover:bg-dark-hover"
+                                            : ""
                                     }`}
                                 >
                                     <div className="flex items-center">
@@ -153,23 +194,30 @@ export function DataTable({
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-light-secondary dark:divide-dark-secondary">
+                    <tbody className="bg-light-background dark:bg-dark-background divide-y divide-light-secondary dark:divide-dark-secondary">
                         {loading ? (
                             <tr>
                                 <td
                                     colSpan={columns.length}
-                                    className="text-center p-8"
+                                    className="text-center py-12"
                                 >
-                                    <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                                    <div className="flex flex-col items-center justify-center">
+                                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-light-muted-text dark:text-dark-muted-text mb-2" />
+                                        <span className="text-light-muted-text dark:text-dark-muted-text">
+                                            Loading...
+                                        </span>
+                                    </div>
                                 </td>
                             </tr>
                         ) : paginatedData.length === 0 ? (
                             <tr>
                                 <td
                                     colSpan={columns.length}
-                                    className="text-center p-8"
+                                    className="text-center py-12"
                                 >
-                                    {emptyMessage}
+                                    <div className="text-light-muted-text dark:text-dark-muted-text">
+                                        {emptyMessage}
+                                    </div>
                                 </td>
                             </tr>
                         ) : (
@@ -179,14 +227,14 @@ export function DataTable({
                                     onClick={() =>
                                         onRowClick && onRowClick(item)
                                     }
-                                    className={`${
+                                    className={`transition-colors ${
                                         onRowClick ? "cursor-pointer" : ""
                                     } hover:bg-light-muted-background dark:hover:bg-dark-muted-background`}
                                 >
                                     {columns.map((column) => (
                                         <td
                                             key={column.key}
-                                            className="px-6 py-4 whitespace-nowrap"
+                                            className="px-6 py-4 text-sm text-light-text dark:text-dark-text"
                                         >
                                             {column.render
                                                 ? column.render(item)
@@ -202,19 +250,34 @@ export function DataTable({
                 </table>
             </div>
             {showPagination && totalPages > 1 && (
-                <div className="flex items-center justify-between p-4 border-t border-light-secondary dark:border-dark-secondary">
-                    <span>
-                        Page {currentPage} of {totalPages}
-                    </span>
+                <div className="flex items-center justify-between px-6 py-4 bg-light-muted-background dark:bg-dark-muted-background border-t border-light-secondary dark:border-dark-secondary">
+                    <div className="flex items-center text-sm text-light-muted-text dark:text-dark-muted-text">
+                        <span>
+                            Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                            {Math.min(
+                                currentPage * pageSize,
+                                processedData.length
+                            )}{" "}
+                            of {processedData.length} results
+                        </span>
+                    </div>
                     <div className="flex items-center gap-2">
+                        <span className="text-sm text-light-muted-text dark:text-dark-muted-text">
+                            Page {currentPage} of {totalPages}
+                        </span>
                         <button
                             onClick={() =>
                                 setCurrentPage((p) => Math.max(1, p - 1))
                             }
                             disabled={currentPage === 1}
-                            className="p-2 rounded-md disabled:opacity-50"
+                            className="p-2 rounded-lg border border-light-secondary dark:border-dark-secondary 
+                                     bg-light-background dark:bg-dark-background 
+                                     text-light-text dark:text-dark-text
+                                     disabled:opacity-50 disabled:cursor-not-allowed
+                                     hover:bg-light-muted-background dark:hover:bg-dark-muted-background
+                                     transition-colors"
                         >
-                            <ChevronLeft />
+                            <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() =>
@@ -223,9 +286,14 @@ export function DataTable({
                                 )
                             }
                             disabled={currentPage === totalPages}
-                            className="p-2 rounded-md disabled:opacity-50"
+                            className="p-2 rounded-lg border border-light-secondary dark:border-dark-secondary 
+                                     bg-light-background dark:bg-dark-background 
+                                     text-light-text dark:text-dark-text
+                                     disabled:opacity-50 disabled:cursor-not-allowed
+                                     hover:bg-light-muted-background dark:hover:bg-dark-muted-background
+                                     transition-colors"
                         >
-                            <ChevronRight />
+                            <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
@@ -258,4 +326,8 @@ DataTable.propTypes = {
     searchPlaceholder: PropTypes.string,
     onRowClick: PropTypes.func,
     showCard: PropTypes.bool,
+    title: PropTypes.string,
+    subtitle: PropTypes.string,
+    headerActions: PropTypes.node,
+    disableInternalSorting: PropTypes.bool,
 };

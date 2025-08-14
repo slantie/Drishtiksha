@@ -22,7 +22,11 @@ import {
     Download,
     FileDown,
 } from "lucide-react";
-import { useVideoDetails } from "../hooks/useVideoDetails.js";
+import {
+    useVideoQuery,
+    useUpdateVideoMutation,
+    useDeleteVideoMutation,
+} from "../hooks/useVideosQuery.js";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
@@ -491,8 +495,17 @@ const AnalysisSummary = ({ analyses }) => {
 // Main Results Component
 export const Results = () => {
     const { videoId } = useParams();
-    const { video, isLoading, error, fetchVideo, updateVideo, deleteVideo } =
-        useVideoDetails(videoId);
+
+    // TanStack Query hooks
+    const {
+        data: video,
+        isLoading,
+        error,
+        refetch: fetchVideo,
+    } = useVideoQuery(videoId);
+    const updateMutation = useUpdateVideoMutation();
+    const deleteMutation = useDeleteVideoMutation();
+
     const { user } = useContext(AuthContext); // Get user from context
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -535,7 +548,11 @@ export const Results = () => {
         }
     };
 
-    if (isLoading) {
+    // Check for any loading state
+    const isAnyLoading =
+        isLoading || updateMutation.isPending || deleteMutation.isPending;
+
+    if (isAnyLoading && !video) {
         return <PageLoader text="Loading video analysis..." />;
     }
 
@@ -565,7 +582,7 @@ export const Results = () => {
                 video={video}
                 onRefresh={() => {
                     fetchVideo();
-                    showToast.success("Video Data Refreshed Successfully!");
+                    showToast.success("Data refreshed!");
                 }}
                 onEditClick={() => setIsEditModalOpen(true)}
                 onDeleteClick={() => setIsDeleteModalOpen(true)}
@@ -620,7 +637,7 @@ export const Results = () => {
                                         onClick={() => {
                                             fetchVideo();
                                             showToast.success(
-                                                "Video Data Refreshed Successfully!"
+                                                "Data refreshed!"
                                             );
                                         }}
                                         variant="outline"
@@ -641,13 +658,32 @@ export const Results = () => {
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 video={video}
-                onUpdate={(videoId, data) => updateVideo(data)}
+                onUpdate={async (videoId, data) => {
+                    try {
+                        await updateMutation.mutateAsync({
+                            videoId,
+                            updateData: data,
+                        });
+                        setIsEditModalOpen(false);
+                    } catch (error) {
+                        console.error("Update failed:", error);
+                        // Toast handled by the mutation
+                    }
+                }}
             />
             <DeleteVideoModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 video={video}
-                onDelete={deleteVideo}
+                onDelete={async (videoId) => {
+                    try {
+                        await deleteMutation.mutateAsync(videoId);
+                        // Navigation is handled by the mutation
+                    } catch (error) {
+                        console.error("Delete failed:", error);
+                        // Toast handled by the mutation
+                    }
+                }}
             />
         </div>
     );
