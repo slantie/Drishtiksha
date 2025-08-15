@@ -1,56 +1,76 @@
 # src/ml/registry.py
 
+import logging
 from typing import Dict, Type
+
+from src.config import Settings
 from src.ml.base import BaseModel
-from src.ml.models.lstm_detector_v2 import LSTMDetector
-from src.ml.models.lstm_detector_v3 import LSTMDetectorV3
+from src.ml.models.siglip_lstm_detector import SiglipLSTMV1, SiglipLSTMV3
 from src.ml.models.color_cues_detector import ColorCuesDetector
 
-# This dictionary maps class names from config.yaml to actual Python classes.
+logger = logging.getLogger(__name__)
+
 MODEL_REGISTRY: Dict[str, Type[BaseModel]] = {
-    "LSTMDetector": LSTMDetector,
-    "LSTMDetectorV3": LSTMDetectorV3,
+    "LSTMDetector": SiglipLSTMV1,
+    "LSTMDetectorV3": SiglipLSTMV3,
     "ColorCuesDetector": ColorCuesDetector,
-    # "NewAwesomeDetector": NewAwesomeDetector, # Example for the future
 }
 
 
 class ModelManager:
-    """A manager to handle loading and accessing ML models on demand."""
+    """
+    Handles the loading, caching, and accessing of ML models based on the
+    application's central configuration.
+    """
 
-    # --- THE FIX IS HERE ---
-    # We add the __init__ method to correctly initialize the class instance.
-    def __init__(self, model_configs: Dict):
+    def __init__(self, settings: Settings):
         """
-        Initializes the ModelManager.
+        Initializes the ModelManager with the application settings.
 
         Args:
-            model_configs: The 'models' dictionary from the main config file.
+            settings: The global, type-validated settings object.
         """
-        self._models: Dict[str, BaseModel] = {}  # This will cache loaded models
-        self.model_configs = model_configs  # Store the configuration
+        self._models: Dict[str, BaseModel] = {}
+        self.model_configs = settings.models
+        logger.info(f"ModelManager initialized with models: {list(self.model_configs.keys())}")
 
     def get_model(self, name: str) -> BaseModel:
-        """Loads a model if not already cached, then returns it."""
+        """
+        Loads a model if not already in the cache, then returns the instance.
+        Models are loaded lazily (on first request).
+
+        Args:
+            name: The name of the model to retrieve (e.g., "siglip-lstm-v3").
+
+        Returns:
+            An instance of a BaseModel subclass.
+
+        Raises:
+            ValueError: If the requested model name is not found in the configuration.
+        """
         if name not in self._models:
-            print(f"Model '{name.upper()}' not in cache. Initializing...")
-            if name not in self.model_configs:
+            logger.info(f"Model '{name}' not in cache. Loading...")
+            
+            model_config = self.model_configs.get(name)
+            if not model_config:
+                available = list(self.model_configs.keys())
                 raise ValueError(
-                    f"Configuration for model '{name}' not found in config.yaml."
+                    f"Configuration for model '{name}' not found. Available models: {available}"
                 )
 
-            config = self.model_configs[name]
-            class_name = config.get("class_name")
-
-            if class_name not in MODEL_REGISTRY:
+            model_class = MODEL_REGISTRY.get(model_config.class_name)
+            if not model_class:
                 raise ValueError(
-                    f"Model class '{class_name}' not found in MODEL_REGISTRY."
+                    f"Model class '{model_config.class_name}' for model '{name}' not found in MODEL_REGISTRY."
                 )
 
-            model_class = MODEL_REGISTRY[class_name]
-            config["name"] = name  # Add the model's name to its own config dict
-            instance = model_class(config)
-            instance.load()  # This is where weights are loaded
+            instance = model_class(model_config)
+            instance.load()
             self._models[name] = instance
+            logger.info(f"Model '{name}' successfully loaded and cached.")
 
         return self._models[name]
+
+    def get_available_models(self) -> list[str]:
+        """Returns a list of all configured model names."""
+        return list(self.model_configs.keys())

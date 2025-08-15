@@ -1,72 +1,64 @@
-# configs/config.yaml
+# ===================================================================
+# Drishtiksha AI - Main Application Configuration
+# ===================================================================
+# This file defines the core settings for the inference server.
+# It is loaded and validated by `src/config.py` at startup.
+# -------------------------------------------------------------------
 
-# Global settings used by the API and training scripts
-project_name: "Drishtiksha AI Deepfake Detection Service"
+# --- GLOBAL SETTINGS ---
+# These values apply to the entire application unless overridden locally.
+
+project_name: "Drishtiksha: Deepfake Detection Service"
 device: "cuda"
 
-# --- Model-specific configurations for INFERENCE ---
+
+# --- MODEL CONFIGURATIONS ---
+# Each key here represents a unique model identifier used in API calls.
+# The structure of each model's settings MUST match the corresponding Pydantic
+# model defined in `src/config.py` for validation to succeed.
+
 models:
   siglip-lstm-v1:
     class_name: "LSTMDetector"
     description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
     model_path: "models/siglip_lstm_best.pth"
     processor_path: "google/siglip-base-patch16-224"
-    num_frames: 60  # Reduced from 120 to save memory
-    device: "cuda"   # Override global device for this model
-    
+    num_frames: 120
+    device: "cuda"
+
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
       lstm_hidden_size: 512
       lstm_num_layers: 2
-      num_classes: 1 
+      num_classes: 1
 
   siglip-lstm-v3:
     class_name: "LSTMDetectorV3"
     description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
     model_path: "models/siglip_lstm_best.pth"
     processor_path: "google/siglip-base-patch16-224"
-    num_frames: 60  # Reduced from 120 to save memory
+    num_frames: 120
     rolling_window_size: 10
-    device: "cuda"   # Override global device for this model
+    device: "cuda"
     
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
       lstm_hidden_size: 512
       lstm_num_layers: 2
-      num_classes: 1 
+      num_classes: 1
 
   color-cues-lstm-v1:
     class_name: "ColorCuesDetector"
     description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
     model_path: "models/best_color_cues_lstm_model.pth"
     dlib_model_path: "models/shape_predictor_68_face_landmarks.dat"
-    device: "cuda"   # Use CPU for stable inference
-    
-    # ColorCues specific parameters
+    device: "cuda"
+
+    # Parameters specific to the ColorCues model architecture
     sequence_length: 32
     frames_per_video: 150
     histogram_bins: 32
     landmark_margin: 20
     rolling_window_size: 10
     hidden_size: 64
-    dropout: 0.5 
-
-# --- TRAINING-specific configurations ---
-# (No changes needed here as it inherits from the 'models' section)
-training:
-  target_model: "siglip-lstm-v1" 
-  real_data_paths:
-    - /home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/Celeb-real
-    - /home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/YouTube-real
-  fake_data_paths:
-    - /home/dell-pc-03/Deepfake/deepfake-detection/data/CelebDF-V2/Celeb-synthesis
-  validation_split: 0.2
-  num_workers: 4
-  num_epochs: 25
-  batch_size: 1
-  accumulation_steps: 16
-  learning_rate: 0.00001
-  optimizer: "AdamW"
-  patience: 5
-  checkpoint_path: "checkpoints/lstm_latest_checkpoint.pth"
-  output_dir: "outputs_lstm"
+    dropout: 0.5

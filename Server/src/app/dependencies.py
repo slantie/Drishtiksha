@@ -1,0 +1,80 @@
+# src/app/dependencies.py
+
+import os
+import uuid
+import tempfile
+import logging
+from typing import Generator, Tuple, Dict, Any, AsyncGenerator
+from fastapi import Depends, HTTPException, status, UploadFile, Form
+
+from src.config import settings
+from src.ml.registry import ModelManager
+
+logger = logging.getLogger(__name__)
+
+# --- State Management ---
+# This dictionary will hold our application's state, like the ModelManager instance.
+# It will be populated during the startup event in main.py.
+app_state: Dict[str, Any] = {}
+
+def get_model_manager() -> ModelManager:
+    """Dependency to get the singleton ModelManager instance."""
+    manager = app_state.get("model_manager")
+    if not manager:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ModelManager is not available. The service may be starting up."
+        )
+    return manager
+
+# --- "Super Dependency" for Analysis Endpoints ---
+# This dependency handles all the boilerplate logic for analysis requests.
+async def process_video_request(
+    video: UploadFile,
+    model_name_form: str = Form(
+        default=None,
+        alias="model",
+        description="Optional: Specify a model. If omitted, the best available model is chosen."
+    ),
+    model_manager: ModelManager = Depends(get_model_manager)
+) -> AsyncGenerator[Tuple[str, str], None]:
+    """
+    A dependency that handles the entire lifecycle of a video analysis request:
+    1. Selects the appropriate model (either requested or via load balancing).
+    2. Saves the uploaded video to a secure temporary file.
+    3. Yields the model name and the path to the temporary file to the endpoint.
+    4. Cleans up the temporary file after the request is complete.
+    """
+    # For now, we'll simplify the load balancing. A dedicated class would be better.
+    target_model_name = model_name_form or settings.default_model_name
+    
+    if target_model_name not in model_manager.get_available_models():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Model '{target_model_name}' not found."
+        )
+
+    temp_path = None
+    try:
+        # Create a secure temporary file to store the uploaded video
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=os.path.splitext(video.filename)[1]
+        ) as tmp:
+            content = await video.read()
+            # Check if file is empty
+            if not content:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Video file cannot be empty.")
+            tmp.write(content)
+            temp_path = tmp.name
+        
+        # Yield control back to the endpoint function
+        yield target_model_name, temp_path
+
+    finally:
+        # This cleanup code runs after the response has been sent
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+                logger.info(f"Cleaned up temporary file: {temp_path}")
+            except OSError as e:
+                logger.error(f"Error cleaning up temp file {temp_path}: {e}")

@@ -1,124 +1,68 @@
 # src/app/schemas.py
 
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union
+from datetime import datetime
 
+# --- Standard Error and Response Wrappers ---
 
-class HealthResponse(BaseModel):
+class APIError(BaseModel):
+    """Standard model for API error responses."""
+    error: str
+    message: str
+    details: Optional[Union[str, Dict[str, Any]]] = None
+
+class APIResponse(BaseModel):
+    """Standard wrapper for all successful API responses."""
+    success: bool = True
+    model_used: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    data: Any # The actual response data will go here
+
+# --- Health and Status Schemas ---
+
+class ModelStatus(BaseModel):
+    name: str
+    loaded: bool
+    description: str
+
+class HealthStatus(BaseModel):
+    """Detailed health status of the service."""
     status: str
-    model_loaded: bool
+    active_models: List[ModelStatus]
     default_model: str
 
+# --- Analysis Schemas (One for each endpoint type) ---
 
-class ModelInfo(BaseModel):
-    model_name: str
-    description: str
-    model_path: str
-    processor_path: str
-    device: str
-
-
-class ModelInfoResponse(BaseModel):
-    success: bool = True
-    model_info: ModelInfo
-
-
-class AnalysisResult(BaseModel):
+class QuickAnalysisData(BaseModel):
+    """Data model for the /analyze endpoint."""
     prediction: str
     confidence: float
     processing_time: float
-    model_version: str
+    note: Optional[str] = None
 
-
-class AnalysisResponse(BaseModel):
-    success: bool = True
-    video_id: str
-    result: AnalysisResult
-
-
-class DetailedMetrics(BaseModel):
-    frame_count: int
-    per_frame_scores: List[float]
-    rolling_average_scores: List[float]
-    final_average_score: float
-    max_score: float
-    min_score: float
-    score_variance: float
-    suspicious_frames_count: int
-    suspicious_frames_percentage: float
-
-
-class DetailedAnalysisResult(BaseModel):
+class DetailedAnalysisData(BaseModel):
+    """
+    Data model for the /analyze/detailed endpoint.
+    The 'metrics' field is a flexible dictionary to accommodate different models.
+    """
     prediction: str
     confidence: float
     processing_time: float
-    model_version: str
-    metrics: DetailedMetrics
+    metrics: Dict[str, Any]
+    note: Optional[str] = None
 
-
-class DetailedAnalysisResponse(BaseModel):
-    success: bool = True
-    video_id: str
-    result: DetailedAnalysisResult
-
-
-class FrameAnalysisSummary(BaseModel):
+class FramePrediction(BaseModel):
+    """Represents the analysis result for a single frame."""
+    frame_index: int
+    score: float
     prediction: str
-    confidence: float
-    frame_count: int
-    suspicious_frames: int
-    average_suspicion: float
-    max_suspicion: float
-    min_suspicion: float
-    suspicion_variance: float
 
-
-class FrameAnalysisResponse(BaseModel):
-    success: bool = True
-    video_id: str
-    summary: FrameAnalysisSummary
-
-
-class ColorCuesTemporalAnalysis(BaseModel):
-    per_sequence_scores: List[float]
-    rolling_averages: List[float]
-    sequence_count: int
-    avg_score: float
-    max_score: float
-    min_score: float
-    score_variance: float
-    suspicious_sequences: int
-    suspicious_percentage: float
-
-
-class ColorCuesAnalysisResult(BaseModel):
-    prediction: str
-    confidence: float
+class FramesAnalysisData(BaseModel):
+    """Data model for the /analyze/frames endpoint."""
+    overall_prediction: str
+    overall_confidence: float
     processing_time: float
-    fake_probability: float
-    max_fake_score: float
-    min_fake_score: float
-    score_variance: float
-    num_sequences: int
-    num_features_extracted: int
-    model_version: str
-
-
-class ColorCuesDetailedResult(BaseModel):
-    prediction: str
-    confidence: float
-    processing_time: float
-    temporal_analysis: ColorCuesTemporalAnalysis
-    model_version: str
-
-
-class ColorCuesAnalysisResponse(BaseModel):
-    success: bool = True
-    video_id: str
-    result: ColorCuesAnalysisResult
-
-
-class ColorCuesDetailedResponse(BaseModel):
-    success: bool = True
-    video_id: str
-    result: ColorCuesDetailedResult
+    frame_predictions: List[FramePrediction]
+    temporal_analysis: Dict[str, Any]
+    note: Optional[str] = None
