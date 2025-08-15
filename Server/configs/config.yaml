@@ -10,16 +10,46 @@ models:
     class_name: "LSTMDetector"
     description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
     model_path: "models/siglip_lstm_best.pth"
-    # --- CHANGE THIS LINE ---
     processor_path: "google/siglip-base-patch16-224"
-    num_frames: 120
+    num_frames: 60  # Reduced from 120 to save memory
+    device: "cuda"   # Override global device for this model
     
     model_definition:
-      # --- AND CHANGE THIS LINE ---
       base_model_path: "google/siglip-base-patch16-224"
       lstm_hidden_size: 512
       lstm_num_layers: 2
       num_classes: 1 
+
+  siglip-lstm-v3:
+    class_name: "LSTMDetectorV3"
+    description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
+    model_path: "models/siglip_lstm_best.pth"
+    processor_path: "google/siglip-base-patch16-224"
+    num_frames: 60  # Reduced from 120 to save memory
+    rolling_window_size: 10
+    device: "cuda"   # Override global device for this model
+    
+    model_definition:
+      base_model_path: "google/siglip-base-patch16-224"
+      lstm_hidden_size: 512
+      lstm_num_layers: 2
+      num_classes: 1 
+
+  color-cues-lstm-v1:
+    class_name: "ColorCuesDetector"
+    description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
+    model_path: "models/best_color_cues_lstm_model.pth"
+    dlib_model_path: "models/shape_predictor_68_face_landmarks.dat"
+    device: "cuda"   # Use CPU for stable inference
+    
+    # ColorCues specific parameters
+    sequence_length: 32
+    frames_per_video: 150
+    histogram_bins: 32
+    landmark_margin: 20
+    rolling_window_size: 10
+    hidden_size: 64
+    dropout: 0.5 
 
 # --- TRAINING-specific configurations ---
 # (No changes needed here as it inherits from the 'models' section)
