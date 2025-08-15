@@ -1,0 +1,8 @@
+{
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "verbose": true,
+    "clearMocks": true,
+    "resetMocks": true,
+    "restoreMocks": true
+}

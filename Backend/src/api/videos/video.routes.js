@@ -4,7 +4,11 @@ import express from "express";
 import { authenticateToken } from "../../middleware/auth.middleware.js";
 import { upload } from "../../middleware/multer.middleware.js";
 import { videoController } from "./video.controller.js";
-import { validate, videoUpdateSchema } from "./video.validation.js";
+import {
+    validate,
+    videoUpdateSchema,
+    analysisRequestSchema,
+} from "./video.validation.js";
 
 const router = express.Router();
 
@@ -25,6 +29,14 @@ router
     .patch(validate(videoUpdateSchema), videoController.updateVideo)
     .delete(videoController.deleteVideo);
 
+// Enhanced analysis endpoints
+router
+    .route("/:id/analyze")
+    .post(
+        validate(analysisRequestSchema),
+        videoController.createSpecificAnalysis
+    );
 router.route("/:id/visualize").post(videoController.createVisualAnalysis);
+router.route("/:id/analysis").get(videoController.getAnalysisResults);
 
 export default router;

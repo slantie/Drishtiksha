@@ -48,18 +48,104 @@ export const videoRepository = {
         return prisma.video.delete({ where: { id: videoId } });
     },
 
-    async findAnalysis(videoId, model) {
-        return prisma.deepfakeAnalysis.findUnique({
-            where: {
-                videoId_model_unique_constraint: {
-                    videoId,
-                    model,
+    async findAnalysis(videoId, model, type = null) {
+        if (type) {
+            return prisma.deepfakeAnalysis.findUnique({
+                where: {
+                    video_model_type_unique: {
+                        videoId,
+                        model,
+                        type,
+                    },
                 },
+                include: {
+                    analysisDetails: true,
+                    frameAnalyses: true,
+                    temporalAnalyses: true,
+                    modelInfo: true,
+                    systemInfo: true,
+                    analysisError: true,
+                },
+            });
+        }
+
+        // For backward compatibility, find any analysis for video+model
+        return prisma.deepfakeAnalysis.findFirst({
+            where: {
+                videoId,
+                model,
             },
+            include: {
+                analysisDetails: true,
+                frameAnalyses: true,
+                temporalAnalyses: true,
+                modelInfo: true,
+                systemInfo: true,
+                analysisError: true,
+            },
+            orderBy: { createdAt: "desc" },
         });
     },
 
     async createAnalysis(analysisData) {
-        return prisma.deepfakeAnalysis.create({ data: analysisData });
+        return prisma.deepfakeAnalysis.create({
+            data: analysisData,
+            include: {
+                analysisDetails: true,
+                frameAnalyses: true,
+                temporalAnalyses: true,
+                modelInfo: true,
+                systemInfo: true,
+                analysisError: true,
+            },
+        });
+    },
+
+    async updateAnalysis(analysisId, updateData) {
+        return prisma.deepfakeAnalysis.update({
+            where: { id: analysisId },
+            data: updateData,
+            include: {
+                analysisDetails: true,
+                frameAnalyses: true,
+                temporalAnalyses: true,
+                modelInfo: true,
+                systemInfo: true,
+                analysisError: true,
+            },
+        });
+    },
+
+    async findAnalysesByVideo(videoId) {
+        return prisma.deepfakeAnalysis.findMany({
+            where: { videoId },
+            include: {
+                analysisDetails: true,
+                frameAnalyses: true,
+                temporalAnalyses: true,
+                modelInfo: true,
+                systemInfo: true,
+                analysisError: true,
+            },
+            orderBy: { createdAt: "desc" },
+        });
+    },
+
+    async findAnalysesByType(videoId, type) {
+        return prisma.deepfakeAnalysis.findMany({
+            where: {
+                videoId,
+                type,
+            },
+            include: {
+                analysisDetails: true,
+                frameAnalyses: true,
+                temporalAnalyses: true,
+                modelInfo: true,
+                systemInfo: true,
+                analysisError: true,
+            },
+            orderBy: { createdAt: "desc" },
+        });
     },
 };

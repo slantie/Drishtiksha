@@ -21,4 +21,19 @@ const videoUpdateSchema = z.object({
     }),
 });
 
-export { validate, videoUpdateSchema };
+const analysisRequestSchema = z.object({
+    body: z.object({
+        type: z.enum(["QUICK", "DETAILED", "FRAMES", "VISUALIZE"], {
+            required_error: "Analysis type is required",
+            invalid_type_error: "Invalid analysis type",
+        }),
+        model: z
+            .enum(["SIGLIP_LSTM_V1", "SIGLIP_LSTM_V3", "COLOR_CUES_LSTM_V1"])
+            .optional(),
+    }),
+    params: z.object({
+        id: z.string().uuid("Invalid video ID format"),
+    }),
+});
+
+export { validate, videoUpdateSchema, analysisRequestSchema };

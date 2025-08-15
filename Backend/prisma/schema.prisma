@@ -1,3 +1,34 @@
+// =============================================================================
+// Drishtiksha AI Deepfake Detection Service - Database Schema
+// =============================================================================
+//
+// This schema supports the comprehensive multi-model deepfake detection system
+// with integration to the enhanced FastAPI ML Server featuring:
+//
+// 🤖 SUPPORTED MODELS:
+// - SIGLIP-LSTM V1: Fast, balanced performance for real-time applications  
+// - SIGLIP-LSTM V3: Enhanced accuracy with advanced temporal features
+// - ColorCues LSTM: Specialized color-based deepfake detection
+//
+// 📋 ANALYSIS ENDPOINTS:
+// - QUICK: /analyze - Fast prediction with basic confidence score
+// - DETAILED: /analyze/detailed - Comprehensive analysis with detailed metrics
+// - FRAMES: /analyze/frames - Frame-by-frame analysis with temporal patterns  
+// - VISUALIZE: /analyze/visualize - Visual analysis with overlays
+//
+// 🏗️ SCHEMA STRUCTURE:
+// - DeepfakeAnalysis: Core analysis record with relationships to detailed data
+// - AnalysisDetails: Comprehensive metrics (avg confidence, temporal consistency)
+// - FrameAnalysis: Per-frame detection results for timeline analysis
+// - TemporalAnalysis: Pattern detection and anomaly identification
+// - ModelInfo: Model version, architecture, and device information
+// - SystemInfo: GPU memory, processing device, load balancing metrics
+// - AnalysisError: Comprehensive error tracking with troubleshooting suggestions
+//
+// 🔗 INTEGRATION GUIDE:
+// Refer to Server/README.md for complete Backend-Server integration patterns
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -39,19 +70,19 @@ model RefreshToken {
 }
 
 model Video {
-  id          String      @id @default(uuid())
-  filename    String
-  url         String
-  visualizedUrl String?
-  publicId    String
-  mimetype    String
-  size        Int
-  description String?
-  status      VideoStatus @default(UPLOADED)
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id            String      @id @default(uuid())
+  filename      String
+  url           String
+  visualizedUrl String? // Legacy: General visualized analysis URL (deprecated in favor of per-analysis URLs)
+  publicId      String
+  mimetype      String
+  size          Int
+  description   String?
+  status        VideoStatus @default(UPLOADED)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   analyses DeepfakeAnalysis[]
 
@@ -67,14 +98,128 @@ model DeepfakeAnalysis {
   processingTime Float? // in seconds
   model          AnalysisModel
   modelVersion   String?
+  analysisType   AnalysisType   @default(QUICK)
   status         AnalysisStatus @default(PENDING)
   errorMessage   String?
   timestamp      DateTime?
+  visualizedUrl  String? // URL for model-specific visualized analysis output (/analyze/visualize endpoint)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  @@unique([videoId, model], name: "videoId_model_unique_constraint")
+  // Enhanced analysis data relationships
+  analysisDetails  AnalysisDetails?
+  frameAnalysis    FrameAnalysis[]
+  temporalAnalysis TemporalAnalysis?
+  modelInfo        ModelInfo?
+  systemInfo       SystemInfo?
+  errors           AnalysisError[] // Track analysis errors and retry attempts
+
+  @@unique([videoId, model, analysisType], name: "video_model_type_unique")
   @@map("deepfake_analyses")
+}
+
+model AnalysisDetails {
+  id                  String           @id @default(uuid())
+  analysisId          String           @unique
+  analysis            DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  frameCount          Int
+  avgConfidence       Float
+  confidenceStd       Float
+  temporalConsistency Float?
+  rollingAverage      Float?
+  createdAt           DateTime         @default(now())
+
+  @@map("analysis_details")
+}
+
+model FrameAnalysis {
+  id          String           @id @default(uuid())
+  analysisId  String
+  analysis    DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  frameNumber Int
+  confidence  Float
+  prediction  PredictionType
+  timestamp   Float? // Frame timestamp in video
+  createdAt   DateTime         @default(now())
+
+  @@unique([analysisId, frameNumber], name: "analysis_frame_unique")
+  @@map("frame_analysis")
+}
+
+model TemporalAnalysis {
+  id               String           @id @default(uuid())
+  analysisId       String           @unique
+  analysis         DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  consistencyScore Float
+  patternDetection String?
+  anomalyFrames    Int[] // Array of frame numbers with anomalies
+  confidenceTrend  String?
+  totalFrames      Int
+  fakeFrames       Int
+  realFrames       Int
+  avgConfidence    Float
+  createdAt        DateTime         @default(now())
+
+  @@map("temporal_analysis")
+}
+
+model ModelInfo {
+  id           String           @id @default(uuid())
+  analysisId   String           @unique
+  analysis     DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  version      String
+  architecture String
+  device       String
+  batchSize    Int?
+  numFrames    Int?
+  createdAt    DateTime         @default(now())
+
+  @@map("model_info")
+}
+
+model SystemInfo {
+  id                String           @id @default(uuid())
+  analysisId        String           @unique
+  analysis          DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  gpuMemoryUsed     String?
+  processingDevice  String?
+  cudaAvailable     Boolean?
+  systemMemoryUsed  String?
+  loadBalancingInfo Json? // Store load balancing metrics as JSON
+  createdAt         DateTime         @default(now())
+
+  @@map("system_info")
+}
+
+model AnalysisError {
+  id              String           @id @default(uuid())
+  analysisId      String
+  analysis        DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  errorType       String // "Model not found", "CUDA error", etc.
+  errorMessage    String
+  availableModels String[] // Available models at time of error
+  suggestions     String[] // Troubleshooting suggestions
+  stackTrace      String? // Technical stack trace for debugging
+  serverResponse  Json? // Full server error response
+  retryAttempt    Int              @default(0)
+  createdAt       DateTime         @default(now())
+
+  @@map("analysis_errors")
+}
+
+model ServerHealth {
+  id              String       @id @default(uuid())
+  serverUrl       String // ML Server URL
+  status          ServerStatus @default(UNKNOWN)
+  availableModels String[] // Models currently loaded
+  loadMetrics     Json? // Current load balancing metrics
+  gpuInfo         Json? // GPU availability and memory info
+  lastHealthCheck DateTime
+  responseTime    Float? // Health check response time in ms
+  errorMessage    String?
+  createdAt       DateTime     @default(now())
+
+  @@map("server_health")
 }
 
 enum Role {
@@ -102,8 +247,23 @@ enum AnalysisStatus {
   FAILED
 }
 
+enum AnalysisType {
+  QUICK // Basic analysis - /analyze endpoint
+  DETAILED // Comprehensive analysis - /analyze/detailed endpoint  
+  FRAMES // Frame-by-frame analysis - /analyze/frames endpoint
+  VISUALIZE // Visual analysis with overlays - /analyze/visualize endpoint
+}
+
 enum AnalysisModel {
-  LSTM_SIGLIP
-  RPPG
-  COLORCUES
+  SIGLIP_LSTM_V1 // siglip-lstm-v1: Balanced performance, fast inference
+  SIGLIP_LSTM_V3 // siglip-lstm-v3: Enhanced accuracy, detailed analysis
+  COLOR_CUES_LSTM_V1 // color-cues-lstm-v1: Color-based deepfake detection
+}
+
+enum ServerStatus {
+  HEALTHY // Server responding and models loaded
+  DEGRADED // Server responding but some models unavailable
+  UNHEALTHY // Server not responding or major issues
+  MAINTENANCE // Server in maintenance mode
+  UNKNOWN // Status not yet determined
 }

@@ -75,8 +75,8 @@ def test_model_loading():
     print("=" * 50)
 
     try:
-        from config import settings
-        from ml.registry import ModelManager
+        from src.config import settings
+        from src.ml.registry import ModelManager
 
         # Test with v1 model first (simpler)
         print("Testing siglip-lstm-v1...")
