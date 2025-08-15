@@ -44,17 +44,25 @@ def get_optimal_model(requested_model: str = None) -> str:
     Load balancing logic to select the optimal model.
     If a specific model is requested, use it. Otherwise, select based on current load.
     """
-    if requested_model:
+    print(f"get_optimal_model called with: '{requested_model}'")
+
+    if requested_model and requested_model.strip():
+        print(f"Using requested model: '{requested_model}'")
         return requested_model
 
     # If no specific model requested, use load balancing
+    print("No specific model requested, using load balancing")
     with request_lock:
         available_models = list(settings.models.keys())
         if not available_models:
+            print(
+                f"No available models, using default: '{settings.default_model_name}'"
+            )
             return settings.default_model_name
 
         # Select model with lowest current request count
         optimal_model = min(available_models, key=lambda m: request_counts[m])
+        print(f"Load balancing selected: '{optimal_model}'")
         return optimal_model
 
 
@@ -155,7 +163,7 @@ async def ping():
     return {"message": "pong"}
 
 
-@app.get("/model/info", response_model=ModelInfoResponse, tags=["Model"])
+@app.get("/models/info", response_model=ModelInfoResponse, tags=["Model"])
 async def get_model_info():
     """Get information about the currently loaded model."""
     manager = app_state["model_manager"]
@@ -250,6 +258,103 @@ async def analyze_video(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail={
                         "error": f"Analysis failed: {str(e)}",
+                        "model_used": target_model_name,
+                        "request_id": request_id,
+                    },
+                )
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+        finally:
+            # Decrement request count
+            with request_lock:
+                request_counts[target_model_name] = max(
+                    0, request_counts[target_model_name] - 1
+                )
+
+
+@app.post(
+    "/analyze/quick",
+    response_model=AnalysisResponse,
+    tags=["Analysis"],
+    dependencies=[Depends(get_api_key)],
+)
+async def analyze_video_quick(
+    video: UploadFile = File(..., description="The video file to analyze quickly."),
+    video_id: str = Form(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Optional unique ID for the video.",
+    ),
+    model_name: str = Form(
+        default="",
+        description="Optional model name (defaults to load-balanced selection).",
+    ),
+):
+    """Performs quick deepfake analysis with load balancing."""
+    request_id = str(uuid.uuid4())[:8]
+    manager = app_state.get("model_manager")
+
+    print(f"[{request_id}] Received model_name parameter: '{model_name}'")
+
+    # Use load balancing to select optimal model
+    target_model_name = get_optimal_model(model_name)
+
+    print(f"[{request_id}] Target model selected: '{target_model_name}'")
+
+    # Apply semaphore for load balancing
+    async with request_semaphores[target_model_name]:
+        with request_lock:
+            request_counts[target_model_name] += 1
+
+        try:
+            model = manager.get_model(target_model_name)
+            print(
+                f"[{request_id}] Starting quick analysis with model: {target_model_name}"
+            )
+
+            # Use a temporary file to securely handle the upload
+            temp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=os.path.splitext(video.filename)[1]
+                ) as tmp:
+                    tmp.write(await video.read())
+                    temp_path = tmp.name
+
+                # Safe model execution
+                execution_result = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: safe_model_execution(model, "predict", temp_path)
+                )
+
+                if "error" in execution_result:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "error": execution_result["error"],
+                            "model_used": target_model_name,
+                            "supported_methods": execution_result.get(
+                                "supported_methods", []
+                            ),
+                        },
+                    )
+
+                result_dict = execution_result["result"]
+                result_dict["model_version"] = target_model_name
+
+                return AnalysisResponse(
+                    success=True,
+                    video_id=video_id,
+                    result=AnalysisResult(**result_dict),
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                print(f"[{request_id}] Quick analysis failed: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={
+                        "error": f"Quick analysis failed: {str(e)}",
                         "model_used": target_model_name,
                         "request_id": request_id,
                     },

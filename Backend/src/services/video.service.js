@@ -5,6 +5,7 @@ import { createWriteStream } from "fs"; // Import createWriteStream separately
 import path from "path";
 import { fileURLToPath } from "url";
 import { videoRepository } from "../repositories/video.repository.js";
+import prisma from "../config/database.js";
 import {
     uploadOnCloudinary,
     uploadStreamToCloudinary,
@@ -153,45 +154,38 @@ export const videoService = {
             // Process each combination of type and model
             for (const type of types) {
                 for (const model of models) {
-                    // Check if analysis already exists
-                    const existingAnalysis = await videoRepository.findAnalysis(
+                    // Check if analysis already exists (allow rerun for versioning)
+                    const existingAnalysis = await this._checkExistingAnalysis(
                         video.id,
                         model,
-                        type
+                        type,
+                        true // Allow rerun for versioning
                     );
 
                     if (
                         existingAnalysis &&
-                        existingAnalysis.status !== "FAILED"
+                        existingAnalysis.status === "COMPLETED"
                     ) {
                         logger.info(
-                            `${type} analysis with ${model} already exists for video ${videoId}. Skipping.`
+                            `${type} analysis with ${model} already exists for video ${videoId}. Creating new version.`
                         );
-                        continue;
                     }
 
-                    // Create new analysis entry
+                    // Create new analysis entry (versioning through unique timestamps)
                     const analysisData = {
                         videoId: video.id,
                         model: model,
-                        type: type,
+                        analysisType: type,
                         status: "PROCESSING",
                         confidence: 0,
-                        isDeepfake: false,
-                        processingStartedAt: new Date(),
+                        prediction: "REAL",
+                        timestamp: new Date(), // Ensures unique timestamp for versioning
                     };
 
-                    let analysis;
-                    if (existingAnalysis) {
-                        analysis = await videoRepository.updateAnalysis(
-                            existingAnalysis.id,
-                            analysisData
-                        );
-                    } else {
-                        analysis = await videoRepository.createAnalysis(
-                            analysisData
-                        );
-                    }
+                    // Always create new analysis for versioning support
+                    const analysis = await videoRepository.createAnalysis(
+                        analysisData
+                    );
 
                     // Perform the analysis
                     await this._performSingleAnalysis(
@@ -220,11 +214,10 @@ export const videoService = {
                         const visualizationData = {
                             videoId: video.id,
                             model: model,
-                            type: "VISUALIZE",
+                            analysisType: "VISUALIZE",
                             status: "PROCESSING",
                             confidence: 0,
-                            isDeepfake: false,
-                            processingStartedAt: new Date(),
+                            prediction: "REAL",
                         };
 
                         let visualization;
@@ -306,17 +299,20 @@ export const videoService = {
             const updateData = {
                 status: "COMPLETED",
                 confidence: results.confidence || 0,
-                isDeepfake:
-                    results.is_deepfake || results.prediction === "FAKE",
-                prediction: results.prediction || "UNKNOWN",
-                processingCompletedAt: new Date(),
+                prediction:
+                    results.prediction ||
+                    (results.is_deepfake ? "FAKE" : "REAL"),
                 processingTime: results.processing_time || 0,
                 modelVersion: results.model_version || "unknown",
-                rawResult: results,
             };
 
-            // Add type-specific data handling here if needed
-            // (will be expanded based on the enhanced schema relationships)
+            // Save comprehensive analysis data to related tables
+            await this._saveEnhancedAnalysisData(
+                analysis.id,
+                results,
+                type,
+                model
+            );
 
             // Update analysis with results
             await videoRepository.updateAnalysis(analysis.id, updateData);
@@ -364,11 +360,10 @@ export const videoService = {
                 const updateData = {
                     status: "COMPLETED",
                     confidence: 1.0, // Visualization doesn't have confidence
-                    isDeepfake: false, // Visualization analysis itself
-                    prediction: "VISUALIZATION",
-                    processingCompletedAt: new Date(),
-                    visualizedUrl: result.visualizationUrl,
-                    rawResult: result,
+                    prediction: "REAL", // Visualization analysis itself
+                    visualizedUrl: await this._uploadVisualizationToCloudinary(
+                        result.visualizationPath
+                    ),
                 };
 
                 await videoRepository.updateAnalysis(analysis.id, updateData);
@@ -535,34 +530,19 @@ export const videoService = {
 
         for (const visualModel of modelsToVisualize) {
             try {
-                // Check if visualization already exists for this model
-                const existingVisualization =
-                    await videoRepository.findAnalysis(
-                        video.id,
-                        visualModel,
-                        "VISUALIZE"
-                    );
+                // Always create new visualization for versioning support
+                logger.info(
+                    `Creating new visualization with ${visualModel} for video ${videoId}`
+                );
 
-                if (
-                    existingVisualization &&
-                    existingVisualization.status === "COMPLETED"
-                ) {
-                    logger.info(
-                        `Visualization with ${visualModel} already exists for video ${videoId}`
-                    );
-                    results.push(existingVisualization);
-                    continue;
-                }
-
-                // Create or update visualization analysis entry
+                // Create new visualization analysis entry
                 const visualizationData = {
                     videoId: video.id,
                     model: visualModel,
-                    type: "VISUALIZE",
+                    analysisType: "VISUALIZE",
                     status: "PROCESSING",
                     confidence: 0,
-                    isDeepfake: false,
-                    processingStartedAt: new Date(),
+                    prediction: "REAL",
                 };
 
                 let visualization;
@@ -656,41 +636,23 @@ export const videoService = {
         const results = [];
 
         for (const analysisModel of modelsToUse) {
-            // Check if analysis already exists
-            const existingAnalysis = await videoRepository.findAnalysis(
-                video.id,
-                analysisModel,
-                analysisType
+            // Always create new analysis for versioning support
+            logger.info(
+                `Creating new ${analysisType} analysis with ${analysisModel} for video ${videoId}`
             );
-
-            if (existingAnalysis && existingAnalysis.status === "COMPLETED") {
-                logger.info(
-                    `${analysisType} analysis with ${analysisModel} already exists for video ${videoId}`
-                );
-                results.push(existingAnalysis);
-                continue;
-            }
 
             // Create new analysis entry
             const analysisData = {
                 videoId: video.id,
                 model: analysisModel,
-                type: analysisType,
+                analysisType: analysisType,
                 status: "PROCESSING",
                 confidence: 0,
-                isDeepfake: false,
-                processingStartedAt: new Date(),
+                prediction: "REAL", // Default prediction, will be updated after analysis
             };
 
-            let analysis;
-            if (existingAnalysis) {
-                analysis = await videoRepository.updateAnalysis(
-                    existingAnalysis.id,
-                    analysisData
-                );
-            } else {
-                analysis = await videoRepository.createAnalysis(analysisData);
-            }
+            // Always create new analysis for versioning
+            const analysis = await videoRepository.createAnalysis(analysisData);
 
             // Perform the analysis based on type
             if (analysisType === "VISUALIZE") {
@@ -727,5 +689,272 @@ export const videoService = {
      */
     isValidAnalysisType(type) {
         return ["QUICK", "DETAILED", "FRAMES", "VISUALIZE"].includes(type);
+    },
+
+    /**
+     * Saves enhanced analysis data to related tables
+     * @private
+     */
+    async _saveEnhancedAnalysisData(analysisId, results, analysisType, model) {
+        try {
+            // Save ModelInfo
+            if (results.model || results.model_version) {
+                await this._saveModelInfo(analysisId, results, model);
+            }
+
+            // Save SystemInfo if available
+            if (results.system_info || results.device_info) {
+                await this._saveSystemInfo(analysisId, results);
+            }
+
+            // Save AnalysisDetails for detailed analysis
+            if (analysisType === "DETAILED" && results.detailed_metrics) {
+                await this._saveAnalysisDetails(analysisId, results);
+            }
+
+            // Save FrameAnalysis for frame-based analysis
+            if (analysisType === "FRAMES" && results.frame_analyses) {
+                await this._saveFrameAnalysis(
+                    analysisId,
+                    results.frame_analyses
+                );
+            }
+
+            // Save TemporalAnalysis for temporal data
+            if (results.temporal_analysis || analysisType === "FRAMES") {
+                await this._saveTemporalAnalysis(analysisId, results);
+            }
+
+            logger.info(
+                `Enhanced analysis data saved for analysis ${analysisId}`
+            );
+        } catch (error) {
+            logger.error(
+                `Failed to save enhanced analysis data: ${error.message}`
+            );
+            // Don't throw error to avoid breaking the main analysis flow
+        }
+    },
+
+    /**
+     * Save model information
+     * @private
+     */
+    async _saveModelInfo(analysisId, results, model) {
+        const modelData = {
+            analysisId,
+            version: results.model_version || "unknown",
+            architecture: this._getModelArchitecture(model),
+            device: results.device || "unknown",
+            batchSize: results.batch_size || null,
+            numFrames: results.num_frames || null,
+        };
+
+        await prisma.modelInfo.upsert({
+            where: { analysisId },
+            update: modelData,
+            create: modelData,
+        });
+    },
+
+    /**
+     * Save system information
+     * @private
+     */
+    async _saveSystemInfo(analysisId, results) {
+        const systemData = {
+            analysisId,
+            gpuMemoryUsed: results.gpu_memory_used?.toString() || null,
+            processingDevice:
+                results.device || results.processing_device || null,
+            cudaAvailable: results.cuda_available || null,
+            systemMemoryUsed: results.system_memory_used?.toString() || null,
+            loadBalancingInfo: results.load_balancing_info || null,
+        };
+
+        await prisma.systemInfo.upsert({
+            where: { analysisId },
+            update: systemData,
+            create: systemData,
+        });
+    },
+
+    /**
+     * Save detailed analysis metrics
+     * @private
+     */
+    async _saveAnalysisDetails(analysisId, results) {
+        const detailsData = {
+            analysisId,
+            frameCount: results.frame_count || results.num_frames || 0,
+            avgConfidence: results.avg_confidence || results.confidence || 0,
+            confidenceStd:
+                results.confidence_std ||
+                results.detailed_metrics?.confidence_std ||
+                0,
+            temporalConsistency:
+                results.detailed_metrics?.temporal_coherence ||
+                results.temporal_consistency ||
+                null,
+            rollingAverage: results.detailed_metrics?.rolling_average || null,
+        };
+
+        await prisma.analysisDetails.upsert({
+            where: { analysisId },
+            update: detailsData,
+            create: detailsData,
+        });
+    },
+
+    /**
+     * Save frame-by-frame analysis
+     * @private
+     */
+    async _saveFrameAnalysis(analysisId, frameAnalyses) {
+        // Clear existing frame analyses for this analysis
+        await prisma.frameAnalysis.deleteMany({
+            where: { analysisId },
+        });
+
+        if (!Array.isArray(frameAnalyses) || frameAnalyses.length === 0) {
+            return;
+        }
+
+        const frameData = frameAnalyses.map((frame, index) => ({
+            analysisId,
+            frameNumber: frame.frame_number || index,
+            confidence: frame.confidence || 0,
+            prediction: frame.prediction || "REAL",
+            timestamp: frame.timestamp || null,
+        }));
+
+        await prisma.frameAnalysis.createMany({
+            data: frameData,
+        });
+    },
+
+    /**
+     * Save temporal analysis data
+     * @private
+     */
+    async _saveTemporalAnalysis(analysisId, results) {
+        const frameAnalyses = results.frame_analyses || [];
+        const totalFrames = frameAnalyses.length || results.frame_count || 0;
+        const fakeFrames = frameAnalyses.filter(
+            (f) => f.prediction === "FAKE"
+        ).length;
+        const realFrames = totalFrames - fakeFrames;
+        const avgConfidence =
+            frameAnalyses.length > 0
+                ? frameAnalyses.reduce((sum, f) => sum + f.confidence, 0) /
+                  frameAnalyses.length
+                : results.confidence || 0;
+
+        const temporalData = {
+            analysisId,
+            consistencyScore:
+                results.temporal_analysis?.consistency_score ||
+                results.detailed_metrics?.temporal_coherence ||
+                0.5,
+            patternDetection:
+                results.temporal_analysis?.pattern_detection || null,
+            anomalyFrames: results.temporal_analysis?.anomaly_frames || [],
+            confidenceTrend:
+                results.temporal_analysis?.confidence_trend || null,
+            totalFrames,
+            fakeFrames,
+            realFrames,
+            avgConfidence,
+        };
+
+        await prisma.temporalAnalysis.upsert({
+            where: { analysisId },
+            update: temporalData,
+            create: temporalData,
+        });
+    },
+
+    /**
+     * Get model architecture based on model name
+     * @private
+     */
+    _getModelArchitecture(model) {
+        const architectures = {
+            SIGLIP_LSTM_V1: "SIGLIP + LSTM",
+            SIGLIP_LSTM_V3: "Enhanced SIGLIP + LSTM",
+            COLOR_CUES_LSTM_V1: "ColorCues + LSTM",
+        };
+        return architectures[model] || "Unknown";
+    },
+
+    /**
+     * Upload visualization to Cloudinary and return the URL
+     * @private
+     */
+    async _uploadVisualizationToCloudinary(localPath) {
+        try {
+            if (!localPath || !(await import("fs")).existsSync(localPath)) {
+                logger.warn(`Visualization file not found: ${localPath}`);
+                return null;
+            }
+
+            const result = await uploadOnCloudinary(localPath);
+            if (result) {
+                // Clean up local file after upload
+                try {
+                    (await import("fs")).unlinkSync(localPath);
+                    logger.info(
+                        `Cleaned up local visualization file: ${localPath}`
+                    );
+                } catch (cleanupError) {
+                    logger.warn(
+                        `Failed to cleanup visualization file: ${cleanupError.message}`
+                    );
+                }
+                return result.secure_url;
+            }
+            return null;
+        } catch (error) {
+            logger.error(
+                `Failed to upload visualization to Cloudinary: ${error.message}`
+            );
+            return null;
+        }
+    },
+
+    /**
+     * Check for existing analysis with versioning support
+     * @param {string} videoId - Video ID
+     * @param {string} model - Model name
+     * @param {string} analysisType - Analysis type
+     * @param {boolean} allowRerun - Whether to allow creating new versions
+     * @returns {Promise<Object|null>} Existing analysis or null
+     */
+    async _checkExistingAnalysis(
+        videoId,
+        model,
+        analysisType,
+        allowRerun = false
+    ) {
+        const existingAnalyses = await videoRepository.findAnalysesByType(
+            videoId,
+            analysisType
+        );
+        const modelAnalyses = existingAnalyses.filter((a) => a.model === model);
+
+        if (modelAnalyses.length === 0) {
+            return null;
+        }
+
+        if (!allowRerun) {
+            // Return the most recent completed analysis
+            return (
+                modelAnalyses.find((a) => a.status === "COMPLETED") ||
+                modelAnalyses[0]
+            );
+        }
+
+        // For rerun, we'll create a new analysis (versioning handled by timestamp)
+        return null;
     },
 };

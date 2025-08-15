@@ -5,6 +5,7 @@ import { videoApi } from "../services/api/video.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.js";
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 /**
  * Hook to fetch all videos with TanStack Query
@@ -81,6 +82,7 @@ export const useUpdateVideoMutation = () => {
  */
 export const useDeleteVideoMutation = () => {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     return useMutation({
         mutationFn: videoApi.deleteVideo,
@@ -92,6 +94,9 @@ export const useDeleteVideoMutation = () => {
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.lists(),
             });
+            // Navigate Back to /dashboard
+            navigate("/dashboard");
+            // Show success toast
             showToast.success("Video deleted successfully!");
         },
         onError: (error) => {
@@ -113,8 +118,14 @@ export const useVideoStats = () => {
                 analyzed: 0,
                 realDetections: 0,
                 fakeDetections: 0,
+                totalAnalyses: 0,
+                processingAnalyses: 0,
+                failedAnalyses: 0,
+                modelsUsed: 0,
             };
         }
+
+        const modelSet = new Set();
 
         return videos.reduce(
             (acc, video) => {
@@ -123,16 +134,35 @@ export const useVideoStats = () => {
 
                 if (video.analyses && Array.isArray(video.analyses)) {
                     video.analyses.forEach((analysis) => {
-                        if (analysis.prediction === "REAL")
-                            acc.realDetections++;
-                        if (analysis.prediction === "FAKE")
-                            acc.fakeDetections++;
+                        acc.totalAnalyses++;
+                        modelSet.add(analysis.model);
+
+                        if (analysis.status === "PROCESSING")
+                            acc.processingAnalyses++;
+                        if (analysis.status === "FAILED") acc.failedAnalyses++;
+
+                        if (analysis.status === "COMPLETED") {
+                            if (analysis.prediction === "REAL")
+                                acc.realDetections++;
+                            if (analysis.prediction === "FAKE")
+                                acc.fakeDetections++;
+                        }
                     });
                 }
 
+                acc.modelsUsed = modelSet.size;
                 return acc;
             },
-            { total: 0, analyzed: 0, realDetections: 0, fakeDetections: 0 }
+            {
+                total: 0,
+                analyzed: 0,
+                realDetections: 0,
+                fakeDetections: 0,
+                totalAnalyses: 0,
+                processingAnalyses: 0,
+                failedAnalyses: 0,
+                modelsUsed: 0,
+            }
         );
     }, [videos]);
 
@@ -169,11 +199,15 @@ export const useVisualAnalysisMutation = () => {
             showToast.success("Visual analysis generated successfully!");
         },
         onError: (error) => {
-            showToast.error(error.message || "Visual analysis generation failed.");
+            showToast.error(
+                error.message || "Visual analysis generation failed."
+            );
         },
         onMutate: () => {
             // Optional: Show a toast when the process starts
-            showToast.info("Generating visual analysis... This may take several minutes.");
+            showToast.info(
+                "Generating visual analysis... This may take several minutes."
+            );
         },
     });
 };

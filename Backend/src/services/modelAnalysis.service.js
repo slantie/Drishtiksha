@@ -21,6 +21,10 @@ const ANALYSIS_ENDPOINTS = {
 
 // Model mapping for new schema enums
 const MODEL_ENUM_MAPPING = {
+    "siglip-lstm-v1": "SIGLIP_LSTM_V1",
+    "siglip-lstm-v3": "SIGLIP_LSTM_V3",
+    "color-cues-lstm-v1": "COLOR_CUES_LSTM_V1",
+    // Backward compatibility with underscores
     siglip_lstm_v1: "SIGLIP_LSTM_V1",
     siglip_lstm_v3: "SIGLIP_LSTM_V3",
     color_cues_lstm_v1: "COLOR_CUES_LSTM_V1",
@@ -128,7 +132,8 @@ class ModelAnalysisService {
             if (model) {
                 // Convert model enum to server format if needed
                 const serverModel = this._getServerModelName(model);
-                formData.append("model", serverModel);
+                logger.debug(`Sending model parameter: ${serverModel}`);
+                formData.append("model_name", serverModel);
             }
 
             if (videoId) {
@@ -194,7 +199,10 @@ class ModelAnalysisService {
 
             if (model) {
                 const serverModel = this._getServerModelName(model);
-                formData.append("model", serverModel);
+                logger.debug(
+                    `Sending visualization model parameter: ${serverModel}`
+                );
+                formData.append("model_name", serverModel);
             }
 
             if (videoId) {
@@ -418,6 +426,7 @@ class ModelAnalysisService {
         // If it's already a server model name, return as-is
         const serverModelNames = Object.keys(MODEL_ENUM_MAPPING);
         if (serverModelNames.includes(model)) {
+            logger.debug(`Model ${model} is already a server model name`);
             return model;
         }
 
@@ -426,11 +435,17 @@ class ModelAnalysisService {
             MODEL_ENUM_MAPPING
         )) {
             if (schemaEnum === model) {
+                logger.debug(
+                    `Mapped model ${model} to server name ${serverName}`
+                );
                 return serverName;
             }
         }
 
-        // Default fallback
+        // Default fallback with logging
+        logger.warn(
+            `No mapping found for model ${model}, using default siglip_lstm_v1`
+        );
         return "siglip_lstm_v1";
     }
 
@@ -439,10 +454,20 @@ class ModelAnalysisService {
      * @private
      */
     _processAnalysisResponse(data, analysisType) {
+        // Handle nested response structure from Python server
+        const responseData = data.result || data;
+
         const result = {
             analysisType,
             timestamp: new Date().toISOString(),
-            ...data,
+            // Extract fields from the result object if nested, otherwise from top level
+            confidence: responseData.confidence || data.confidence || 0,
+            prediction: responseData.prediction || data.prediction,
+            processing_time:
+                responseData.processing_time || data.processing_time || 0,
+            model_version: responseData.model_version || data.model_version,
+            // Include any additional data
+            ...responseData,
         };
 
         // Map model names to schema enums
@@ -450,12 +475,24 @@ class ModelAnalysisService {
             result.model = MODEL_ENUM_MAPPING[result.model];
         }
 
-        // Ensure required fields exist
-        if (!result.confidence) result.confidence = 0;
+        // Map model_version to model if needed
+        if (result.model_version && !result.model) {
+            const mappedModel = MODEL_ENUM_MAPPING[result.model_version];
+            if (mappedModel) {
+                result.model = mappedModel;
+            }
+        }
+
+        // Ensure required fields exist with proper validation
+        if (typeof result.confidence !== "number") {
+            result.confidence = 0;
+        }
         if (typeof result.is_deepfake === "undefined") {
             result.is_deepfake = result.prediction === "FAKE";
         }
-        if (!result.processing_time) result.processing_time = 0;
+        if (typeof result.processing_time !== "number") {
+            result.processing_time = 0;
+        }
 
         return result;
     }

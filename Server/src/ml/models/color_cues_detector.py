@@ -396,115 +396,210 @@ class ColorCuesDetector(BaseModel):
 
     def predict_visualized(self, video_path: str) -> str:
         """
-        Generate visualization of temporal analysis results.
+        Generate video visualization of temporal analysis results.
         """
         try:
             # Get temporal analysis
             analysis = self.predict_with_temporal_analysis(video_path)
             temporal_data = analysis["temporal_analysis"]
 
-            # Create visualization
+            # Setup video properties for visualization
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                raise IOError(f"Could not open video file for processing: {video_path}")
+
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            # Create output video file
+            output_temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+            output_path = output_temp_file.name
+            output_temp_file.close()
+
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+            # Setup matplotlib figure for graph overlay
             plt.style.use("dark_background")
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
+            plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15)
 
-            # Plot 1: Per-sequence scores
             sequences = range(len(temporal_data["per_sequence_scores"]))
-            ax1.plot(
-                sequences,
-                temporal_data["per_sequence_scores"],
-                "o-",
-                color="#FF6B6B",
-                linewidth=2,
-                markersize=4,
-                label="Sequence Scores",
-                alpha=0.8,
-            )
-            ax1.plot(
-                sequences,
-                temporal_data["rolling_averages"],
-                "-",
-                color="#4ECDC4",
-                linewidth=3,
-                label=f"Rolling Average ({self.rolling_window_size})",
-            )
-            ax1.axhline(
-                y=0.5, color="white", linestyle="--", alpha=0.7, label="Threshold"
-            )
-            ax1.fill_between(
-                sequences,
-                temporal_data["per_sequence_scores"],
-                alpha=0.3,
-                color="#FF6B6B",
-            )
 
-            ax1.set_title(
-                "ColorCues Temporal Analysis - Sequence Scores", fontsize=14, pad=20
-            )
-            ax1.set_xlabel("Sequence Number")
-            ax1.set_ylabel("Fake Probability")
-            ax1.set_ylim(0, 1)
-            ax1.legend()
-            ax1.grid(True, alpha=0.3)
+            print(f"Starting ColorCues visualization for video: {video_path}")
 
-            # Plot 2: Score distribution histogram
-            ax2.hist(
-                temporal_data["per_sequence_scores"],
-                bins=20,
-                color="#45B7D1",
-                alpha=0.7,
-                edgecolor="white",
-            )
-            ax2.axvline(
-                x=0.5, color="red", linestyle="--", linewidth=2, label="Threshold"
-            )
-            ax2.axvline(
-                x=temporal_data["avg_score"],
-                color="yellow",
-                linestyle="-",
-                linewidth=2,
-                label=f"Average ({temporal_data['avg_score']:.3f})",
-            )
+            for frame_idx in range(total_frames):
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-            ax2.set_title("Score Distribution", fontsize=14, pad=20)
-            ax2.set_xlabel("Fake Probability")
-            ax2.set_ylabel("Frequency")
-            ax2.legend()
-            ax2.grid(True, alpha=0.3)
+                # Calculate current sequence index
+                sequence_idx = min(
+                    frame_idx // self.frames_per_video,
+                    len(temporal_data["per_sequence_scores"]) - 1,
+                )
+                current_score = (
+                    temporal_data["per_sequence_scores"][sequence_idx]
+                    if sequence_idx < len(temporal_data["per_sequence_scores"])
+                    else 0.0
+                )
 
-            # Add summary text
-            summary_text = (
-                f"Prediction: {analysis['prediction']}\n"
-                f"Confidence: {analysis['confidence']:.3f}\n"
-                f"Avg Score: {temporal_data['avg_score']:.3f}\n"
-                f"Suspicious: {temporal_data['suspicious_sequences']}/{temporal_data['sequence_count']} "
-                f"({temporal_data['suspicious_percentage']:.1f}%)"
-            )
+                # Clear and redraw plots
+                ax1.clear()
+                ax2.clear()
 
-            fig.text(
-                0.02,
-                0.98,
-                summary_text,
-                transform=fig.transFigure,
-                fontsize=12,
-                verticalalignment="top",
-                bbox=dict(boxstyle="round", facecolor="black", alpha=0.8),
-            )
+                # Plot 1: Temporal progression with current position
+                ax1.plot(
+                    sequences,
+                    temporal_data["per_sequence_scores"],
+                    "o-",
+                    color="#FF6B6B",
+                    linewidth=2,
+                    markersize=4,
+                    alpha=0.8,
+                )
+                ax1.plot(
+                    sequences,
+                    temporal_data["rolling_averages"],
+                    "-",
+                    color="#4ECDC4",
+                    linewidth=3,
+                    label=f"Rolling Average ({self.rolling_window_size})",
+                )
 
-            plt.tight_layout()
+                # Highlight current position
+                if sequence_idx < len(temporal_data["per_sequence_scores"]):
+                    ax1.plot(
+                        sequence_idx,
+                        current_score,
+                        "o",
+                        color="yellow",
+                        markersize=8,
+                        markeredgecolor="white",
+                        markeredgewidth=2,
+                    )
 
-            # Save to temporary file
-            output_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            plt.savefig(
-                output_file.name,
-                dpi=150,
-                bbox_inches="tight",
-                facecolor="black",
-                edgecolor="none",
-            )
-            plt.close()
+                ax1.axhline(
+                    y=0.5, color="white", linestyle="--", alpha=0.7, label="Threshold"
+                )
+                ax1.fill_between(
+                    sequences,
+                    temporal_data["per_sequence_scores"],
+                    alpha=0.3,
+                    color="#FF6B6B",
+                )
 
-            print(f"ColorCues visualization saved to: {output_file.name}")
-            return output_file.name
+                ax1.set_title(
+                    "ColorCues Temporal Analysis - Sequence Scores", fontsize=12, pad=15
+                )
+                ax1.set_xlabel("Sequence Number")
+                ax1.set_ylabel("Fake Probability")
+                ax1.set_ylim(0, 1)
+                ax1.legend(fontsize=8)
+                ax1.grid(True, alpha=0.3)
+
+                # Plot 2: Score distribution with current value highlighted
+                ax2.hist(
+                    temporal_data["per_sequence_scores"],
+                    bins=15,
+                    color="#45B7D1",
+                    alpha=0.7,
+                    edgecolor="white",
+                )
+                ax2.axvline(
+                    x=0.5, color="red", linestyle="--", linewidth=2, label="Threshold"
+                )
+                ax2.axvline(
+                    x=temporal_data["avg_score"],
+                    color="yellow",
+                    linestyle="-",
+                    linewidth=2,
+                    label=f"Average ({temporal_data['avg_score']:.3f})",
+                )
+
+                # Highlight current score
+                ax2.axvline(
+                    x=current_score,
+                    color="orange",
+                    linestyle="-",
+                    linewidth=3,
+                    alpha=0.8,
+                    label=f"Current ({current_score:.3f})",
+                )
+
+                ax2.set_title("Score Distribution", fontsize=12, pad=15)
+                ax2.set_xlabel("Fake Probability")
+                ax2.set_ylabel("Frequency")
+                ax2.legend(fontsize=8)
+                ax2.grid(True, alpha=0.3)
+
+                # Add frame info text
+                frame_text = (
+                    f"Frame: {frame_idx + 1}/{total_frames}\n"
+                    f"Sequence: {sequence_idx + 1}\n"
+                    f"Current Score: {current_score:.3f}\n"
+                    f"Prediction: {analysis['prediction']}\n"
+                    f"Confidence: {analysis['confidence']:.3f}"
+                )
+
+                fig.text(
+                    0.02,
+                    0.98,
+                    frame_text,
+                    transform=fig.transFigure,
+                    fontsize=10,
+                    verticalalignment="top",
+                    bbox=dict(boxstyle="round", facecolor="black", alpha=0.8),
+                )
+
+                # Convert matplotlib figure to image
+                fig.canvas.draw()
+                # Use tobytes() instead of tostring_rgb() for newer matplotlib versions
+                try:
+                    canvas_buffer = fig.canvas.buffer_rgba()
+                    graph_img = np.frombuffer(canvas_buffer, dtype=np.uint8)
+                    graph_img = graph_img.reshape(
+                        fig.canvas.get_width_height()[::-1] + (4,)
+                    )
+                    graph_img = cv2.cvtColor(graph_img, cv2.COLOR_RGBA2BGR)
+                except AttributeError:
+                    # Fallback for older matplotlib versions
+                    graph_img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                    graph_img = graph_img.reshape(
+                        fig.canvas.get_width_height()[::-1] + (3,)
+                    )
+                    graph_img = cv2.cvtColor(graph_img, cv2.COLOR_RGB2BGR)
+
+                # Resize graph to fit video frame
+                graph_height = frame_height // 3
+                graph_width = frame_width
+                graph_resized = cv2.resize(graph_img, (graph_width, graph_height))
+
+                # Create combined frame
+                combined_frame = np.zeros(
+                    (frame_height, frame_width, 3), dtype=np.uint8
+                )
+
+                # Place original video at top (2/3 of height)
+                video_height = frame_height - graph_height
+                frame_resized = cv2.resize(frame, (frame_width, video_height))
+                combined_frame[:video_height, :] = frame_resized
+
+                # Place graph at bottom (1/3 of height)
+                combined_frame[video_height:, :] = graph_resized
+
+                # Write frame to output video
+                out.write(combined_frame)
+
+            # Clean up
+            cap.release()
+            out.release()
+            plt.close(fig)
+
+            print(f"ColorCues visualization saved to: {output_path}")
+            return output_path
 
         except Exception as e:
             print(f"Visualization generation failed: {str(e)}")

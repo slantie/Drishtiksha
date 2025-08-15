@@ -98,6 +98,158 @@ class LSTMDetector(BaseModel):
             "processing_time": processing_time,
         }
 
+    def predict_with_metrics(self, video_path: str):
+        """
+        Enhanced prediction method that returns detailed frame-by-frame analysis.
+        """
+        # Get basic prediction first
+        basic_result = self.predict(video_path)
+
+        # Get frame-by-frame analysis
+        frame_scores, rolling_avg_scores = self._analyze_video_frames(video_path)
+
+        if not frame_scores:
+            raise ValueError("Could not analyze frames from the video.")
+
+        # Calculate detailed metrics
+        fake_frames = sum(1 for score in frame_scores if score > 0.5)
+        real_frames = len(frame_scores) - fake_frames
+        avg_confidence = np.mean(frame_scores)
+        confidence_std = np.std(frame_scores)
+
+        return {
+            "prediction": basic_result["prediction"],
+            "confidence": basic_result["confidence"],
+            "processing_time": basic_result["processing_time"],
+            "frame_count": len(frame_scores),
+            "metrics": {
+                "frame_count": len(frame_scores),
+                "avg_confidence": float(avg_confidence),
+                "confidence_std": float(confidence_std),
+                "fake_frames": fake_frames,
+                "real_frames": real_frames,
+                "temporal_coherence": float(
+                    1.0 - confidence_std
+                ),  # Simple temporal consistency measure
+                "rolling_average": float(np.mean(rolling_avg_scores))
+                if rolling_avg_scores
+                else float(avg_confidence),
+                "per_frame_scores": frame_scores,
+                "rolling_average_scores": rolling_avg_scores,
+                "final_average_score": float(avg_confidence),
+                "max_score": float(max(frame_scores)) if frame_scores else 0.0,
+                "min_score": float(min(frame_scores)) if frame_scores else 0.0,
+                "score_variance": float(np.var(frame_scores)),
+                "suspicious_frames_count": fake_frames,
+                "suspicious_frames_percentage": float(fake_frames / len(frame_scores))
+                if frame_scores
+                else 0.0,
+            },
+            "detailed_metrics": {
+                "frame_count": len(frame_scores),
+                "avg_confidence": float(avg_confidence),
+                "confidence_std": float(confidence_std),
+                "fake_frames": fake_frames,
+                "real_frames": real_frames,
+                "temporal_coherence": float(
+                    1.0 - confidence_std
+                ),  # Simple temporal consistency measure
+                "rolling_average": float(np.mean(rolling_avg_scores))
+                if rolling_avg_scores
+                else float(avg_confidence),
+            },
+            "frame_analyses": [
+                {
+                    "frame_number": i,
+                    "confidence": float(score),
+                    "prediction": "FAKE" if score > 0.5 else "REAL",
+                    "timestamp": None,  # Could be calculated if needed
+                }
+                for i, score in enumerate(frame_scores)
+            ],
+        }
+
+    def _analyze_video_frames(self, video_path: str):
+        """
+        Analyzes video frame by frame and returns scores.
+        """
+        self.model.eval()
+
+        # Extract frames
+        frames = extract_frames(video_path, max_frames=300, image_format="PIL")
+        if not frames:
+            return [], []
+
+        frame_scores = []
+        rolling_window = []
+        rolling_window_size = 5
+        rolling_avg_scores = []
+
+        with torch.no_grad():
+            for frame in frames:
+                # Process single frame
+                frame_tensor = self.processor(images=frame, return_tensors="pt")[
+                    "pixel_values"
+                ].to(self.device)
+
+                # Get prediction for this frame
+                logits = self.model(frame_tensor, num_frames_per_video=1)
+                prob_fake = torch.sigmoid(logits.squeeze()).item()
+
+                frame_scores.append(prob_fake)
+
+                # Calculate rolling average
+                rolling_window.append(prob_fake)
+                if len(rolling_window) > rolling_window_size:
+                    rolling_window.pop(0)
+                rolling_avg_scores.append(np.mean(rolling_window))
+
+        return frame_scores, rolling_avg_scores
+
+    def get_frame_analysis_summary(self, video_path: str) -> dict:
+        """
+        Quick analysis summary without creating visualization.
+        Useful for API responses.
+        """
+        try:
+            # Get frame-by-frame analysis
+            frame_scores, rolling_avg_scores = self._analyze_video_frames(video_path)
+
+            if not frame_scores:
+                return {"error": "Could not analyze video frames"}
+
+            # Calculate summary statistics
+            avg_confidence = np.mean(frame_scores)
+            fake_frames = sum(1 for score in frame_scores if score > 0.5)
+            real_frames = len(frame_scores) - fake_frames
+
+            # Determine overall prediction
+            prediction = "FAKE" if avg_confidence > 0.5 else "REAL"
+
+            return {
+                "prediction": prediction,
+                "confidence": float(avg_confidence),
+                "frame_count": len(frame_scores),
+                "suspicious_frames": fake_frames,
+                "average_suspicion": float(avg_confidence),
+                "max_suspicion": float(max(frame_scores)) if frame_scores else 0.0,
+                "min_suspicion": float(min(frame_scores)) if frame_scores else 0.0,
+                "suspicion_variance": float(np.var(frame_scores))
+                if frame_scores
+                else 0.0,
+                "frame_analyses": [
+                    {
+                        "frame_number": i,
+                        "confidence": float(score),
+                        "prediction": "FAKE" if score > 0.5 else "REAL",
+                        "timestamp": None,
+                    }
+                    for i, score in enumerate(frame_scores)
+                ],
+            }
+        except Exception as e:
+            return {"error": f"Frame analysis failed: {str(e)}"}
+
     # --- NEW METHOD FOR VISUALIZATION ---
     def predict_visualized(self, video_path: str) -> str:
         """

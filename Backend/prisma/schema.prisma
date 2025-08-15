@@ -114,7 +114,7 @@ model DeepfakeAnalysis {
   systemInfo       SystemInfo?
   errors           AnalysisError[] // Track analysis errors and retry attempts
 
-  @@unique([videoId, model, analysisType], name: "video_model_type_unique")
+  // Removed unique constraint to support versioning - multiple analyses per video+model+type
   @@map("deepfake_analyses")
 }
 

@@ -16,6 +16,10 @@ import {
     ShieldX,
     ShieldCheck,
     ChartNetwork,
+    Brain,
+    Activity,
+    TrendingUp,
+    Plus,
 } from "lucide-react";
 import {
     useVideosQuery,
@@ -33,6 +37,8 @@ import { UploadModal } from "../components/videos/UploadModal.jsx";
 import { EditVideoModal } from "../components/videos/EditVideoModal.jsx";
 import { DeleteVideoModal } from "../components/videos/DeleteVideoModal.jsx";
 import { VideoSearchFilter } from "../components/videos/VideoSearchFilter.jsx";
+import ModelSelectionModal from "../components/analysis/ModelSelectionModal.jsx";
+import { ANALYSIS_TYPE_INFO, MODEL_INFO } from "../constants/apiEndpoints.js";
 import { showToast } from "../utils/toast.js";
 
 // Helper functions and components for the DataTable
@@ -102,6 +108,9 @@ export const Dashboard = () => {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [videoToEdit, setVideoToEdit] = useState(null);
     const [videoToDelete, setVideoToDelete] = useState(null);
+    const [isModelSelectionOpen, setIsModelSelectionOpen] = useState(false);
+    const [selectedVideoForAnalysis, setSelectedVideoForAnalysis] =
+        useState(null);
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -201,43 +210,91 @@ export const Dashboard = () => {
             },
             {
                 key: "models",
-                header: "Models",
-                sortable: true, // Disabled - handled by filter
+                header: "Analysis Status",
+                sortable: true,
                 filterable: true,
                 accessor: (item) => {
-                    const totalModels = 3;
-                    const completedAnalyses = item.analyses
-                        ? item.analyses.filter(
-                              (analysis) => analysis.status === "COMPLETED"
-                          ).length
-                        : 0;
-                    return `${completedAnalyses}/${totalModels}`;
+                    const analyses = item.analyses || [];
+                    const completedCount = analyses.filter(
+                        (a) => a.status === "COMPLETED"
+                    ).length;
+                    const processingCount = analyses.filter(
+                        (a) => a.status === "PROCESSING"
+                    ).length;
+                    const totalModels = Object.keys(MODEL_INFO).length;
+
+                    if (processingCount > 0)
+                        return `${processingCount} Processing`;
+                    if (completedCount === 0) return "Not Analyzed";
+                    if (completedCount === totalModels) return "Complete";
+                    return `${completedCount}/${totalModels} Analyzed`;
                 },
                 render: (item) => {
-                    const totalModels = 3;
-                    const completedAnalyses = item.analyses
-                        ? item.analyses.filter(
-                              (analysis) => analysis.status === "COMPLETED"
-                          ).length
-                        : 0;
-                    // const isComplete = completedAnalyses === totalModels;
-                    // const isPartial =
-                    //     completedAnalyses > 0 &&
-                    //     completedAnalyses < totalModels;
+                    const analyses = item.analyses || [];
+                    const completedCount = analyses.filter(
+                        (a) => a.status === "COMPLETED"
+                    ).length;
+                    const processingCount = analyses.filter(
+                        (a) => a.status === "PROCESSING"
+                    ).length;
+                    const failedCount = analyses.filter(
+                        (a) => a.status === "FAILED"
+                    ).length;
+                    const totalModels = Object.keys(MODEL_INFO).length;
+
+                    const isComplete = completedCount === totalModels;
+                    const isProcessing = processingCount > 0;
+                    const hasFailures = failedCount > 0;
+                    const isPartial =
+                        completedCount > 0 && completedCount < totalModels;
+
+                    // Determine most concerning status for color
+                    let statusColor, statusIcon;
+                    if (isProcessing) {
+                        statusColor = "text-yellow-600";
+                        statusIcon = (
+                            <ProcessingIcon className="h-4 w-4 animate-spin" />
+                        );
+                    } else if (hasFailures) {
+                        statusColor = "text-red-600";
+                        statusIcon = <AlertTriangle className="h-4 w-4" />;
+                    } else if (isComplete) {
+                        statusColor = "text-green-600";
+                        statusIcon = <CheckCircle className="h-4 w-4" />;
+                    } else if (isPartial) {
+                        statusColor = "text-blue-600";
+                        statusIcon = <Activity className="h-4 w-4" />;
+                    } else {
+                        statusColor = "text-gray-500";
+                        statusIcon = <Brain className="h-4 w-4" />;
+                    }
 
                     return (
                         <div
-                        // className={`${
-                        //     isComplete
-                        //         ? "text-green-500"
-                        //         : isPartial
-                        //         ? "text-yellow-500"
-                        //         : "text-gray-500"
-                        // }`}
+                            className={`flex items-center gap-2 ${statusColor}`}
                         >
-                            <span>
-                                {completedAnalyses}/{totalModels} Analyzed
-                            </span>
+                            {statusIcon}
+                            <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                    {isProcessing &&
+                                        `${processingCount} Processing`}
+                                    {!isProcessing &&
+                                        completedCount === 0 &&
+                                        "Not Analyzed"}
+                                    {!isProcessing && isComplete && "Complete"}
+                                    {!isProcessing &&
+                                        isPartial &&
+                                        `${completedCount}/${totalModels} Complete`}
+                                </span>
+                                {(hasFailures || completedCount > 0) && (
+                                    <span className="text-xs text-gray-500">
+                                        {completedCount > 0 &&
+                                            `${completedCount} completed`}
+                                        {hasFailures &&
+                                            `, ${failedCount} failed`}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     );
                 },
@@ -257,6 +314,19 @@ export const Dashboard = () => {
                             }}
                         >
                             <ChartNetwork className="h-5 w-5 text-purple-500" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Start New Analysis"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVideoForAnalysis(item);
+                                setIsModelSelectionOpen(true);
+                            }}
+                            disabled={item.status !== "ANALYZED"}
+                        >
+                            <Brain className="h-5 w-5 text-indigo-500" />
                         </Button>
                         <Button
                             variant="ghost"
@@ -361,10 +431,10 @@ export const Dashboard = () => {
                     onClick={() => console.log("Total Videos Clicked")}
                 />
                 <StatCard
-                    title="Videos Analyzed"
-                    value={stats.analyzed}
-                    icon={ChartNetwork}
-                    onClick={() => console.log("Analyzed Videos Clicked")}
+                    title="Total Analyses"
+                    value={stats.totalAnalyses}
+                    icon={Activity}
+                    onClick={() => console.log("Total Analyses Clicked")}
                 />
                 <StatCard
                     title="Real Detections"
@@ -447,6 +517,18 @@ export const Dashboard = () => {
                         console.error("Delete failed:", error);
                         // Toast handled by the mutation
                     }
+                }}
+            />
+            <ModelSelectionModal
+                isOpen={isModelSelectionOpen}
+                onClose={() => {
+                    setIsModelSelectionOpen(false);
+                    setSelectedVideoForAnalysis(null);
+                }}
+                videoId={selectedVideoForAnalysis?.id}
+                onAnalysisStart={() => {
+                    fetchVideos(); // Refresh videos to show new analysis status
+                    showToast.success("Analysis started successfully!");
                 }}
             />
         </div>

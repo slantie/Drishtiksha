@@ -98,7 +98,11 @@ const createSpecificAnalysis = asyncHandler(async (req, res) => {
 
 const getAnalysisResults = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { type, model } = req.query;
+    let { type, model } = req.query;
+
+    // Handle string "undefined" values from query parameters
+    if (type === "undefined" || type === "") type = undefined;
+    if (model === "undefined" || model === "") model = undefined;
 
     const video = await videoService.getVideoById(id, req.user);
 

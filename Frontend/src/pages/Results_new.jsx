@@ -1,7 +1,7 @@
 // src/pages/Results.jsx
 
 import React, { useState, useContext } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
     Loader2,
     AlertTriangle,
@@ -275,161 +275,34 @@ const ResultsHeader = ({
     </Card>
 );
 
-// Function to group and render analyses by model
-const renderGroupedAnalyses = (analyses, videoId) => {
-    // Group analyses by model first, then by analysis type
-    const groupedByModel = analyses.reduce((groups, analysis) => {
-        const model = analysis.model;
-        if (!groups[model]) {
-            groups[model] = {};
-        }
-
-        const analysisType = analysis.analysisType || analysis.type;
-        if (!groups[model][analysisType]) {
-            groups[model][analysisType] = [];
-        }
-
-        groups[model][analysisType].push(analysis);
-        return groups;
-    }, {});
-
-    return Object.entries(groupedByModel).map(([model, typeGroups]) => {
-        const modelInfo = MODEL_INFO[model];
-
-        // Get total analysis count and latest date for model header
-        const allAnalyses = Object.values(typeGroups).flat();
-        const latestAnalysis = allAnalyses.sort(
-            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        )[0];
-
-        return (
-            <div key={model} className="space-y-4">
-                {/* Model Header */}
-                <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-                        <Cpu className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                        <h3 className="text-lg font-semibold">
-                            {modelInfo?.label || model}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {allAnalyses.length} analysis
-                            {allAnalyses.length !== 1 ? "es" : ""} available
-                        </p>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                        Latest:{" "}
-                        {new Date(
-                            latestAnalysis?.createdAt
-                        ).toLocaleDateString()}
-                    </div>
-                </div>
-
-                {/* Analysis Type Groups - Show only latest version */}
-                <div className="space-y-6">
-                    {Object.entries(typeGroups).map(
-                        ([analysisType, typeAnalyses]) => {
-                            // Sort analyses by createdAt (most recent first) and take only the latest
-                            const latestAnalysis = typeAnalyses.sort(
-                                (a, b) =>
-                                    new Date(b.createdAt) -
-                                    new Date(a.createdAt)
-                            )[0];
-
-                            const typeInfo = ANALYSIS_TYPE_INFO[analysisType];
-
-                            return (
-                                <div
-                                    key={`${model}-${analysisType}`}
-                                    className="space-y-2"
-                                >
-                                    {/* Analysis Type Header */}
-                                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                        <span className="text-lg">
-                                            {typeInfo?.icon}
-                                        </span>
-                                        <span className="font-medium">
-                                            {typeInfo?.label || analysisType}
-                                        </span>
-                                        <span className="text-sm text-gray-500">
-                                            (Latest of {typeAnalyses.length}{" "}
-                                            version
-                                            {typeAnalyses.length !== 1
-                                                ? "s"
-                                                : ""}
-                                            )
-                                        </span>
-                                    </div>
-
-                                    {/* Latest Analysis Card */}
-                                    <div className="ml-4">
-                                        <AnalysisCard
-                                            key={`${latestAnalysis.id}-${latestAnalysis.createdAt}`}
-                                            analysis={latestAnalysis}
-                                            videoId={videoId}
-                                            isLatest={true}
-                                            versionNumber={1}
-                                            totalVersions={typeAnalyses.length}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        }
-                    )}
-                </div>
-            </div>
-        );
-    });
-};
-
 // Enhanced Analysis Card with detailed view link
-const AnalysisCard = ({
-    analysis,
-    videoId,
-    isLatest = false,
-    versionNumber = 1,
-}) => {
+const AnalysisCard = ({ analysis, videoId }) => {
     const isReal = analysis.prediction === "REAL";
     const confidence = analysis.confidence * 100;
-    const typeInfo = ANALYSIS_TYPE_INFO[analysis.analysisType || analysis.type];
+    const typeInfo = ANALYSIS_TYPE_INFO[analysis.type];
+    const modelInfo = MODEL_INFO[analysis.model];
 
-    const detailsLink = `/results/${videoId}/${
-        analysis.analysisType || analysis.type
-    }-${analysis.model}`;
+    const detailsLink = `/results/${videoId}/${analysis.type}-${analysis.model}`;
 
     return (
         <Card
-            className={`border-2 relative ${
+            className={`border-2 ${
                 isReal ? "border-green-500/30" : "border-red-500/30"
-            } ${isLatest ? "ring-2 ring-blue-500/50" : ""}`}
+            }`}
         >
-            {/* Version Badge */}
-            {versionNumber > 1 && (
-                <div className="absolute top-2 right-2 bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
-                    v{versionNumber}
-                </div>
-            )}
-            {isLatest && (
-                <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                    Latest
-                </div>
-            )}
-
-            {/* Compact Header */}
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2">
+            {/* Header with model name and prediction icon */}
+            <div className="flex justify-between items-start mb-6">
+                <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
-                        <span className="text-lg">{typeInfo?.icon}</span>
+                        <Cpu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                     </div>
                     <div>
-                        <h4 className="text-lg font-semibold">
-                            {typeInfo?.label ||
-                                analysis.analysisType ||
-                                analysis.type}
-                        </h4>
-                        <p className="text-xs text-gray-500">
-                            {formatDate(analysis.createdAt)}
+                        <h3 className="text-xl font-bold">
+                            {modelInfo?.label || analysis.model}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                            <span className="text-lg">{typeInfo?.icon}</span>
+                            {typeInfo?.label || analysis.type}
                         </p>
                     </div>
                 </div>
@@ -441,43 +314,39 @@ const AnalysisCard = ({
                     }`}
                 >
                     {isReal ? (
-                        <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <ShieldCheck className={`h-7 w-7 text-green-600`} />
                     ) : (
-                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        <ShieldAlert className={`h-7 w-7 text-red-600`} />
                     )}
                 </div>
             </div>
 
-            {/* Results Summary */}
-            <div className="space-y-2 mb-4">
-                <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Prediction:</span>
-                    <span
-                        className={`text-sm font-bold ${
-                            isReal ? "text-green-600" : "text-red-600"
-                        }`}
-                    >
-                        {analysis.prediction}
-                    </span>
-                </div>
-                <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Confidence:</span>
-                    <span className="text-sm font-mono">
-                        {confidence.toFixed(1)}%
-                    </span>
-                </div>
-                {analysis.processingTime && (
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">
-                            Processing Time:
-                        </span>
-                        <span className="text-sm font-mono">
-                            {formatProcessingTime(analysis.processingTime)}
+            {/* Main confidence display */}
+            <div className="text-center mb-6">
+                <p
+                    className={`text-5xl font-bold mb-2 ${
+                        isReal ? "text-green-600" : "text-red-600"
+                    }`}
+                >
+                    {confidence.toFixed(1)}%
+                </p>
+                <p className="text-lg font-semibold mb-1">
+                    {isReal ? "Likely Authentic" : "Likely Deepfake"}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Confidence Level
+                </p>
+            </div>
+
+            {/* Analysis details */}
+            <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Status:
                         </span>
                     </div>
-                )}
-                <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Status:</span>
                     <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold border ${getAnalysisStatusColor(
                             analysis.status
@@ -486,29 +355,57 @@ const AnalysisCard = ({
                         {analysis.status}
                     </span>
                 </div>
-            </div>
 
-            {/* Action Button */}
-            <Link to={detailsLink}>
-                <Button variant="outline" size="sm" className="w-full">
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                </Button>
-            </Link>
-
-            {analysis.errorMessage && (
-                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-red-600" />
-                        <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                            Error:
+                {analysis.processingTime && (
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                                Processing Time:
+                            </span>
+                        </div>
+                        <span className="text-sm font-medium">
+                            {formatProcessingTime(analysis.processingTime)}
                         </span>
                     </div>
-                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                        {analysis.errorMessage}
-                    </p>
+                )}
+
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Analyzed:
+                        </span>
+                    </div>
+                    <span className="text-sm font-medium">
+                        {formatDate(analysis.createdAt)}
+                    </span>
                 </div>
-            )}
+
+                {/* Action Button */}
+                <div className="pt-2">
+                    <Link to={detailsLink}>
+                        <Button variant="outline" className="w-full">
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Detailed Results
+                        </Button>
+                    </Link>
+                </div>
+
+                {analysis.errorMessage && (
+                    <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                                Error:
+                            </span>
+                        </div>
+                        <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                            {analysis.errorMessage}
+                        </p>
+                    </div>
+                )}
+            </div>
         </Card>
     );
 };
@@ -733,7 +630,7 @@ export const Results = () => {
     const deleteMutation = useDeleteVideoMutation();
 
     // Enhanced analysis hooks
-    const { isCreatingVisualization, refetchAnalysis } =
+    const { createVisualization, isCreatingVisualization, refetchAnalysis } =
         useVideoAnalysis(videoId);
 
     const { user } = useContext(AuthContext);
@@ -861,7 +758,17 @@ export const Results = () => {
                                     Add Analysis
                                 </Button>
                             </div>
-                            {renderGroupedAnalyses(video.analyses, videoId)}
+                            {video.analyses.map((analysis) => (
+                                <AnalysisCard
+                                    key={`${
+                                        analysis.analysisType ||
+                                        analysis.type ||
+                                        "unknown"
+                                    }-${analysis.model}`}
+                                    analysis={analysis}
+                                    videoId={videoId}
+                                />
+                            ))}
                         </>
                     ) : (
                         <Card className="text-center p-12">

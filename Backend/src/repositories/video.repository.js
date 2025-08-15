@@ -48,24 +48,24 @@ export const videoRepository = {
         return prisma.video.delete({ where: { id: videoId } });
     },
 
-    async findAnalysis(videoId, model, type = null) {
-        if (type) {
-            return prisma.deepfakeAnalysis.findUnique({
+    async findAnalysis(videoId, model, analysisType = null) {
+        if (analysisType) {
+            // Find the most recent analysis for this combination
+            return prisma.deepfakeAnalysis.findFirst({
                 where: {
-                    video_model_type_unique: {
-                        videoId,
-                        model,
-                        type,
-                    },
+                    videoId,
+                    model,
+                    analysisType,
                 },
                 include: {
                     analysisDetails: true,
-                    frameAnalyses: true,
-                    temporalAnalyses: true,
+                    frameAnalysis: true,
+                    temporalAnalysis: true,
                     modelInfo: true,
                     systemInfo: true,
-                    analysisError: true,
+                    errors: true,
                 },
+                orderBy: { createdAt: "desc" },
             });
         }
 
@@ -77,11 +77,11 @@ export const videoRepository = {
             },
             include: {
                 analysisDetails: true,
-                frameAnalyses: true,
-                temporalAnalyses: true,
+                frameAnalysis: true,
+                temporalAnalysis: true,
                 modelInfo: true,
                 systemInfo: true,
-                analysisError: true,
+                errors: true,
             },
             orderBy: { createdAt: "desc" },
         });
@@ -92,11 +92,11 @@ export const videoRepository = {
             data: analysisData,
             include: {
                 analysisDetails: true,
-                frameAnalyses: true,
-                temporalAnalyses: true,
+                frameAnalysis: true,
+                temporalAnalysis: true,
                 modelInfo: true,
                 systemInfo: true,
-                analysisError: true,
+                errors: true,
             },
         });
     },
@@ -107,11 +107,11 @@ export const videoRepository = {
             data: updateData,
             include: {
                 analysisDetails: true,
-                frameAnalyses: true,
-                temporalAnalyses: true,
+                frameAnalysis: true,
+                temporalAnalysis: true,
                 modelInfo: true,
                 systemInfo: true,
-                analysisError: true,
+                errors: true,
             },
         });
     },
@@ -121,29 +121,29 @@ export const videoRepository = {
             where: { videoId },
             include: {
                 analysisDetails: true,
-                frameAnalyses: true,
-                temporalAnalyses: true,
+                frameAnalysis: true,
+                temporalAnalysis: true,
                 modelInfo: true,
                 systemInfo: true,
-                analysisError: true,
+                errors: true,
             },
             orderBy: { createdAt: "desc" },
         });
     },
 
-    async findAnalysesByType(videoId, type) {
+    async findAnalysesByType(videoId, analysisType) {
         return prisma.deepfakeAnalysis.findMany({
             where: {
                 videoId,
-                type,
+                analysisType,
             },
             include: {
                 analysisDetails: true,
-                frameAnalyses: true,
-                temporalAnalyses: true,
+                frameAnalysis: true,
+                temporalAnalysis: true,
                 modelInfo: true,
                 systemInfo: true,
-                analysisError: true,
+                errors: true,
             },
             orderBy: { createdAt: "desc" },
         });

@@ -16,6 +16,7 @@ import Authentication from "./pages/Authentication";
 import Profile from "./pages/Profile.jsx";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
+import DetailedAnalysis from "./pages/DetailedAnalysis";
 
 function App() {
     return (
@@ -66,6 +67,16 @@ function App() {
                             <ProtectedRoute>
                                 <Layout>
                                     <Results />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/results/:videoId/:modelId"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <DetailedAnalysis />
                                 </Layout>
                             </ProtectedRoute>
                         }
