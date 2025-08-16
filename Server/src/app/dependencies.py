@@ -75,6 +75,6 @@ async def process_video_request(
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
-                logger.info(f"Cleaned up temporary file: {temp_path}")
+                # logger.info(f"Cleaned up temporary file: {temp_path}")
             except OSError as e:
                 logger.error(f"Error cleaning up temp file {temp_path}: {e}")

@@ -4,5 +4,14 @@
     "verbose": true,
     "clearMocks": true,
     "resetMocks": true,
-    "restoreMocks": true
+    "restoreMocks": true,
+    "transform": {},
+    "preset": "default",
+    "extensionsToTreatAsEsm": [".js"],
+    "globals": {
+        "window": false
+    },
+    "moduleNameMapping": {
+        "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
 }

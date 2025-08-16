@@ -72,7 +72,22 @@ export const videoApi = {
      * @returns {Promise} Response with model status information
      */
     getModelStatus: async () => {
-        return await axiosInstance.get("/videos/model/status");
+        return await axiosInstance.get("/videos/status");
+    },
+
+    /**
+     * Get available models from the ML server
+     * @returns {Promise<string[]>} Array of available model names
+     */
+    getAvailableModels: async () => {
+        try {
+            const response = await axiosInstance.get("/videos/models");
+            return response.data.data.availableModels;
+        } catch (error) {
+            console.error("Failed to get available models:", error);
+            // Return empty array if server is unreachable
+            return [];
+        }
     },
 
     /**
@@ -97,23 +112,55 @@ export const videoApi = {
 
     /**
      * Get analysis results for a video with optional filtering
+     * Note: Analysis data is included in the video details endpoint
      * @param {string} videoId - The video ID
-     * @param {Object} filters - Optional filters
+     * @param {Object} filters - Optional filters (client-side filtering)
      * @param {string} filters.type - Filter by analysis type
      * @param {string} filters.model - Filter by model
-     * @returns {Promise} Response with analysis results
+     * @returns {Promise} Response with video and analysis results
      */
     getAnalysisResults: async (videoId, filters = {}) => {
-        const params = new URLSearchParams();
-        if (filters.type) params.append("type", filters.type);
-        if (filters.model) params.append("model", filters.model);
+        try {
+            // Get video details which includes all analyses
+            const response = await axiosInstance.get(`/videos/${videoId}`);
 
-        const queryString = params.toString();
-        const url = queryString
-            ? `/videos/${videoId}/analysis?${queryString}`
-            : `/videos/${videoId}/analysis`;
+            // Apply client-side filtering if filters are provided
+            if (
+                response?.data?.data?.analyses &&
+                Array.isArray(response.data.data.analyses)
+            ) {
+                let analyses = response.data.data.analyses;
 
-        return await axiosInstance.get(url);
+                if (filters.type) {
+                    analyses = analyses.filter(
+                        (analysis) => analysis.analysisType === filters.type
+                    );
+                }
+
+                if (filters.model) {
+                    analyses = analyses.filter(
+                        (analysis) => analysis.model === filters.model
+                    );
+                }
+
+                // Return in the same format but with filtered analyses
+                return {
+                    ...response,
+                    data: {
+                        ...response.data,
+                        data: {
+                            ...response.data.data,
+                            analyses,
+                        },
+                    },
+                };
+            }
+
+            return response;
+        } catch (error) {
+            console.error("Error in getAnalysisResults:", error);
+            throw error;
+        }
     },
 
     /**
@@ -124,9 +171,40 @@ export const videoApi = {
      * @returns {Promise} Response with specific analysis data
      */
     getSpecificAnalysis: async (videoId, type, model) => {
-        return await axiosInstance.get(
-            `/videos/${videoId}/analysis?type=${type}&model=${model}`
-        );
+        try {
+            // Use the getAnalysisResults method with filters to get specific analysis
+            const response = await videoApi.getAnalysisResults(videoId, {
+                type,
+                model,
+            });
+
+            // Return the first matching analysis if found
+            if (
+                response?.data?.data?.analyses &&
+                Array.isArray(response.data.data.analyses) &&
+                response.data.data.analyses.length > 0
+            ) {
+                return {
+                    ...response,
+                    data: {
+                        ...response.data,
+                        data: response.data.data.analyses[0], // Return just the specific analysis
+                    },
+                };
+            }
+
+            // If no analysis found, return empty result
+            return {
+                ...response,
+                data: {
+                    ...response.data,
+                    data: null,
+                },
+            };
+        } catch (error) {
+            console.error("Error in getSpecificAnalysis:", error);
+            throw error;
+        }
     },
 
     /**

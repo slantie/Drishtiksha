@@ -18,7 +18,7 @@ from src.ml.architectures.color_cues_lstm import create_color_cues_model
 
 logger = logging.getLogger(__name__)
 
-class ColorCuesDetector(BaseModel):
+class ColorCuesLSTMV1(BaseModel):
     config: ColorCuesConfig
 
     def __init__(self, config: ColorCuesConfig):
@@ -28,7 +28,7 @@ class ColorCuesDetector(BaseModel):
 
     def load(self) -> None:
         start_time = time.time()
-        logger.info(f"Loading model '{self.config.class_name}' on device '{self.device}'...")
+        # logger.info(f"Loading model '{self.config.class_name}' on device '{self.device}'.")
         try:
             if not os.path.exists(self.config.dlib_model_path):
                 raise FileNotFoundError(f"Dlib model not found at: {self.config.dlib_model_path}")
@@ -38,14 +38,16 @@ class ColorCuesDetector(BaseModel):
             self.model = create_color_cues_model(model_params).to(self.device)
             checkpoint = torch.load(self.config.model_path, map_location=self.device)
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-                logger.info("Checkpoint detected. Extracting 'model_state_dict'.")
+                # logger.info("Checkpoint detected. Extracting 'model_state_dict'.")
                 state_dict_to_load = checkpoint['model_state_dict']
             else:
                 state_dict_to_load = checkpoint
             self.model.load_state_dict(state_dict_to_load)
             self.model.eval()
             load_time = time.time() - start_time
-            logger.info(f"✅ Model '{self.config.class_name}' loaded successfully in {load_time:.2f} seconds.")
+            logger.info(
+                f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f} seconds."
+            )
         except Exception as e:
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
             raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
@@ -118,7 +120,28 @@ class ColorCuesDetector(BaseModel):
         avg_score = np.mean(sequence_scores)
         prediction = "FAKE" if avg_score > 0.5 else "REAL"
         confidence = avg_score if prediction == "FAKE" else 1 - avg_score
-        return {"prediction": prediction, "confidence": confidence, "processing_time": time.time() - start_time, "metrics": {"sequence_count": len(sequence_scores), "per_sequence_scores": sequence_scores, "rolling_average_scores": rolling_avg_scores, "final_average_score": avg_score, "score_variance": np.var(sequence_scores), "suspicious_sequences_count": sum(1 for s in sequence_scores if s > 0.5)}, "note": note}
+        
+        # Enhanced metrics to match other models' format
+        return {
+            "prediction": prediction, 
+            "confidence": confidence, 
+            "processing_time": time.time() - start_time, 
+            "metrics": {
+                "sequence_count": len(sequence_scores),
+                "frame_count": len(sequence_scores),  # Alias for compatibility
+                "per_sequence_scores": sequence_scores,
+                "per_frame_scores": sequence_scores,  # Alias for compatibility
+                "rolling_average_scores": rolling_avg_scores,
+                "final_average_score": avg_score,
+                "max_score": max(sequence_scores) if sequence_scores else 0.0,
+                "min_score": min(sequence_scores) if sequence_scores else 0.0,
+                "score_variance": np.var(sequence_scores),
+                "suspicious_sequences_count": sum(1 for s in sequence_scores if s > 0.5),
+                "suspicious_frames_count": sum(1 for s in sequence_scores if s > 0.5),  # Alias for compatibility
+                "analysis_type": "sequence_based"
+            }, 
+            "note": note
+        }
 
     def predict_frames(self, video_path: str) -> Dict[str, Any]:
         detailed_result = self.predict_detailed(video_path)

@@ -21,18 +21,17 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 // --- Route Imports ---
-// NOTE: Your structure has duplicate route files.
-// We are using the one inside `src/api/auth` as it's the new standard.
-// The old ones in `src/routes` should be deleted.
 import authRoutes from "./api/auth/auth.routes.js";
 import videoRoutes from "./api/videos/video.routes.js";
 import healthRoutes from "./api/health/health.routes.js";
+import monitoringRoutes from "./api/monitoring/monitoring.routes.js";
 
 // --- API Routes ---
 // It's good practice to version your API.
 app.use("/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/videos", videoRoutes);
+app.use("/api/v1/monitoring", monitoringRoutes);
 
 app.get("/", (req, res) => {
     res.status(200).json({

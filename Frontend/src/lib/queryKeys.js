@@ -32,6 +32,7 @@ export const queryKeys = {
     analysis: {
         all: ["analysis"],
         modelStatus: () => [...queryKeys.analysis.all, "modelStatus"],
+        availableModels: () => [...queryKeys.analysis.all, "availableModels"],
         results: (videoId, filters = {}) => [
             ...queryKeys.analysis.all,
             "results",

@@ -27,7 +27,7 @@ class SiglipLSTMV1(BaseModel):
     def load(self) -> None:
         """Loads the LSTM model, weights, and processor."""
         start_time = time.time()
-        logger.info(f"Loading model '{self.config.class_name}' on device '{self.device}'...")
+        # logger.info(f"Loading model '{self.config.class_name}' on device '{self.device}'.")
 
         try:
             model_architecture_config = self.config.model_definition.model_dump()
@@ -39,12 +39,11 @@ class SiglipLSTMV1(BaseModel):
             self.model.to(self.device)
             self.model.eval()
 
-            self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
+            self.processor = AutoProcessor.from_pretrained(self.config.processor_path, use_fast=True)
             
             load_time = time.time() - start_time
             logger.info(
-                f"✅ Model '{self.config.class_name}' loaded successfully "
-                f"in {load_time:.2f} seconds."
+                f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f} seconds."
             )
         except Exception as e:
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
@@ -103,7 +102,7 @@ class SiglipLSTMV3(SiglipLSTMV1):
         rolling_avg_scores = []
         rolling_window = deque(maxlen=self.config.rolling_window_size)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        logger.info(f"Analyzing {total_frames} frames for '{self.config.class_name}'...")
+        # logger.info(f"Analyzing {total_frames} frames for '{self.config.class_name}'.")
 
         try:
             for _ in range(total_frames):

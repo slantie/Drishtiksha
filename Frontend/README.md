@@ -1,44 +1,54 @@
-# Drishtiksha AI - Frontend Module
+# Drishtiksha AI - Frontend Module ✅
 
 ## Overview
 
-The frontend module is a modern React-based web application for the Drishtiksha AI Deepfake Detection System. It provides an intuitive user interface for video upload, analysis management, and comprehensive deepfake detection results visualization across multiple AI models.
+The frontend module is a modern React-based web application for the Drishtiksha AI Deepfake Detection System. It provides an intuitive user interface for video upload, analysis management, and comprehensive deepfake detection results visualization across multiple AI models. The application seamlessly integrates with the backend's asynchronous processing pipeline, providing real-time updates and comprehensive analysis results.
+
+### 🎯 **Integration Status: PRODUCTION READY**
+
+-   ✅ **Backend Integration**: Seamless communication with Node.js/Express backend
+-   ✅ **Real-time Updates**: Live polling for analysis progress and results
+-   ✅ **Multi-Model Support**: Displays results from all 3 AI models automatically
+-   ✅ **Automated Workflow**: One-click upload triggers comprehensive analysis pipeline
+-   ✅ **Manual Controls**: Granular model and analysis type selection for re-runs
+-   ✅ **Responsive Design**: Optimized for desktop and mobile experiences
+-   ✅ **Performance Optimized**: Fast loading with efficient state management
 
 ## Tech Stack
 
 ### Core Technologies
 
-- **React 19.1.0** - Modern React with latest features and performance optimizations
-- **Vite 6.3.5** - Fast build tool and development server
-- **React Router DOM 7.6.2** - Client-side routing for SPA navigation
-- **TypeScript Support** - Type-safe development environment
+-   **React 19.1.0** - Modern React with latest features and performance optimizations
+-   **Vite 6.3.5** - Fast build tool and development server
+-   **React Router DOM 7.6.2** - Client-side routing for SPA navigation
+-   **TypeScript Support** - Type-safe development environment
 
 ### UI/UX Framework
 
-- **Tailwind CSS 3.4.17** - Utility-first CSS framework for rapid UI development
-- **Lucide React 0.513.0** - Modern icon library with 1000+ icons
-- **Framer Motion 12.23.12** - Production-ready motion library for React
-- **Radix UI 1.4.2** - Low-level UI primitives for high-quality design systems
-- **Class Variance Authority** - Type-safe variant API for component styling
+-   **Tailwind CSS 3.4.17** - Utility-first CSS framework for rapid UI development
+-   **Lucide React 0.513.0** - Modern icon library with 1000+ icons
+-   **Framer Motion 12.23.12** - Production-ready motion library for React
+-   **Radix UI 1.4.2** - Low-level UI primitives for high-quality design systems
+-   **Class Variance Authority** - Type-safe variant API for component styling
 
 ### State Management & Data Fetching
 
-- **TanStack React Query 5.85.0** - Powerful data synchronization for React
-- **React Query DevTools** - Development tools for debugging queries
-- **Axios 1.9.0** - Promise-based HTTP client for API communication
+-   **TanStack React Query 5.85.0** - Powerful data synchronization for React
+-   **React Query DevTools** - Development tools for debugging queries
+-   **Axios 1.9.0** - Promise-based HTTP client for API communication
 
 ### Media & File Handling
 
-- **Cloudinary React 1.14.3** - Cloud-based image and video management
-- **React Player 3.3.1** - React component for playing videos
-- **Cloudinary Video Player 3.2.0** - Advanced video playback capabilities
+-   **Cloudinary React 1.14.3** - Cloud-based image and video management
+-   **React Player 3.3.1** - React component for playing videos
+-   **Cloudinary Video Player 3.2.0** - Advanced video playback capabilities
 
 ### Additional Features
 
-- **React Hot Toast 2.5.2** - Lightweight toast notifications
-- **React CountUp 6.5.3** - Animated number counting component
-- **HTML2Canvas & jsPDF** - Client-side PDF report generation
-- **Prop Types 15.8.1** - Runtime type checking for React props
+-   **React Hot Toast 2.5.2** - Lightweight toast notifications
+-   **React CountUp 6.5.3** - Animated number counting component
+-   **HTML2Canvas & jsPDF** - Client-side PDF report generation
+-   **Prop Types 15.8.1** - Runtime type checking for React props
 
 ## Project Structure
 
@@ -93,87 +103,119 @@ Frontend/
 
 ## Key Features
 
-### 🎯 Core Functionality
+### 🚀 **Automated Analysis Pipeline**
 
-- **Multi-Model Analysis**: Support for 3 AI models (SIGLIP-LSTM-V1, SIGLIP-LSTM-V3, ColorCues-LSTM-V1)
-- **Analysis Types**: Quick, Detailed, Frame-by-Frame, and Visualization analysis
-- **Versioning System**: Track multiple analysis versions per video and model
-- **Real-time Processing**: Live updates during video analysis with progress indicators
+-   **One-Click Processing**: Upload triggers automatic analysis across all available models
+-   **Real-time Progress**: Live updates with polling for analysis status and completion
+-   **Comprehensive Results**: Displays QUICK, DETAILED, FRAMES, and VISUALIZE analyses automatically
+-   **Background Processing**: Non-blocking UI with asynchronous backend integration
 
-### 🔐 Authentication & Security
+### 🎛️ **Advanced Analysis Controls**
 
-- **JWT-based Authentication**: Secure user authentication with token management
-- **Protected Routes**: Route-level access control for authenticated users
-- **Session Management**: Automatic token refresh and logout handling
+-   **Multi-Model Support**: SIGLIP-LSTM-V1, SIGLIP-LSTM-V3, ColorCues-LSTM-V1 integration
+-   **Manual Re-runs**: Granular control for re-running specific analysis types and models
+-   **Version Tracking**: Complete history of analysis versions per video and model
+-   **Model Selection**: Choose specific models for targeted analysis when needed
 
-### 📊 Data Visualization
+### 🔐 **Authentication & Security**
 
-- **Interactive Charts**: Real-time visualization of analysis results
-- **Progress Tracking**: Visual progress indicators for ongoing analysis
-- **Comprehensive Reports**: Detailed analysis breakdowns with charts and metrics
+-   **JWT-based Authentication**: Secure user authentication with token management
+-   **Protected Routes**: Route-level access control for authenticated users
+-   **Session Management**: Automatic token refresh and logout handling
+-   **Secure API Communication**: Token-based authentication for all backend requests
 
-### 🎨 User Experience
+### 📊 **Rich Data Visualization**
 
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-- **Dark/Light Theme**: User-selectable theme preferences
-- **Intuitive Navigation**: Clear navigation with React Router
-- **Toast Notifications**: User feedback for actions and status updates
+-   **Interactive Charts**: Real-time visualization of analysis results and metrics
+-   **Progress Tracking**: Visual progress indicators for ongoing analysis jobs
+-   **Comprehensive Reports**: Detailed analysis breakdowns with charts and confidence scores
+-   **Model Comparison**: Side-by-side comparison of results across different models
 
-### 📱 Media Management
+### 🎨 **Enhanced User Experience**
 
-- **Cloudinary Integration**: Cloud-based video storage and delivery
-- **Video Player**: Advanced video playback with analysis overlays
-- **File Upload**: Drag-and-drop video upload with validation
-- **Preview Generation**: Video thumbnails and preview functionality
+-   **Responsive Design**: Mobile-first approach with Tailwind CSS optimization
+-   **Dark/Light Theme**: User-selectable theme preferences with system detection
+-   **Intuitive Navigation**: Clear navigation with React Router and breadcrumbs
+-   **Smart Notifications**: Context-aware toast notifications for actions and status updates
+-   **Loading States**: Elegant loading indicators and skeleton screens
+
+### 📱 **Advanced Media Management**
+
+-   **Cloudinary Integration**: Cloud-based video storage with optimized delivery
+-   **Video Player**: Advanced video playback with analysis overlays and annotations
+-   **Drag-Drop Upload**: Intuitive file upload with validation and preview
+-   **Thumbnail Generation**: Automatic video thumbnails and preview functionality
+-   **Progress Streaming**: Real-time visualization video generation and display
 
 ## Environment Configuration
 
 ### Required Environment Variables
 
-Create a `.env` file in the Frontend directory:
+Create a `.env` file in the Frontend directory with the following production-ready configuration:
 
 ```env
-# API Configuration
-VITE_API_BASE_URL=http://localhost:3000/api
+# Backend API Configuration
+VITE_API_BASE_URL=http://localhost:3000/api/v1
 VITE_BACKEND_URL=http://localhost:3000
 
-# Cloudinary Configuration
+# Cloudinary Configuration (for video display)
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_API_KEY=your_api_key
 
 # Application Configuration
 VITE_APP_NAME="Drishtiksha AI"
-VITE_APP_VERSION="1.0.0"
+VITE_APP_VERSION="2.0.0"
 VITE_ENVIRONMENT="development"
 
 # Feature Flags
 VITE_ENABLE_ANALYTICS=true
 VITE_ENABLE_DEV_TOOLS=true
+VITE_ENABLE_AUTO_ANALYSIS=true
+VITE_POLLING_INTERVAL=3000
+
+# UI Configuration
+VITE_MAX_FILE_SIZE=100
+VITE_SUPPORTED_FORMATS="mp4,avi,mov,mkv"
+VITE_RESULTS_PER_PAGE=10
 ```
+
+### Integration-Specific Settings
+
+**Backend Communication:**
+
+-   `VITE_API_BASE_URL`: Full API endpoint for backend communication
+-   `VITE_POLLING_INTERVAL`: Real-time update frequency (milliseconds)
+-   `VITE_ENABLE_AUTO_ANALYSIS`: Toggle automatic analysis pipeline
+
+**Performance Tuning:**
+
+-   Smart polling intervals based on video status
+-   Optimized React Query cache settings
+-   Lazy loading for analysis visualization components
 
 ### Environment-Specific Configurations
 
 **Development:**
 
-- Hot reload enabled
-- DevTools available
-- Detailed error messages
-- Source maps enabled
+-   Hot reload enabled
+-   DevTools available
+-   Detailed error messages
+-   Source maps enabled
 
 **Production:**
 
-- Optimized bundles
-- Minified assets
-- Error boundaries
-- Performance monitoring
+-   Optimized bundles
+-   Minified assets
+-   Error boundaries
+-   Performance monitoring
 
 ## Installation & Setup
 
 ### Prerequisites
 
-- Node.js 18+ and npm/yarn
-- Backend API server running on port 3000
-- ML Server running on port 8000
+-   Node.js 18+ and npm/yarn
+-   Backend API server running on port 3000
+-   ML Server running on port 8000
 
 ### Quick Start
 
@@ -207,30 +249,71 @@ npm run lint
 
 ## API Integration
 
-### Service Layer Architecture
+### Simplified Workflow Architecture
+
+The frontend now integrates with the backend's **asynchronous, queue-based architecture** for a streamlined user experience:
+
+**Primary Workflow (Automatic):**
 
 ```javascript
-// Example: Video Analysis Service
+// 1. Upload Video - Triggers automatic analysis
 export const videoService = {
-  uploadVideo: (formData) => api.post("/videos/upload", formData),
-  getVideoAnalyses: (videoId) => api.get(`/videos/${videoId}/analyses`),
-  triggerAnalysis: (videoId, analysisType, model) =>
-    api.post(`/videos/${videoId}/analyze`, { analysisType, model }),
-  getAnalysisDetails: (analysisId) => api.get(`/analyses/${analysisId}`),
+    uploadVideo: (formData) => api.post("/api/v1/videos", formData),
+    // Returns: { id, status: "QUEUED", cloudinaryUrl, ... }
+
+    // 2. Poll for Results - Real-time status updates
+    getVideoDetails: (videoId) => api.get(`/api/v1/videos/${videoId}`),
+    // Returns: { id, status: "PROCESSING|ANALYZED", analyses: [...] }
 };
 ```
 
-### React Query Integration
+**Advanced Controls (Manual Re-runs):**
 
 ```javascript
-// Example: Analysis Data Fetching
-export const useVideoAnalyses = (videoId) => {
-  return useQuery({
-    queryKey: ["videoAnalyses", videoId],
-    queryFn: () => videoService.getVideoAnalyses(videoId),
-    enabled: !!videoId,
-    refetchInterval: 5000, // Real-time updates
-  });
+// For granular control and re-analysis
+export const analysisService = {
+    // Trigger specific analysis (preserved for re-runs)
+    triggerAnalysis: (videoId, analysisType, model) =>
+        api.post(`/api/v1/videos/${videoId}/analyze`, { analysisType, model }),
+
+    // Get detailed analysis results
+    getAnalysisDetails: (analysisId) =>
+        api.get(`/api/v1/analyses/${analysisId}`),
+
+    // Check ML server health and available models
+    getServerStatus: () => api.get("/api/v1/videos/status"),
+};
+```
+
+### React Query Integration for Real-time Updates
+
+```javascript
+// Real-time video analysis tracking
+export const useVideoAnalysis = (videoId) => {
+    return useQuery({
+        queryKey: ["video", videoId],
+        queryFn: () => videoService.getVideoDetails(videoId),
+        enabled: !!videoId,
+        refetchInterval: (data) => {
+            // Smart polling: faster when processing, slower when complete
+            return data?.status === "PROCESSING"
+                ? 3000
+                : data?.status === "QUEUED"
+                ? 5000
+                : false;
+        },
+        refetchIntervalInBackground: true,
+    });
+};
+
+// Server health monitoring
+export const useServerHealth = () => {
+    return useQuery({
+        queryKey: ["serverHealth"],
+        queryFn: () => analysisService.getServerStatus(),
+        refetchInterval: 30000, // Check every 30 seconds
+        retry: 3,
+    });
 };
 ```
 
@@ -240,53 +323,117 @@ export const useVideoAnalyses = (videoId) => {
 
 **Base Components:**
 
-- Button variants (primary, secondary, outline, ghost)
-- Card layouts (default, hover, interactive)
-- Form inputs (text, file, select, textarea)
-- Modal dialogs and overlays
+-   Button variants (primary, secondary, outline, ghost) with loading states
+-   Card layouts (default, hover, interactive) with status indicators
+-   Form inputs (text, file, select, textarea) with validation feedback
+-   Modal dialogs and overlays with backdrop blur effects
+-   Progress bars and circular indicators for real-time updates
 
 **Composite Components:**
 
-- VideoUpload (drag-drop with preview)
-- AnalysisCard (result display with actions)
-- ProgressIndicator (real-time progress)
-- DataTable (sortable, filterable results)
+-   **VideoUpload**: Drag-drop interface with instant upload and queue status
+-   **AnalysisCard**: Real-time result display with model badges and confidence scores
+-   **ProgressIndicator**: Live progress tracking with time estimates
+-   **DataTable**: Sortable, filterable results with export capabilities
+-   **ModelSelector**: Advanced model and analysis type selection for re-runs
 
-### Page Components
+### Enhanced Page Components
+
+**Upload.jsx Features:**
+
+-   Drag-and-drop video upload with instant feedback
+-   Automatic processing initiation with queue status
+-   Real-time progress tracking from upload to analysis completion
+-   Smart routing to results page when upload completes
 
 **Results.jsx Features:**
 
-- Model-grouped analysis display
-- Latest version filtering
-- Interactive analysis cards
-- Real-time status updates
+-   **Automated Display**: Shows all analyses automatically as they complete
+-   **Model Grouping**: Organized results by AI model (SIGLIP-LSTM-V1/V3, ColorCues-LSTM)
+-   **Real-time Updates**: Live polling for analysis progress and new results
+-   **Status Indicators**: Clear visual status (QUEUED → PROCESSING → ANALYZED)
+-   **Interactive Cards**: Click to view detailed analysis breakdowns
+-   **Re-run Controls**: Manual analysis triggers for specific models/types
 
 **DetailedAnalysis.jsx Features:**
 
-- Comprehensive data visualization
-- Frame-by-frame analysis display
-- Temporal analysis charts
-- Model performance metrics
+-   **Comprehensive Visualization**: Complete analysis breakdown with confidence metrics
+-   **Frame-by-frame Analysis**: Timeline view with keyframe detection
+-   **Temporal Charts**: Confidence evolution over video duration
+-   **Model Comparison**: Side-by-side results from different models
+-   **Visualization Player**: Embedded analysis visualization videos
+-   **Export Options**: PDF reports and data export capabilities
+
+**Dashboard.jsx Features:**
+
+-   **Video Library**: Grid view of all user videos with analysis status
+-   **Quick Actions**: One-click access to upload, view results, re-analyze
+-   **Statistics Overview**: Analysis completion rates and model performance metrics
+-   **Recent Activity**: Timeline of recent uploads and completed analyses
+
+## User Workflow
+
+### 🚀 **Streamlined Analysis Pipeline**
+
+The frontend provides two complementary workflows optimized for different use cases:
+
+#### **Primary Workflow: Automated Analysis**
+
+1. **Upload Video**: Drag-and-drop or select video file
+2. **Instant Processing**: Backend automatically queues comprehensive analysis
+3. **Real-time Tracking**: Live progress updates across all models and analysis types
+4. **Results Display**: Automatic display of completed analyses as they finish
+5. **Comprehensive View**: Access to all 8+ analyses (QUICK, DETAILED, FRAMES, VISUALIZE) across 3 models
+
+```
+User Upload → Auto Queue → Real-time Updates → Complete Results
+     ↓              ↓              ↓              ↓
+   Upload.jsx → Results.jsx → Live Polling → DetailedAnalysis.jsx
+```
+
+#### **Advanced Workflow: Manual Control**
+
+1. **Model Selection**: Choose specific AI models (SIGLIP-LSTM-V1/V3, ColorCues-LSTM)
+2. **Analysis Type**: Select QUICK, DETAILED, FRAMES, or VISUALIZE analysis
+3. **Targeted Processing**: Run specific combinations for comparison or re-analysis
+4. **Custom Insights**: Generate focused results for research or debugging
+
+```
+Results.jsx → Model Selector → Custom Analysis → Targeted Results
+     ↓              ↓              ↓              ↓
+   Re-run UI → API Call → Background Processing → Updated Display
+```
+
+### 📊 **Real-time Status Management**
+
+The application provides comprehensive status tracking throughout the analysis lifecycle:
+
+-   **QUEUED**: Video uploaded, waiting for processing
+-   **PROCESSING**: Active analysis in progress with live updates
+-   **ANALYZED**: Complete results available for viewing
+-   **FAILED**: Error handling with retry options
+
+Status updates are managed through smart polling with React Query, providing optimal performance and user experience.
 
 ## Performance Optimizations
 
 ### Code Splitting
 
-- Route-based code splitting
-- Component lazy loading
-- Dynamic imports for heavy components
+-   Route-based code splitting
+-   Component lazy loading
+-   Dynamic imports for heavy components
 
 ### Asset Optimization
 
-- Image optimization with Cloudinary
-- Video streaming and adaptive quality
-- Bundle size monitoring
+-   Image optimization with Cloudinary
+-   Video streaming and adaptive quality
+-   Bundle size monitoring
 
 ### Caching Strategy
 
-- React Query for server state caching
-- LocalStorage for user preferences
-- Service worker for offline capabilities
+-   React Query for server state caching
+-   LocalStorage for user preferences
+-   Service worker for offline capabilities
 
 ## Testing Strategy
 
@@ -305,10 +452,10 @@ npm run test:performance
 
 ### Quality Assurance
 
-- ESLint for code quality
-- Prettier for code formatting
-- TypeScript for type safety
-- Accessibility testing with axe-core
+-   ESLint for code quality
+-   Prettier for code formatting
+-   TypeScript for type safety
+-   Accessibility testing with axe-core
 
 ## Deployment
 
@@ -327,10 +474,10 @@ npm run build:analyze
 
 ### Deployment Targets
 
-- **Vercel**: Optimized for React/Vite applications
-- **Netlify**: Continuous deployment with Git integration
-- **AWS S3 + CloudFront**: Scalable static hosting
-- **Docker**: Containerized deployment
+-   **Vercel**: Optimized for React/Vite applications
+-   **Netlify**: Continuous deployment with Git integration
+-   **AWS S3 + CloudFront**: Scalable static hosting
+-   **Docker**: Containerized deployment
 
 ## Troubleshooting
 
@@ -338,21 +485,21 @@ npm run build:analyze
 
 **Build Errors:**
 
-- Check Node.js version compatibility
-- Verify environment variables
-- Clear node_modules and reinstall
+-   Check Node.js version compatibility
+-   Verify environment variables
+-   Clear node_modules and reinstall
 
 **API Connection Issues:**
 
-- Verify backend server is running
-- Check CORS configuration
-- Validate environment variables
+-   Verify backend server is running
+-   Check CORS configuration
+-   Validate environment variables
 
 **Performance Issues:**
 
-- Analyze bundle size with Vite rollup-plugin-visualizer
-- Optimize images and videos
-- Implement proper code splitting
+-   Analyze bundle size with Vite rollup-plugin-visualizer
+-   Optimize images and videos
+-   Implement proper code splitting
 
 ### Debug Mode
 
@@ -376,17 +523,17 @@ VITE_ENABLE_DEV_TOOLS=true npm run dev
 
 ### Code Style
 
-- Use functional components with hooks
-- Implement proper prop validation
-- Follow naming conventions (PascalCase for components)
-- Use meaningful variable and function names
+-   Use functional components with hooks
+-   Implement proper prop validation
+-   Follow naming conventions (PascalCase for components)
+-   Use meaningful variable and function names
 
 ## Security Considerations
 
-- **XSS Protection**: Sanitize user inputs and dynamic content
-- **CSRF Protection**: Implement proper token validation
-- **Content Security Policy**: Configure CSP headers
-- **Secure Storage**: Use secure methods for sensitive data
+-   **XSS Protection**: Sanitize user inputs and dynamic content
+-   **CSRF Protection**: Implement proper token validation
+-   **Content Security Policy**: Configure CSP headers
+-   **Secure Storage**: Use secure methods for sensitive data
 
 ## License
 
@@ -394,6 +541,7 @@ This project is part of the Drishtiksha AI Deepfake Detection System and is prop
 
 ---
 
-**Last Updated:** August 15, 2025  
-**Version:** 1.0.0  
+**Last Updated:** August 16, 2025  
+**Version:** 2.0.0 - Production Ready  
+**Backend Integration:** ✅ Fully Operational  
 **Maintainer:** Drishtiksha AI Team

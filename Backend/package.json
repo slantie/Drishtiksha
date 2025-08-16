@@ -4,30 +4,26 @@
     "main": "server.js",
     "type": "module",
     "scripts": {
-        "test": "jest",
-        "test:watch": "jest --watch",
-        "test:coverage": "jest --coverage",
-        "test:integration": "jest tests/integration.test.js",
-        "test:endpoints": "jest tests/video-endpoints.test.js",
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
         "start": "node server.js",
         "dev": "nodemon server.js",
         "db:generate": "prisma generate",
         "db:push": "prisma db push",
-        "db:studio": "prisma studio",
-        "test:model": "node src/utils/testModelIntegration.js"
+        "db:studio": "prisma studio"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "description": "",
     "devDependencies": {
+        "@jest/globals": "^29.7.0",
         "concurrently": "^9.1.2",
         "express": "^5.1.0",
+        "jest": "^29.7.0",
+        "nock": "^14.0.10",
         "nodemon": "^3.1.10",
         "prisma": "^6.14.0",
-        "jest": "^29.7.0",
-        "supertest": "^7.0.0",
-        "@jest/globals": "^29.7.0"
+        "supertest": "^7.0.0"
     },
     "dependencies": {
         "@prisma/client": "^6.14.0",

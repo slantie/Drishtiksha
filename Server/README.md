@@ -1,40 +1,42 @@
 # Drishtiksha: Deepfake Detection Service v2.0
 
-A high-performance, production-ready AI service for deepfake detection. This fully-refactored application features a modular architecture, multiple state-of-the-art models, and a comprehensive API for video authenticity verification. Built with FastAPI and PyTorch, this service provides a robust and scalable solution designed for mission-critical environments.
+A high-performance, production-ready AI service for deepfake detection. This fully-refactored application features a modular architecture, multiple state-of-the-art models, comprehensive API endpoints, and real-time server monitoring capabilities. Built with FastAPI and PyTorch, this service provides a robust and scalable solution designed for mission-critical environments.
 
 ## 🚀 Key Features
 
 ### Core Capabilities
 
--   **Multi-Model Architecture:** Deploy multiple detection models simultaneously, with all models pre-loaded into GPU memory for instant, low-latency inference.
--   **Production-Ready Performance:** Built with **FastAPI** and Uvicorn for high-throughput, asynchronous request handling.
+-   **Multi-Model Architecture:** Deploy multiple detection models simultaneously, with modular activation through environment configuration for optimal resource management.
+-   **Production-Ready Performance:** Built with **FastAPI** and Uvicorn for high-throughput, asynchronous request handling with CUDA acceleration.
 -   **Comprehensive Analysis API:** Four distinct analysis endpoints (`/analyze`, `/analyze/detailed`, `/analyze/frames`, `/analyze/visualize`) catering to different use cases, from quick checks to forensic analysis.
--   **CUDA Acceleration:** Full GPU support for accelerated inference with graceful fallback to CPU if CUDA is unavailable.
+-   **Real-time Monitoring:** Extensive server statistics endpoints for monitoring device usage, system resources, model status, and performance metrics.
+-   **Dynamic Model Management:** Environment-controlled model activation with automatic filtering and health monitoring.
 
 ### Architectural Highlights (Post-Refactor)
 
--   **Modular API Layer:** FastAPI endpoints are logically separated into routers (`status`, `analysis`) with a clean, dependency-injection pattern for handling requests, which has eliminated all repetitive code.
--   **Decoupled ML Layer:** A clear separation between model architecture (`src/ml/architectures`), inference logic (`src/ml/models`), and the model management registry.
--   **Type-Safe Centralized Configuration:** A single Pydantic `Settings` object (`src/config.py`) loads and strictly validates all configurations from `.env` and `config.yaml`, providing a single source of truth for the application.
--   **Robust Error Handling:** The service now provides standardized, detailed JSON error responses for all failed requests. Models are designed to be resilient, offering graceful fallbacks for challenging video inputs.
+-   **Modular API Layer:** FastAPI endpoints logically separated into routers (`status`, `analysis`) with clean dependency injection patterns.
+-   **Decoupled ML Layer:** Clear separation between model architecture, inference logic, and model management registry.
+-   **Type-Safe Configuration:** Centralized Pydantic `Settings` with strict validation from `.env` and `config.yaml`.
+-   **Comprehensive Monitoring:** Real-time system statistics, device monitoring, and model performance tracking.
+-   **Environment-Based Control:** Dynamic model activation through `ACTIVE_MODELS` environment variable.
 
 ## 🤖 Available Models
 
-### 1\. SIGLIP-LSTM V3 (`siglip-lstm-v3`)
+### 1\. SIGLIP-LSTM V3 (`SIGLIP-LSTM-V3`)
 
 -   **Architecture:** An enhanced SIGLIP vision encoder combined with an LSTM for advanced temporal feature analysis.
 -   **Strengths:** The most accurate model in the suite, providing detailed, frame-by-frame analysis with temporal smoothing.
 -   **Features:** Supports all four analysis endpoints, including detailed metrics and video visualization.
 -   **Use Cases:** High-stakes forensic analysis, detailed reporting, and visual evidence generation.
 
-### 2\. SIGLIP-LSTM V1 (`siglip-lstm-v1`)
+### 2\. SIGLIP-LSTM V1 (`SIGLIP-LSTM-V1`)
 
 -   **Architecture:** A foundational SIGLIP vision encoder with a standard LSTM for temporal analysis.
 -   **Strengths:** Offers a strong balance of speed and accuracy.
 -   **Features:** Supports the `/analyze` (quick) endpoint only.
 -   **Use Cases:** General-purpose deepfake screening and real-time applications where speed is a priority.
 
-### 3\. ColorCues LSTM (`color-cues-lstm-v1`)
+### 3\. ColorCues LSTM (`COLOR-CUES-LSTM-V1`)
 
 -   **Architecture:** Utilizes R-G color histograms from dlib-detected facial landmarks, fed into an LSTM.
 -   **Strengths:** Specialized in detecting deepfakes created through color manipulation or that exhibit subtle color artifacts.
@@ -45,14 +47,19 @@ A high-performance, production-ready AI service for deepfake detection. This ful
 
 All analysis endpoints are secured and require an API key to be sent in the `X-API-Key` header.
 
-### Status Endpoints
+### Status & Monitoring Endpoints
 
 -   `GET /`: Provides a detailed health check of the service, including the status of all configured models.
 -   `GET /ping`: A simple endpoint to confirm the server is running and responsive.
+-   `GET /stats`: **[NEW]** Comprehensive server statistics including device info, system resources, model details, and configuration.
+-   `GET /device`: **[NEW]** Detailed GPU/CPU device information including memory usage, compute capability, and CUDA status.
+-   `GET /system`: **[NEW]** System resource information including RAM usage, CPU count, platform details, and uptime.
+-   `GET /models`: **[NEW]** Detailed information about all configured models, their status, and memory usage.
+-   `GET /config`: **[NEW]** Server configuration summary including active models, device settings, and version information.
 
 ### Analysis Endpoints
 
-All analysis endpoints accept multipart/form-data with two fields: `video` (the video file) and an optional `model` (the string name of the model to use, e.g., `siglip-lstm-v3`).
+All analysis endpoints accept multipart/form-data with two fields: `video` (the video file) and an optional `model` (the string name of the model to use, e.g., `SIGLIP-LSTM-V3`).
 
 #### 1\. Quick Analysis
 
@@ -73,7 +80,7 @@ Provides a comprehensive analysis with model-specific metrics.
 POST /analyze/detailed
 ```
 
--   **Model Support:** `siglip-lstm-v3`, `color-cues-lstm-v1`.
+-   **Model Support:** `SIGLIP-LSTM-V3`, `COLOR-CUES-LSTM-V1`.
 -   **Response:** `APIResponse[DetailedAnalysisData]` containing the prediction, confidence, processing time, and a dictionary of detailed metrics.
 
 #### 3\. Frame-by-Frame Analysis
@@ -84,7 +91,7 @@ Returns a prediction for each frame or sequence in the video.
 POST /analyze/frames
 ```
 
--   **Model Support:** `siglip-lstm-v3`, `color-cues-lstm-v1`.
+-   **Model Support:** `SIGLIP-LSTM-V3`, `COLOR-CUES-LSTM-V1`.
 -   **Response:** `APIResponse[FramesAnalysisData]` containing an overall prediction and a list of per-frame/sequence predictions.
 
 #### 4\. Visual Analysis
@@ -95,7 +102,7 @@ Generates and returns a new video file with an overlaid analysis graph.
 POST /analyze/visualize
 ```
 
--   **Model Support:** `siglip-lstm-v3`, `color-cues-lstm-v1`.
+-   **Model Support:** `SIGLIP-LSTM-V3`, `COLOR-CUES-LSTM-V1`.
 -   **Response:** A `video/mp4` file stream.
 
 ## 🏗️ Project Structure (Refactored)
@@ -172,13 +179,47 @@ POST /analyze/visualize
 4.  **Download Models**
     Ensure the required `.pth` and `.dat` files are placed in the `/models` directory.
 5.  **Configure Environment**
-    Create a `.env` file in the project root by copying `.env.example` and set your `API_KEY`.
+    Create a `.env` file in the project root by copying `.env.example` and configure the service settings.
+
     ```env
+    # Security
     API_KEY="your_super_secret_api_key_here_at_least_32_characters"
-    DEFAULT_MODEL_NAME="siglip-lstm-v3"
+
+    # Model Configuration
+    DEFAULT_MODEL_NAME="SIGLIP-LSTM-V3"
+
+    # Device Configuration - Choose compute device for model inference
+    # Options: "cuda" (GPU acceleration), "cpu" (CPU-only processing)
+    DEVICE="cuda"
+
+    # Active Models - Control which models are loaded and served
+    # Available: SIGLIP-LSTM-V1, SIGLIP-LSTM-V3, COLOR-CUES-LSTM-V1
+    ACTIVE_MODELS="SIGLIP-LSTM-V3,COLOR-CUES-LSTM-V1"
     ```
 
 ## 🏃‍♂️ Running the Application
+
+### Environment-Based Configuration
+
+The service supports dynamic configuration through environment variables:
+
+#### Model Control
+
+-   **Production Setup**: `ACTIVE_MODELS="SIGLIP-LSTM-V3,COLOR-CUES-LSTM-V1"`
+-   **Development**: `ACTIVE_MODELS="SIGLIP-LSTM-V1"`
+-   **Full Suite**: `ACTIVE_MODELS="SIGLIP-LSTM-V1,SIGLIP-LSTM-V3,COLOR-CUES-LSTM-V1"`
+
+#### Device Configuration
+
+-   **GPU Acceleration**: `DEVICE="cuda"` (Recommended for production)
+-   **CPU Only**: `DEVICE="cpu"` (Fallback or CPU-only environments)
+
+Only the models listed in `ACTIVE_MODELS` will be loaded into memory, and all models will use the specified `DEVICE`, allowing for:
+
+-   **Faster startup times** (fewer models to load)
+-   **Lower memory usage** (inactive models are ignored)
+-   **Environment-specific deployments** (different models and devices per environment)
+-   **Flexible hardware targeting** (GPU for production, CPU for development)
 
 ### Development Server
 
@@ -213,6 +254,67 @@ With the server running, you can execute the end-to-end test suite from a separa
 Once the server is running, you can access the interactive API documentation (Swagger UI) in your browser:
 
 -   **URL:** `http://localhost:8000/docs`
+
+## 📊 Server Monitoring & Statistics
+
+The service provides comprehensive monitoring endpoints for production deployments:
+
+### Real-time Statistics (`GET /stats`)
+
+```json
+{
+    "service_name": "Drishtiksha: Deepfake Detection",
+    "version": "2.0.0",
+    "status": "running",
+    "uptime_seconds": 3600.45,
+    "device_info": {
+        "type": "cuda",
+        "name": "NVIDIA GeForce RTX 4090",
+        "total_memory": 24.0,
+        "used_memory": 8.5,
+        "free_memory": 15.5,
+        "memory_usage_percent": 35.4,
+        "compute_capability": "8.9",
+        "cuda_version": "12.1"
+    },
+    "system_info": {
+        "python_version": "3.11.0",
+        "platform": "Linux-5.15.0-ubuntu",
+        "cpu_count": 16,
+        "total_ram": 32.0,
+        "used_ram": 12.8,
+        "ram_usage_percent": 40.0,
+        "uptime_seconds": 3600.45
+    },
+    "active_models_count": 2,
+    "total_models_count": 3,
+    "configuration": {
+        "active_models": ["SIGLIP-LSTM-V3", "COLOR-CUES-LSTM-V1"],
+        "default_model": "SIGLIP-LSTM-V3",
+        "cuda_available": true
+    }
+}
+```
+
+### Device Monitoring (`GET /device`)
+
+-   GPU/CPU status and specifications
+-   Memory usage (total, used, free)
+-   CUDA availability and version
+-   Compute capability information
+
+### System Resources (`GET /system`)
+
+-   Python version and platform information
+-   CPU count and RAM usage
+-   System uptime and resource utilization
+
+### Model Information (`GET /models`)
+
+-   Detailed status of all configured models
+-   Memory usage per model
+-   Load status and configuration details
+-   Active vs configured models summary
 
 ## 📦 Docker Deployment
 

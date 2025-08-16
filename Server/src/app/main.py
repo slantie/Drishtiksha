@@ -12,7 +12,17 @@ from src.app.routers import analysis, status
 from src.app.schemas import APIError
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%H:%M:%S | %d/%m/%Y"
+)
+
+# Reduce uvicorn logging verbosity
+logging.getLogger("uvicorn").setLevel(logging.ERROR)
+logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
+logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -22,28 +32,25 @@ async def lifespan(app: FastAPI):
     - On startup: Initializes the ModelManager and pre-loads ALL configured models.
     - On shutdown: Cleans up resources.
     """
-    logger.info(f"🚀 Starting up {settings.project_name}...")
+    logger.info(f"🔼 Starting up {settings.project_name} Application.")
     manager = ModelManager(settings)
     app_state["model_manager"] = manager
     
     # --- CHANGE: Loop through and pre-load ALL models ---
-    logger.info("Pre-loading all configured models into memory...")
     all_models = manager.get_available_models()
     for model_name in all_models:
         try:
-            logger.info(f"Loading '{model_name}'...")
             manager.get_model(model_name)
-            logger.info(f"✅ Model '{model_name}' loaded successfully.")
         except Exception as e:
             logger.critical(
                 f"❌ CRITICAL: Failed to load model '{model_name}' during startup: {e}", 
                 exc_info=True
             )
-    
-    logger.info("✅ All models loaded. Application is ready.")
+
+    logger.info(f"✅ {settings.project_name} Application Ready.")
     yield
     
-    logger.info("🔌 Shutting down server...")
+    logger.info("🔽 Shutting down server.")
     app_state.clear()
 
 # --- FastAPI App Initialization ---

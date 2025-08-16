@@ -1,5 +1,5 @@
 // =============================================================================
-// Drishtiksha AI Deepfake Detection Service - Database Schema
+// Drishtiksha: Deepfake Detection Service - Database Schema
 // =============================================================================
 //
 // This schema supports the comprehensive multi-model deepfake detection system
@@ -167,11 +167,15 @@ model ModelInfo {
   id           String           @id @default(uuid())
   analysisId   String           @unique
   analysis     DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  version      String
-  architecture String
-  device       String
-  batchSize    Int?
-  numFrames    Int?
+  modelName    String // e.g., "SIGLIP-LSTM-V3"
+  version      String // Model version string
+  architecture String // Model architecture details
+  device       String // Processing device (cuda:0, cpu, etc.)
+  batchSize    Int? // Batch size used
+  numFrames    Int? // Number of frames processed
+  modelSize    String? // Model size information
+  loadTime     Float? // Time taken to load model (ms)
+  memoryUsage  String? // Memory usage during processing
   createdAt    DateTime         @default(now())
 
   @@map("model_info")
@@ -181,11 +185,19 @@ model SystemInfo {
   id                String           @id @default(uuid())
   analysisId        String           @unique
   analysis          DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  gpuMemoryUsed     String?
-  processingDevice  String?
-  cudaAvailable     Boolean?
-  systemMemoryUsed  String?
-  loadBalancingInfo Json? // Store load balancing metrics as JSON
+  gpuMemoryUsed     String? // GPU memory usage during analysis
+  gpuMemoryTotal    String? // Total GPU memory available
+  processingDevice  String? // Device used for processing
+  cudaAvailable     Boolean? // CUDA availability status
+  cudaVersion       String? // CUDA version if available
+  systemMemoryUsed  String? // System RAM usage
+  systemMemoryTotal String? // Total system RAM
+  cpuUsage          Float? // CPU usage percentage during analysis
+  loadBalancingInfo Json? // Load balancing metrics as JSON
+  serverVersion     String? // ML server version
+  pythonVersion     String? // Python runtime version
+  torchVersion      String? // PyTorch version
+  requestId         String? // Unique request identifier for tracking
   createdAt         DateTime         @default(now())
 
   @@map("system_info")
@@ -208,16 +220,22 @@ model AnalysisError {
 }
 
 model ServerHealth {
-  id              String       @id @default(uuid())
-  serverUrl       String // ML Server URL
-  status          ServerStatus @default(UNKNOWN)
-  availableModels String[] // Models currently loaded
-  loadMetrics     Json? // Current load balancing metrics
-  gpuInfo         Json? // GPU availability and memory info
-  lastHealthCheck DateTime
-  responseTime    Float? // Health check response time in ms
-  errorMessage    String?
-  createdAt       DateTime     @default(now())
+  id                String       @id @default(uuid())
+  serverUrl         String // ML Server URL
+  status            ServerStatus @default(UNKNOWN)
+  availableModels   String[] // Models currently loaded and available
+  modelStates       Json? // Detailed model state information
+  loadMetrics       Json? // Current load balancing and performance metrics
+  gpuInfo           Json? // GPU availability, memory, utilization info
+  systemResources   Json? // System resource information
+  lastHealthCheck   DateTime // When this health check was performed
+  responseTime      Float? // Health check response time in ms
+  errorMessage      String? // Any error messages from health check
+  requestCount      Int? // Number of requests processed since last check
+  avgProcessingTime Float? // Average processing time for recent requests
+  uptime            String? // Server uptime information
+  version           String? // Server software version
+  createdAt         DateTime     @default(now())
 
   @@map("server_health")
 }
@@ -229,7 +247,8 @@ enum Role {
 }
 
 enum VideoStatus {
-  UPLOADED
+  UPLOADED // Legacy
+  QUEUED
   PROCESSING
   ANALYZED
   FAILED
@@ -252,12 +271,13 @@ enum AnalysisType {
   DETAILED // Comprehensive analysis - /analyze/detailed endpoint  
   FRAMES // Frame-by-frame analysis - /analyze/frames endpoint
   VISUALIZE // Visual analysis with overlays - /analyze/visualize endpoint
+  COMPREHENSIVE // Complete analysis with all features - /analyze/comprehensive endpoint
 }
 
 enum AnalysisModel {
-  SIGLIP_LSTM_V1 // siglip-lstm-v1: Balanced performance, fast inference
-  SIGLIP_LSTM_V3 // siglip-lstm-v3: Enhanced accuracy, detailed analysis
-  COLOR_CUES_LSTM_V1 // color-cues-lstm-v1: Color-based deepfake detection
+  SIGLIP_LSTM_V1 // SIGLIP-LSTM-V1: Balanced performance, fast inference
+  SIGLIP_LSTM_V3 // SIGLIP-LSTM-V3: Enhanced accuracy, detailed analysis
+  COLOR_CUES_LSTM_V1 // COLOR-CUES-LSTM-V1: Color-based deepfake detection
 }
 
 enum ServerStatus {

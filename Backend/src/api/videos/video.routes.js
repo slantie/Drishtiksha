@@ -12,31 +12,29 @@ import {
 
 const router = express.Router();
 
-// All routes in this file are protected and require authentication
+// --- PROTECTED ROUTES ---
+// The authentication middleware is applied here.
+// All routes defined BELOW this line will require a valid JWT.
 router.use(authenticateToken);
 
+// Model server status route - now protected
+router.route("/status").get(videoController.getModelServerStatus);
+
+// Available models route - get models that are currently active
+router.route("/models").get(videoController.getAvailableModels);
+
+// POST /api/v1/videos -> Upload a new video for analysis.
+// GET /api/v1/videos  -> Get a list of all videos for the authenticated user.
 router
     .route("/")
-    .get(videoController.getAllVideos)
-    .post(upload.single("video"), videoController.uploadVideo);
+    .post(upload.single("video"), videoController.uploadVideo)
+    .get(videoController.getAllVideos);
 
-// Model service status endpoint
-router.get("/model/status", videoController.getModelStatus);
-
+// GET /api/v1/videos/:id    -> Get a specific video with all its analysis results.
+// DELETE /api/v1/videos/:id -> Delete a video and its associated data.
 router
     .route("/:id")
     .get(videoController.getVideoById)
-    .patch(validate(videoUpdateSchema), videoController.updateVideo)
     .delete(videoController.deleteVideo);
-
-// Enhanced analysis endpoints
-router
-    .route("/:id/analyze")
-    .post(
-        validate(analysisRequestSchema),
-        videoController.createSpecificAnalysis
-    );
-router.route("/:id/visualize").post(videoController.createVisualAnalysis);
-router.route("/:id/analysis").get(videoController.getAnalysisResults);
 
 export default router;

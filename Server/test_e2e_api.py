@@ -14,14 +14,14 @@ VIDEO_PATH = "assets/id0_0001.mp4"
 
 # List of models to test against the endpoints
 MODELS_TO_TEST: List[str] = [
-    "siglip-lstm-v1",
-    "siglip-lstm-v3",
-    "color-cues-lstm-v1",
+    "SIGLIP-LSTM-V1",
+    "SIGLIP-LSTM-V3",
+    "COLOR-CUES-LSTM-V1",
 ]
 
 MODELS_WITH_ADVANCED_FEATURES: List[str] = [
-    "siglip-lstm-v3",
-    "color-cues-lstm-v1",
+    "SIGLIP-LSTM-V3",
+    "COLOR-CUES-LSTM-V1",
 ]
 
 def print_header(title: str):

@@ -7,9 +7,10 @@
 
 # --- GLOBAL SETTINGS ---
 # These values apply to the entire application unless overridden locally.
+# The device setting here is overridden by the DEVICE environment variable.
 
-project_name: "Drishtiksha: Deepfake Detection Service"
-device: "cuda"
+project_name: "Drishtiksha: Deepfake Detection"
+device: "cuda"  # Default fallback, overridden by DEVICE environment variable
 
 
 # --- MODEL CONFIGURATIONS ---
@@ -18,13 +19,13 @@ device: "cuda"
 # model defined in `src/config.py` for validation to succeed.
 
 models:
-  siglip-lstm-v1:
-    class_name: "LSTMDetector"
+  SIGLIP-LSTM-V1:
+    class_name: "SIGLIP-LSTM-V1"
     description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
     model_path: "models/siglip_lstm_best.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
-    device: "cuda"
+    device: "cuda"  # Overridden by DEVICE environment variable
 
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
@@ -32,14 +33,14 @@ models:
       lstm_num_layers: 2
       num_classes: 1
 
-  siglip-lstm-v3:
-    class_name: "LSTMDetectorV3"
+  SIGLIP-LSTM-V3:
+    class_name: "SIGLIP-LSTM-V3"
     description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
     model_path: "models/siglip_lstm_best.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     rolling_window_size: 10
-    device: "cuda"
+    device: "cuda"  # Overridden by DEVICE environment variable
     
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
@@ -47,12 +48,12 @@ models:
       lstm_num_layers: 2
       num_classes: 1
 
-  color-cues-lstm-v1:
-    class_name: "ColorCuesDetector"
+  COLOR-CUES-LSTM-V1:
+    class_name: "COLOR-CUES-LSTM-V1"
     description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
     model_path: "models/best_color_cues_lstm_model.pth"
     dlib_model_path: "models/shape_predictor_68_face_landmarks.dat"
-    device: "cuda"
+    device: "cuda"  # Overridden by DEVICE environment variable
 
     # Parameters specific to the ColorCues model architecture
     sequence_length: 32

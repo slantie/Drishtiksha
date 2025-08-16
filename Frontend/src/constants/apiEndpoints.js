@@ -56,7 +56,10 @@ export const API_ENDPOINTS = {
     // --- Enhanced Analysis Routes ---
 
     /** Gets model service status and available models */
-    MODEL_STATUS: `${API_BASE_URL}${API_VERSION}/videos/model/status`,
+    MODEL_STATUS: `${API_BASE_URL}${API_VERSION}/videos/status`,
+
+    /** Gets available models from the ML server */
+    AVAILABLE_MODELS: `${API_BASE_URL}${API_VERSION}/videos/models`,
 
     /**
      * Creates a specific analysis for a video
@@ -75,22 +78,23 @@ export const API_ENDPOINTS = {
         `${API_BASE_URL}${API_VERSION}/videos/${videoId}/visualize`,
 
     /**
-     * Gets analysis results for a video with optional filtering
+     * Gets analysis results for a video (included in video details)
      * @param {string} videoId - The video ID
-     * @returns {string} The full API URL for analysis results
+     * @returns {string} The full API URL for video details with analysis results
      */
     GET_ANALYSIS_RESULTS: (videoId) =>
-        `${API_BASE_URL}${API_VERSION}/videos/${videoId}/analysis`,
+        `${API_BASE_URL}${API_VERSION}/videos/${videoId}`,
 
     /**
-     * Gets specific analysis by type and model
+     * Gets specific analysis by type and model (client-side filtering)
+     * Note: This now uses the video details endpoint with client-side filtering
      * @param {string} videoId - The video ID
-     * @param {string} type - Analysis type (QUICK, DETAILED, FRAMES, VISUALIZE)
-     * @param {string} model - Model name (SIGLIP_LSTM_V1, SIGLIP_LSTM_V3, COLOR_CUES_LSTM_V1)
-     * @returns {string} The full API URL for specific analysis
+     * @param {string} _TYPE - Analysis type (QUICK, DETAILED, FRAMES, VISUALIZE) - unused, kept for compatibility
+     * @param {string} _MODEL - Model name (SIGLIP_LSTM_V1, SIGLIP_LSTM_V3, COLOR_CUES_LSTM_V1) - unused, kept for compatibility
+     * @returns {string} The full API URL for video details
      */
-    GET_SPECIFIC_ANALYSIS: (videoId, type, model) =>
-        `${API_BASE_URL}${API_VERSION}/videos/${videoId}/analysis?type=${type}&model=${model}`,
+    GET_SPECIFIC_ANALYSIS: (videoId, _TYPE, _MODEL) =>
+        `${API_BASE_URL}${API_VERSION}/videos/${videoId}`,
 };
 
 // --- Constants for Enhanced Analysis System ---
@@ -98,9 +102,9 @@ export const API_ENDPOINTS = {
 /** Supported analysis types */
 export const ANALYSIS_TYPES = {
     QUICK: "QUICK",
-    DETAILED: "DETAILED",
     FRAMES: "FRAMES",
     VISUALIZE: "VISUALIZE",
+    COMPREHENSIVE: "COMPREHENSIVE", // New merged endpoint
 };
 
 /** Supported model types */
@@ -113,16 +117,10 @@ export const MODEL_TYPES = {
 /** Analysis type metadata */
 export const ANALYSIS_TYPE_INFO = {
     [ANALYSIS_TYPES.QUICK]: {
-        label: "Quick Analysis",
-        description: "Fast deepfake detection with basic confidence score",
-        duration: "~30 seconds",
-        icon: "⚡",
-    },
-    [ANALYSIS_TYPES.DETAILED]: {
-        label: "Detailed Analysis",
+        label: "Comprehensive Analysis",
         description:
-            "Comprehensive analysis with frame consistency and temporal metrics",
-        duration: "~2-3 minutes",
+            "Complete deepfake analysis with detailed metrics and confidence scores",
+        duration: "~30 seconds - 2 minutes",
         icon: "🔍",
     },
     [ANALYSIS_TYPES.FRAMES]: {
@@ -138,6 +136,13 @@ export const ANALYSIS_TYPE_INFO = {
             "Generate annotated video with analysis visualization overlay",
         duration: "~5-10 minutes",
         icon: "📊",
+    },
+    [ANALYSIS_TYPES.COMPREHENSIVE]: {
+        label: "Complete Analysis Suite",
+        description:
+            "All analysis types in one request: comprehensive + frames + visualization",
+        duration: "~5-10 minutes",
+        icon: "🚀",
     },
 };
 

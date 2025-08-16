@@ -25,21 +25,28 @@ import {
 } from "../../constants/apiEndpoints.js";
 import {
     useVideoAnalysis,
-    useModelStatusQuery,
+    useAvailableModelsQuery,
 } from "../../hooks/useAnalysisQuery.js";
 
 const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
     const [selectedAnalysisType, setSelectedAnalysisType] = useState(
         ANALYSIS_TYPES.QUICK
     );
-    const [selectedModels, setSelectedModels] = useState([
-        MODEL_TYPES.SIGLIP_LSTM_V1,
-    ]);
+    const [selectedModels, setSelectedModels] = useState([]);
     const [isStarting, setIsStarting] = useState(false);
 
-    const { modelStatus, isModelStatusLoading } = useModelStatusQuery();
+    const { data: availableModels = [], isLoading: isModelsLoading } =
+        useAvailableModelsQuery();
     const { createAnalysis, createMultipleAnalyses } =
         useVideoAnalysis(videoId);
+
+    // Update selected models when available models change
+    React.useEffect(() => {
+        if (availableModels.length > 0 && selectedModels.length === 0) {
+            // Auto-select the first available model
+            setSelectedModels([availableModels[0]]);
+        }
+    }, [availableModels, selectedModels.length]);
 
     if (!isOpen) return null;
 
@@ -92,7 +99,11 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
     };
 
     const isModelAvailable = (model) => {
-        return modelStatus?.availableModels?.includes(model) !== false;
+        // If models are still loading, assume all models are available
+        if (isModelsLoading) return true;
+
+        // Check if the model is in the list of available models from the server
+        return availableModels.includes(model);
     };
 
     return (
@@ -118,7 +129,7 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
 
                 <div className="p-6 space-y-6">
                     {/* Model Status */}
-                    {isModelStatusLoading ? (
+                    {isModelsLoading ? (
                         <Card>
                             <div className="flex items-center gap-3 p-4">
                                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -128,7 +139,7 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
                     ) : (
                         <Card
                             className={`${
-                                modelStatus?.isConfigured
+                                availableModels.length > 0
                                     ? "border-green-200 bg-green-50 dark:bg-green-900/20"
                                     : "border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20"
                             }`}
@@ -136,7 +147,7 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
                             <div className="flex items-center gap-3 p-4">
                                 <CheckCircle2
                                     className={`h-5 w-5 ${
-                                        modelStatus?.isConfigured
+                                        availableModels.length > 0
                                             ? "text-green-600"
                                             : "text-yellow-600"
                                     }`}
@@ -144,17 +155,14 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
                                 <div>
                                     <p className="font-medium">
                                         Model Service{" "}
-                                        {modelStatus?.isConfigured
+                                        {availableModels.length > 0
                                             ? "Available"
                                             : "Limited"}
                                     </p>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        {modelStatus?.isConfigured
-                                            ? `${
-                                                  modelStatus.availableModels
-                                                      ?.length || 0
-                                              } models ready`
-                                            : "Some models may not be available"}
+                                        {availableModels.length > 0
+                                            ? `${availableModels.length} models ready`
+                                            : "No models currently available"}
                                     </p>
                                 </div>
                             </div>
@@ -321,7 +329,11 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
                 {/* Footer */}
                 <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
                     <div className="text-sm text-gray-500">
-                        {selectedModels.length === 0
+                        {isModelsLoading
+                            ? "Loading available models..."
+                            : availableModels.length === 0
+                            ? "No models available - check server connection"
+                            : selectedModels.length === 0
                             ? "Select at least one model to proceed"
                             : `Ready to analyze with ${
                                   selectedModels.length
@@ -337,7 +349,12 @@ const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
                         </Button>
                         <Button
                             onClick={handleStartAnalysis}
-                            disabled={selectedModels.length === 0 || isStarting}
+                            disabled={
+                                selectedModels.length === 0 ||
+                                isStarting ||
+                                isModelsLoading ||
+                                availableModels.length === 0
+                            }
                         >
                             {isStarting ? (
                                 <>

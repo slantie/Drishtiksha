@@ -19,6 +19,20 @@ export const useModelStatusQuery = () => {
 };
 
 /**
+ * Hook to get available models from the ML server
+ */
+export const useAvailableModelsQuery = () => {
+    return useQuery({
+        queryKey: queryKeys.analysis.availableModels(),
+        queryFn: videoApi.getAvailableModels,
+        staleTime: 2 * 60 * 1000, // 2 minutes
+        refetchInterval: 60 * 1000, // Refetch every minute
+        retry: 3,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    });
+};
+
+/**
  * Hook to get analysis results for a video
  */
 export const useAnalysisResultsQuery = (videoId, filters = {}) => {

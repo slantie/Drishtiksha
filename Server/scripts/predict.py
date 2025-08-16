@@ -32,11 +32,11 @@ def main():
         return
 
     try:
-        logging.info("Initializing Model Manager...")
+        logging.info("Initializing Model Manager.")
         # The refactored ModelManager now takes the full settings object
         manager = ModelManager(settings)
         
-        logging.info(f"Loading model: '{args.model}'...")
+        logging.info(f"Loading model: '{args.model}'.")
         start_load_time = time.time()
         model = manager.get_model(args.model)
         load_time = time.time() - start_load_time

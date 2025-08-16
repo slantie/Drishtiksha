@@ -1,9 +1,12 @@
 # src/config.py
 
+import logging
 import yaml
 from pydantic import BaseModel, Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, Union, Annotated, Literal
+
+logger = logging.getLogger(__name__)
 
 # A dedicated Pydantic model for the SigLIP architecture details
 class SiglipArchitectureConfig(BaseModel):
@@ -17,26 +20,26 @@ class BaseModelConfig(BaseModel):
     class_name: str
     description: str
     model_path: str
-    device: str
+    device: str = "cuda"  # Default value, will be overridden by environment variable
 
-# Specific configuration model for siglip-lstm-v1
+# Specific configuration model for SIGLIP-LSTM-V1 - Legacy Model
 class SiglipLSTMv1Config(BaseModelConfig):
-    class_name: Literal["LSTMDetector"]
+    class_name: Literal["SIGLIP-LSTM-V1"]
     processor_path: str
     num_frames: int
-    model_definition: SiglipArchitectureConfig # Nested architecture details
+    model_definition: SiglipArchitectureConfig
 
-# Specific configuration model for siglip-lstm-v3
+# Specific configuration model for SIGLIP-LSTM-V3
 class SiglipLSTMv3Config(BaseModelConfig):
-    class_name: Literal["LSTMDetectorV3"]
+    class_name: Literal["SIGLIP-LSTM-V3"]
     processor_path: str
     num_frames: int
     rolling_window_size: int
-    model_definition: SiglipArchitectureConfig # Nested architecture details
+    model_definition: SiglipArchitectureConfig
 
-# Specific configuration model for color-cues-lstm-v1
+# Specific configuration model for COLOR-CUES-LSTM-V1
 class ColorCuesConfig(BaseModelConfig):
-    class_name: Literal["ColorCuesDetector"]
+    class_name: Literal["COLOR-CUES-LSTM-V1"]
     dlib_model_path: str
     sequence_length: int
     frames_per_video: int
@@ -46,9 +49,13 @@ class ColorCuesConfig(BaseModelConfig):
     hidden_size: int
     dropout: float
 
-# A Discriminated Union to allow Pydantic to parse the correct model config
+# A Discriminated Union to allow only the available models to be served
 ModelConfig = Annotated[
-    Union[SiglipLSTMv1Config, SiglipLSTMv3Config, ColorCuesConfig],
+    Union[
+        SiglipLSTMv1Config,
+        SiglipLSTMv3Config,
+        ColorCuesConfig
+    ],
     Field(discriminator="class_name"),
 ]
 
@@ -58,17 +65,37 @@ class Settings(BaseSettings):
     default_model_name: str
     project_name: str
     device: str
+    active_models: str = "SIGLIP-LSTM-V1,SIGLIP-LSTM-V3,COLOR-CUES-LSTM-V1"  # Default to all models
     models: Dict[str, ModelConfig]
 
     model_config = SettingsConfigDict(
         env_file='.env',
         env_file_encoding='utf-8',
-        extra='ignore'  # Ignore extra fields like 'training' from the YAML
+        extra='ignore'
     )
+
+    @property
+    def active_model_list(self) -> list[str]:
+        """Returns a list of active model names."""
+        return [model.strip() for model in self.active_models.split(',')]
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "Settings":
         """Factory method to load settings from a YAML file and merge with .env."""
+        import os
+        
+        # PRIORITY 1: Load .env file first
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            logger.info("🔧 Loaded environment variables from .env file")
+        except ImportError:
+            logger.warning("⚠️ python-dotenv not available, using system environment variables only")
+        
+        # PRIORITY 2: Get device from environment variable, fallback to 'cpu'
+        env_device = os.getenv('DEVICE', 'cpu').lower()
+        logger.info(f"🔧 Device setting from environment: '{env_device}'")
+        
         try:
             with open(yaml_path, 'r') as file:
                 yaml_config = yaml.safe_load(file)
@@ -79,11 +106,41 @@ class Settings(BaseSettings):
         except yaml.YAMLError as e:
             raise RuntimeError(f"Error parsing YAML file '{yaml_path}': {e}")
 
+        # PRIORITY 3: Override global device setting with environment variable
+        yaml_config['device'] = env_device
+        
+        # PRIORITY 4: Override ALL model device settings with environment variable
+        if yaml_config.get('models'):
+            for model_name, model_config in yaml_config['models'].items():
+                if isinstance(model_config, dict):
+                    model_config['device'] = env_device
+                    logger.info(f"🔧 Forcing device '{env_device}' for model '{model_name}'")
+
+        # Create a temporary instance to get other environment variables
+        temp_settings = cls(**yaml_config)
+        
+        # Filter models based on active_models configuration
+        active_model_list = [model.strip() for model in temp_settings.active_models.split(',')]
+        filtered_models = {
+            model_name: model_config 
+            for model_name, model_config in yaml_config.get('models', {}).items()
+            if model_name in active_model_list
+        }
+        
+        # Update yaml_config with filtered models
+        yaml_config['models'] = filtered_models
+        
+        # Log which models are being loaded
+        if filtered_models:
+            active_names = ', '.join(filtered_models.keys())
+            logger.info(f"🔧 Loading active models: {active_names}")
+        else:
+            logger.warning("⚠️ No active models configured!")
+
         return cls(**yaml_config)
 
-# Singleton instance of the settings, used throughout the application
 try:
     settings = Settings.from_yaml("configs/config.yaml")
 except (RuntimeError, ValueError, ValidationError) as e:
-    print(f"FATAL: Could not load configuration. {e}")
+    logger.critical(f"❌ FATAL: Could not load configuration. {e}")
     exit(1)
