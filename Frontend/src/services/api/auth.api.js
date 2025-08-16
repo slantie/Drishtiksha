@@ -1,85 +1,86 @@
 // src/services/api/auth.api.js
 
 import axiosInstance from "../../lib/axios.js";
+import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 
 export const authApi = {
     /**
-     * Login user
-     * @param {Object} credentials - Login credentials
-     * @param {string} credentials.email - User email
-     * @param {string} credentials.password - User password
-     * @returns {Promise} Response with user data and token
+     * Logs in a user with their credentials.
+     * @param {object} credentials - { email, password }
+     * @returns {Promise<object>} The API response containing user data and token.
      */
     login: async (credentials) => {
-        return await axiosInstance.post("/auth/login", credentials);
+        return await axiosInstance.post(API_ENDPOINTS.AUTH.LOGIN, credentials);
     },
 
     /**
-     * Register new user
-     * @param {Object} userData - User registration data
-     * @returns {Promise} Response with created user data
+     * Registers a new user.
+     * @param {object} userData - { firstName, lastName, email, password }
+     * @returns {Promise<object>} The API response with the newly created user data.
      */
     signup: async (userData) => {
-        return await axiosInstance.post("/auth/signup", userData);
+        return await axiosInstance.post(API_ENDPOINTS.AUTH.SIGNUP, userData);
     },
 
     /**
-     * Get user profile
-     * @returns {Promise} Response with user profile data
+     * Retrieves the profile of the currently authenticated user.
+     * @returns {Promise<object>} The API response with the user's profile information.
      */
     getProfile: async () => {
-        return await axiosInstance.get("/auth/profile");
+        return await axiosInstance.get(API_ENDPOINTS.AUTH.PROFILE);
     },
 
     /**
-     * Update user profile
-     * @param {Object} profileData - Updated profile data
-     * @returns {Promise} Response with updated user data
+     * Updates the profile of the currently authenticated user.
+     * @param {object} profileData - The fields to update (e.g., { firstName, bio }).
+     * @returns {Promise<object>} The API response with the updated user profile.
      */
     updateProfile: async (profileData) => {
-        return await axiosInstance.put("/auth/profile", profileData);
+        return await axiosInstance.put(API_ENDPOINTS.AUTH.PROFILE, profileData);
     },
 
     /**
-     * Update user password
-     * @param {Object} passwordData - Password update data
-     * @param {string} passwordData.currentPassword - Current password
-     * @param {string} passwordData.newPassword - New password
-     * @returns {Promise} Response confirming password update
+     * Updates the password for the currently authenticated user.
+     * @param {object} passwordData - { currentPassword, newPassword }
+     * @returns {Promise<object>} The API response confirming the update.
      */
     updatePassword: async (passwordData) => {
-        return await axiosInstance.put("/auth/profile/password", passwordData);
+        return await axiosInstance.put(
+            API_ENDPOINTS.AUTH.UPDATE_PASSWORD,
+            passwordData
+        );
     },
 
     /**
-     * Update user avatar
-     * @param {Object} avatarData - Avatar data with URL
-     * @param {string} avatarData.avatar - Avatar URL
-     * @returns {Promise} Response with updated avatar URL
+     * Updates the avatar URL for the currently authenticated user.
+     * @param {object} avatarData - { avatar: "http://new-avatar-url.com/img.png" }
+     * @returns {Promise<object>} The API response with the updated user profile.
      */
     updateAvatar: async (avatarData) => {
-        return await axiosInstance.put("/auth/profile/avatar", avatarData);
+        return await axiosInstance.put(
+            API_ENDPOINTS.AUTH.UPDATE_AVATAR,
+            avatarData
+        );
     },
 
     /**
-     * Delete user avatar
-     * @returns {Promise} Response confirming avatar deletion
+     * Deletes the avatar for the currently authenticated user.
+     * @returns {Promise<object>} The API response with the updated user profile.
      */
     deleteAvatar: async () => {
-        return await axiosInstance.delete("/auth/profile/avatar");
+        return await axiosInstance.delete(API_ENDPOINTS.AUTH.UPDATE_AVATAR);
     },
 
     /**
-     * Logout user (client-side only)
-     * @returns {Promise} Resolved promise
+     * Logs the user out by clearing client-side storage.
+     * The backend is stateless, so no API call is needed.
+     * @returns {Promise<void>}
      */
     logout: async () => {
-        // Clear local storage
         localStorage.removeItem("authToken");
         localStorage.removeItem("user");
         sessionStorage.removeItem("authToken");
         sessionStorage.removeItem("user");
-
         return Promise.resolve();
     },
 };

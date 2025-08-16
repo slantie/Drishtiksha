@@ -1,54 +1,61 @@
 // src/hooks/useAuthQuery.js
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { authApi } from "../services/api/auth.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.js";
-import { useNavigate } from "react-router-dom";
 
 /**
- * Hook for login mutation
+ * Hook for the user login mutation.
  */
 export const useLoginMutation = () => {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ email, password }) => authApi.login({ email, password }),
-        onSuccess: (data, { rememberMe }) => {
+        mutationFn: ({ email, password, rememberMe }) =>
+            authApi.login({ email, password }),
+        onSuccess: (response, { rememberMe }) => {
+            const { token, user } = response.data;
             const storage = rememberMe ? localStorage : sessionStorage;
 
-            // Store token and user data
-            storage.setItem("authToken", data.data.token);
-            storage.setItem("user", JSON.stringify(data.data.user));
+            storage.setItem("authToken", token);
+            storage.setItem("user", JSON.stringify(user));
 
-            showToast.success("Login success!");
+            // Set user profile data in cache immediately for a faster UI update
+            queryClient.setQueryData(queryKeys.auth.profile(), response);
 
-            // Navigate to dashboard
+            showToast.success("Login successful!");
             navigate("/dashboard");
         },
         onError: (error) => {
-            showToast.error(error.message || "Login failed");
+            showToast.error(
+                error.message || "Login failed. Please check your credentials."
+            );
         },
     });
 };
 
 /**
- * Hook for signup mutation
+ * Hook for the user signup mutation.
  */
 export const useSignupMutation = () => {
     return useMutation({
         mutationFn: authApi.signup,
         onSuccess: () => {
-            showToast.success("Account created successfully! Please login.");
+            showToast.success("Account created! Please log in to continue.");
         },
         onError: (error) => {
-            showToast.error(error.message || "Signup failed");
+            showToast.error(
+                error.message || "Signup failed. Please try again."
+            );
         },
     });
 };
 
 /**
- * Hook for logout mutation
+ * Hook for the user logout mutation.
  */
 export const useLogoutMutation = () => {
     const queryClient = useQueryClient();
@@ -57,64 +64,58 @@ export const useLogoutMutation = () => {
     return useMutation({
         mutationFn: authApi.logout,
         onSuccess: () => {
-            // Clear all queries from cache
+            // Clear the entire query cache to remove all authenticated data.
             queryClient.clear();
-
-            showToast.success("Logout success!");
-
-            // Navigate to auth page
+            showToast.success("You have been logged out.");
             navigate("/auth");
         },
         onError: (error) => {
-            showToast.error(error.message || "Logout failed");
+            showToast.error(error.message || "Logout failed.");
         },
     });
 };
 
 /**
- * Hook to get user profile
+ * Hook to fetch the authenticated user's profile.
  */
 export const useProfileQuery = () => {
+    const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
     return useQuery({
         queryKey: queryKeys.auth.profile(),
         queryFn: authApi.getProfile,
-        enabled: !!(
-            localStorage.getItem("authToken") ||
-            sessionStorage.getItem("authToken")
-        ),
-        select: (data) => data?.data || data,
-        retry: false, // Don't retry profile requests to avoid spam
+        // Only run this query if a token exists.
+        enabled: !!token,
+        // The data is critical, so we treat it as fresh for a shorter time.
+        staleTime: 1000 * 60, // 1 minute
+        select: (response) => response.data,
     });
 };
 
 /**
- * Hook for profile update mutation
+ * Hook for the user profile update mutation.
  */
 export const useUpdateProfileMutation = () => {
     const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: authApi.updateProfile,
-        onSuccess: (data) => {
-            // Update the profile in cache
-            queryClient.setQueryData(queryKeys.auth.profile(), data);
-
-            // Also update localStorage/sessionStorage
-            const storage = localStorage.getItem("user")
-                ? localStorage
-                : sessionStorage;
-            storage.setItem("user", JSON.stringify(data.data || data));
-
+        onSuccess: (updatedProfileResponse) => {
+            // Update the profile query cache with the new data.
+            queryClient.setQueryData(
+                queryKeys.auth.profile(),
+                updatedProfileResponse
+            );
             showToast.success("Profile updated successfully!");
         },
         onError: (error) => {
-            showToast.error(error.message || "Profile update failed");
+            showToast.error(error.message || "Profile update failed.");
         },
     });
 };
 
 /**
- * Hook for password update mutation
+ * Hook for the user password update mutation.
  */
 export const useUpdatePasswordMutation = () => {
     return useMutation({
@@ -123,49 +124,46 @@ export const useUpdatePasswordMutation = () => {
             showToast.success("Password updated successfully!");
         },
         onError: (error) => {
-            showToast.error(error.message || "Password update failed");
+            showToast.error(error.message || "Password update failed.");
         },
     });
 };
 
 /**
- * Hook for avatar update mutation
+ * Hook for the user avatar update mutation.
  */
 export const useUpdateAvatarMutation = () => {
     const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: authApi.updateAvatar,
         onSuccess: () => {
-            // Invalidate profile to refetch with new avatar
+            // Invalidate the profile query to refetch it with the new avatar URL.
             queryClient.invalidateQueries({
                 queryKey: queryKeys.auth.profile(),
             });
             showToast.success("Avatar updated successfully!");
         },
         onError: (error) => {
-            showToast.error(error.message || "Avatar update failed");
+            showToast.error(error.message || "Avatar update failed.");
         },
     });
 };
 
 /**
- * Hook for avatar deletion mutation
+ * Hook for the user avatar delete mutation.
  */
 export const useDeleteAvatarMutation = () => {
     const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: authApi.deleteAvatar,
         onSuccess: () => {
-            // Invalidate profile to refetch without avatar
             queryClient.invalidateQueries({
                 queryKey: queryKeys.auth.profile(),
             });
-            showToast.success("Avatar deleted successfully!");
+            showToast.success("Avatar removed.");
         },
         onError: (error) => {
-            showToast.error(error.message || "Avatar deletion failed");
+            showToast.error(error.message || "Failed to remove avatar.");
         },
     });
 };

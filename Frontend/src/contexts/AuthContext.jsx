@@ -7,6 +7,7 @@ import {
     useLogoutMutation,
     useProfileQuery,
 } from "../hooks/useAuthQuery.js";
+import { socketService } from "../lib/socket.js";
 
 export const AuthContext = createContext(null);
 
@@ -15,43 +16,42 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(
         sessionStorage.getItem("authToken") || localStorage.getItem("authToken")
     );
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(!!token);
     const [isLoading, setIsLoading] = useState(true);
 
-    // TanStack Query mutations
     const loginMutation = useLoginMutation();
     const signupMutation = useSignupMutation();
     const logoutMutation = useLogoutMutation();
 
-    // Profile query to sync user data
-    const { data: profileData } = useProfileQuery();
+    const { data: profileData, isError: isProfileError } = useProfileQuery();
 
+    // Effect to initialize auth state from storage
     useEffect(() => {
-        const storedUser =
-            sessionStorage.getItem("user") || localStorage.getItem("user");
-        if (token && storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-                setIsAuthenticated(true);
-            } catch (error) {
-                console.error("Failed to parse user data from storage", error);
-                sessionStorage.clear();
-                localStorage.clear();
-            }
+        const storedToken =
+            sessionStorage.getItem("authToken") ||
+            localStorage.getItem("authToken");
+        if (storedToken) {
+            setToken(storedToken);
+            setIsAuthenticated(true);
+            socketService.connect();
         }
         setIsLoading(false);
-    }, [token]);
+    }, []);
 
-    // Update user state when profile data changes
+    // Effect to sync user data from profile query or clear on error
     useEffect(() => {
         if (profileData) {
             setUser(profileData);
-            const storage = localStorage.getItem("user")
+            const storage = localStorage.getItem("authToken")
                 ? localStorage
                 : sessionStorage;
             storage.setItem("user", JSON.stringify(profileData));
         }
-    }, [profileData]);
+        if (isProfileError) {
+            // If fetching profile fails (e.g., token is invalid), log the user out.
+            logout();
+        }
+    }, [profileData, isProfileError]);
 
     const login = async (email, password, rememberMe) => {
         const result = await loginMutation.mutateAsync({
@@ -60,34 +60,24 @@ export const AuthProvider = ({ children }) => {
             rememberMe,
         });
 
-        // Update local auth state immediately after successful login
         const userData = result.data.user;
         const authToken = result.data.token;
 
         setToken(authToken);
         setUser(userData);
         setIsAuthenticated(true);
-
-        return result;
+        socketService.connect();
     };
 
-    const signup = async (signupData) => {
+    const signup = (signupData) => {
         return signupMutation.mutateAsync(signupData);
     };
 
     const logout = () => {
-        // Clear local state immediately
+        socketService.disconnect();
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
-
-        // Clear storage immediately
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("user");
-        sessionStorage.removeItem("authToken");
-        sessionStorage.removeItem("user");
-
-        // Then trigger the mutation (which will handle toast and navigation)
         logoutMutation.mutate();
     };
 
@@ -96,13 +86,10 @@ export const AuthProvider = ({ children }) => {
         token,
         isAuthenticated,
         isLoading:
-            isLoading || loginMutation.isPending || signupMutation.isPending,
+            isLoading || (isAuthenticated && !profileData && !isProfileError),
         login,
         signup,
         logout,
-        // Expose mutation states for better UX
-        loginError: loginMutation.error,
-        signupError: signupMutation.error,
         isLoggingIn: loginMutation.isPending,
         isSigningUp: signupMutation.isPending,
     };

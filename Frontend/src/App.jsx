@@ -3,8 +3,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
-
-// Layout and Page Components
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -72,7 +70,7 @@ function App() {
                         }
                     />
                     <Route
-                        path="/results/:videoId/:modelId"
+                        path="/results/:videoId/:analysisId"
                         element={
                             <ProtectedRoute>
                                 <Layout>

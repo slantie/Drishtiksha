@@ -1,156 +1,141 @@
 // src/hooks/useVideosQuery.js
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { videoApi } from "../services/api/video.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.js";
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 
 /**
- * Hook to fetch all videos with TanStack Query
+ * Hook to fetch the list of all videos for the user.
  */
 export const useVideosQuery = () => {
     return useQuery({
         queryKey: queryKeys.videos.lists(),
-        queryFn: videoApi.getAllVideos,
-        select: (data) => data?.data || data, // Handle different response structures
+        queryFn: videoApi.getAll,
+        select: (response) => response.data,
     });
 };
 
 /**
- * Hook to fetch a single video by ID
+ * Hook to fetch a single video by its ID, including all its analyses.
  */
 export const useVideoQuery = (videoId) => {
     return useQuery({
         queryKey: queryKeys.videos.detail(videoId),
-        queryFn: () => videoApi.getVideoById(videoId),
-        enabled: !!videoId, // Only run if videoId exists
-        select: (data) => data?.data || data,
+        queryFn: () => videoApi.getById(videoId),
+        enabled: !!videoId,
+        select: (response) => response.data,
     });
 };
 
 /**
- * Hook for video upload mutation
+ * Hook for the video upload mutation.
  */
 export const useUploadVideoMutation = () => {
     const queryClient = useQueryClient();
-
     return useMutation({
-        mutationFn: videoApi.uploadVideo,
+        mutationFn: videoApi.upload,
         onSuccess: () => {
-            // Invalidate and refetch videos list
+            showToast.success("Video uploaded successfully!");
+            showToast.info("Analysis has been queued and will start shortly.");
+            // Invalidate the video list to show the new video with its "QUEUED" status.
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.lists(),
             });
-            showToast.success("Video uploaded successfully!");
-            showToast.info("Video analysis has started.");
         },
         onError: (error) => {
-            showToast.error(error.message || "Upload failed.");
+            showToast.error(
+                error.message || "Upload failed. Please try again."
+            );
         },
     });
 };
 
 /**
- * Hook for video update mutation
+ * Hook for the video metadata update mutation.
  */
 export const useUpdateVideoMutation = () => {
     const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: ({ videoId, updateData }) =>
-            videoApi.updateVideo(videoId, updateData),
-        onSuccess: (_, variables) => {
-            // Invalidate both the video list and the specific video
+            videoApi.update(videoId, updateData),
+        onSuccess: (_, { videoId }) => {
+            showToast.success("Video details updated.");
+            // Invalidate both the list and the specific video detail to reflect changes.
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.lists(),
             });
             queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.detail(variables.videoId),
+                queryKey: queryKeys.videos.detail(videoId),
             });
-            showToast.success("Video updated successfully!");
         },
         onError: (error) => {
-            showToast.error(error.message || "Update failed.");
+            showToast.error(error.message || "Failed to update video.");
         },
     });
 };
 
 /**
- * Hook for video deletion mutation
+ * Hook for the video deletion mutation.
  */
 export const useDeleteVideoMutation = () => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-
     return useMutation({
-        mutationFn: videoApi.deleteVideo,
+        mutationFn: videoApi.delete,
         onSuccess: (_, videoId) => {
-            // Remove the deleted video from cache and invalidate list
+            showToast.success("Video deleted successfully.");
+            // Remove the video from all queries to prevent stale data.
             queryClient.removeQueries({
                 queryKey: queryKeys.videos.detail(videoId),
             });
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.lists(),
             });
-            // Navigate Back to /dashboard
             navigate("/dashboard");
-            // Show success toast
-            showToast.success("Video deleted successfully!");
         },
         onError: (error) => {
-            showToast.error(error.message || "Deletion failed.");
+            showToast.error(error.message || "Failed to delete video.");
         },
     });
 };
 
 /**
- * Hook that provides video statistics
+ * Hook that efficiently computes video statistics from cached data.
+ * This hook does not make any network requests itself.
  */
 export const useVideoStats = () => {
     const { data: videos = [], isLoading, error } = useVideosQuery();
 
     const stats = useMemo(() => {
-        if (!videos || !Array.isArray(videos)) {
+        if (!Array.isArray(videos)) {
             return {
                 total: 0,
                 analyzed: 0,
                 realDetections: 0,
                 fakeDetections: 0,
                 totalAnalyses: 0,
-                processingAnalyses: 0,
-                failedAnalyses: 0,
-                modelsUsed: 0,
             };
         }
-
-        const modelSet = new Set();
-
         return videos.reduce(
             (acc, video) => {
                 acc.total++;
-                if (video.status === "ANALYZED") acc.analyzed++;
-
-                if (video.analyses && Array.isArray(video.analyses)) {
-                    video.analyses.forEach((analysis) => {
-                        acc.totalAnalyses++;
-                        modelSet.add(analysis.model);
-
-                        if (analysis.status === "PROCESSING")
-                            acc.processingAnalyses++;
-                        if (analysis.status === "FAILED") acc.failedAnalyses++;
-
-                        if (analysis.status === "COMPLETED") {
-                            if (analysis.prediction === "REAL")
-                                acc.realDetections++;
-                            if (analysis.prediction === "FAKE")
-                                acc.fakeDetections++;
-                        }
-                    });
+                if (
+                    video.status === "ANALYZED" ||
+                    video.status === "PARTIALLY_ANALYZED"
+                ) {
+                    acc.analyzed++;
                 }
-
-                acc.modelsUsed = modelSet.size;
+                const completedAnalyses =
+                    video.analyses?.filter((a) => a.status === "COMPLETED") ||
+                    [];
+                acc.totalAnalyses += completedAnalyses.length;
+                completedAnalyses.forEach((analysis) => {
+                    if (analysis.prediction === "REAL") acc.realDetections++;
+                    if (analysis.prediction === "FAKE") acc.fakeDetections++;
+                });
                 return acc;
             },
             {
@@ -159,55 +144,9 @@ export const useVideoStats = () => {
                 realDetections: 0,
                 fakeDetections: 0,
                 totalAnalyses: 0,
-                processingAnalyses: 0,
-                failedAnalyses: 0,
-                modelsUsed: 0,
             }
         );
     }, [videos]);
 
-    return {
-        stats,
-        isLoading,
-        error,
-    };
-};
-
-/**
- * Hook for visual analysis generation mutation
- */
-export const useVisualAnalysisMutation = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: videoApi.generateVisualAnalysis, // The API function to call
-        onSuccess: (data) => {
-            const updatedVideo = data?.data || data;
-            const videoId = updatedVideo?.id;
-
-            if (!videoId) return;
-
-            // When the mutation is successful, invalidate the queries
-            // for the main video list and the specific video detail.
-            // This will trigger a refetch and update the UI with the new `visualizedUrl`.
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.lists(),
-            });
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.detail(videoId),
-            });
-            showToast.success("Visual analysis generated successfully!");
-        },
-        onError: (error) => {
-            showToast.error(
-                error.message || "Visual analysis generation failed."
-            );
-        },
-        onMutate: () => {
-            // Optional: Show a toast when the process starts
-            showToast.info(
-                "Generating visual analysis... This may take several minutes."
-            );
-        },
-    });
+    return { stats, isLoading, error };
 };

@@ -1,22 +1,19 @@
 // src/lib/axios.js
 
 import axios from "axios";
-import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
+import { API_BASE_URL } from "../constants/apiEndpoints.js";
 
-const API_BASE_URL =
-    import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 const API_VERSION = "/api/v1";
 
-// Create axios instance
 const axiosInstance = axios.create({
     baseURL: `${API_BASE_URL}${API_VERSION}`,
-    timeout: 30000, // 30 seconds timeout
+    timeout: 60000, // 60 seconds timeout
     headers: {
         "Content-Type": "application/json",
     },
 });
 
-// Request interceptor to add authentication token
+// Request interceptor to dynamically add the auth token to every request
 axiosInstance.interceptors.request.use(
     (config) => {
         const token =
@@ -27,7 +24,7 @@ axiosInstance.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Handle FormData - don't set Content-Type for file uploads
+        // For file uploads, let the browser set the Content-Type with the correct boundary
         if (config.data instanceof FormData) {
             delete config.headers["Content-Type"];
         }
@@ -39,46 +36,44 @@ axiosInstance.interceptors.request.use(
     }
 );
 
-// Response interceptor to handle common responses and errors
+// Response interceptor to handle global errors and response structures
 axiosInstance.interceptors.response.use(
     (response) => {
-        // Return the data directly for successful responses
+        // The backend wraps successful responses in a standard format.
+        // We return the inner `data` object for convenience in React Query.
         return response.data;
     },
     (error) => {
-        // Handle different error types
+        const defaultError = "An unexpected error occurred.";
+
         if (error.response) {
-            // Server responded with error status
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
             const { status, data } = error.response;
 
-            // Handle unauthorized access
+            // Handle 401 Unauthorized: Clear session and redirect to login
             if (status === 401) {
-                // Clear tokens and redirect to login
                 localStorage.removeItem("authToken");
                 localStorage.removeItem("user");
                 sessionStorage.removeItem("authToken");
                 sessionStorage.removeItem("user");
 
-                // Only redirect if not already on auth page
                 if (!window.location.pathname.includes("/auth")) {
-                    window.location.href = "/auth";
+                    window.location.href = "/auth?session_expired=true";
                 }
             }
 
-            // Throw error with server message or default message
-            const errorMessage =
-                data?.message ||
-                data?.error ||
-                `Request failed with status ${status}`;
-            throw new Error(errorMessage);
+            // Use the specific error message from the backend's ApiError response
+            const errorMessage = data?.message || data?.error || defaultError;
+            return Promise.reject(new Error(errorMessage));
         } else if (error.request) {
-            // Network error
-            throw new Error(
-                "Network error. Please check your connection and try again."
+            // The request was made but no response was received
+            return Promise.reject(
+                new Error("Network error. Please check your connection.")
             );
         } else {
-            // Something else happened
-            throw new Error("An unexpected error occurred.");
+            // Something happened in setting up the request that triggered an Error
+            return Promise.reject(new Error(error.message || defaultError));
         }
     }
 );

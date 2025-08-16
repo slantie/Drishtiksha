@@ -46,26 +46,11 @@ import ModelSelectionModal from "../components/analysis/ModelSelectionModal.jsx"
 import { ANALYSIS_TYPE_INFO, MODEL_INFO } from "../constants/apiEndpoints.js";
 import showToast from "../utils/toast.js";
 
-// Helper functions
-const formatBytes = (bytes) =>
-    bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A";
-
-const formatDate = (dateString) =>
-    new Date(dateString).toLocaleString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-
-const formatProcessingTime = (timeInSeconds) => {
-    if (!timeInSeconds) return "N/A";
-    if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = (timeInSeconds % 60).toFixed(1);
-    return `${minutes}m ${seconds}s`;
-};
+import {
+    formatBytes,
+    formatDate,
+    formatProcessingTime,
+} from "../utils/formatters.js";
 
 const getStatusColor = (status) => {
     const statusColors = {
