@@ -114,7 +114,7 @@ model DeepfakeAnalysis {
   systemInfo       SystemInfo?
   errors           AnalysisError[] // Track analysis errors and retry attempts
 
-  // Removed unique constraint to support versioning - multiple analyses per video+model+type
+  @@index([videoId, model, analysisType])
   @@map("deepfake_analyses")
 }
 
@@ -243,14 +243,15 @@ model ServerHealth {
 enum Role {
   USER
   ADMIN
-  MODERATOR
+  MODATOR
 }
 
 enum VideoStatus {
-  UPLOADED // Legacy
+  UPLOADED
   QUEUED
   PROCESSING
   ANALYZED
+  PARTIALLY_ANALYZED // ADDED: For cases where some analyses succeed and others fail
   FAILED
 }
 

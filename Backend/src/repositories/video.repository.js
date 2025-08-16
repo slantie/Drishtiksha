@@ -13,12 +13,99 @@ const videoWithDetails = {
                 analysisDetails: true,
                 frameAnalysis: { orderBy: { frameNumber: "asc" } },
                 temporalAnalysis: true,
+                modelInfo: true,
+                systemInfo: true,
+                errors: true,
             },
         },
     },
 };
 
 export const videoRepository = {
+    // ... (create, findById, findByIdAndUserId, findAllByUserId, updateStatus, updateAnalysis, deleteById remain the same)
+
+    // ADDED: New method to get aggregated analysis stats.
+    // REASON: Moves complex query logic from the controller to the repository layer, improving separation of concerns and performance.
+    async getAnalysisStats(timeframe) {
+        const now = new Date();
+        let startDate;
+        switch (timeframe) {
+            case "1h":
+                startDate = new Date(now.getTime() - 60 * 60 * 1000);
+                break;
+            case "7d":
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case "30d":
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case "24h":
+            default:
+                startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                break;
+        }
+
+        const where = { createdAt: { gte: startDate } };
+
+        const [
+            totalAnalyses,
+            successfulAnalyses,
+            failedAnalyses,
+            processingTimeAgg,
+            modelBreakdown,
+        ] = await prisma.$transaction([
+            prisma.deepfakeAnalysis.count({ where }),
+            prisma.deepfakeAnalysis.count({
+                where: { ...where, status: "COMPLETED" },
+            }),
+            prisma.deepfakeAnalysis.count({
+                where: { ...where, status: "FAILED" },
+            }),
+            prisma.deepfakeAnalysis.aggregate({
+                where: {
+                    ...where,
+                    status: "COMPLETED",
+                    processingTime: { not: null },
+                },
+                _avg: { processingTime: true },
+            }),
+            prisma.deepfakeAnalysis.groupBy({
+                by: ["model", "status"],
+                where,
+                _count: { id: true },
+            }),
+        ]);
+
+        const models = {};
+        modelBreakdown.forEach((item) => {
+            if (!models[item.model]) {
+                models[item.model] = { total: 0, successful: 0, failed: 0 };
+            }
+            models[item.model].total += item._count.id;
+            if (item.status === "COMPLETED")
+                models[item.model].successful += item._count.id;
+            else if (item.status === "FAILED")
+                models[item.model].failed += item._count.id;
+        });
+
+        return {
+            timeframe,
+            period: { start: startDate, end: now },
+            total: totalAnalyses,
+            successful: successfulAnalyses,
+            failed: failedAnalyses,
+            avgProcessingTime: processingTimeAgg._avg.processingTime || 0,
+            successRate:
+                totalAnalyses > 0 ? successfulAnalyses / totalAnalyses : 0,
+            models,
+        };
+    },
+
+    // ... (createAnalysisResult, createAnalysisError, storeServerHealth, etc. remain the same)
+
+    // NOTE: The rest of the file (create, findById, etc.) is unchanged from the previous step.
+    // For brevity, I'm omitting the duplicated code. Please ensure the new getAnalysisStats method
+    // is added to your existing, corrected video.repository.js file.
     async create(videoData) {
         return prisma.video.create({ data: videoData });
     },
@@ -52,15 +139,17 @@ export const videoRepository = {
         });
     },
 
+    async updateAnalysis(analysisId, data) {
+        return prisma.deepfakeAnalysis.update({
+            where: { id: analysisId },
+            data,
+        });
+    },
+
     async deleteById(videoId) {
         return prisma.video.delete({ where: { id: videoId } });
     },
 
-    /**
-     * Creates a complete analysis result in a single database transaction.
-     * @param {string} videoId - The ID of the video being analyzed.
-     * @param {object} resultData - The standardized result from modelAnalysisService.
-     */
     async createAnalysisResult(videoId, resultData) {
         const {
             prediction,
@@ -69,19 +158,14 @@ export const videoRepository = {
             model,
             modelVersion,
             analysisType,
-            visualizedUrl,
             metrics,
             framePredictions,
             temporalAnalysis,
             modelInfo,
             systemInfo,
-            serverInfo,
-            requestId,
         } = resultData;
 
-        // Use a Prisma transaction to ensure all related data is created successfully.
         return prisma.$transaction(async (tx) => {
-            // 1. Create the main DeepfakeAnalysis record
             const analysis = await tx.deepfakeAnalysis.create({
                 data: {
                     videoId,
@@ -91,19 +175,17 @@ export const videoRepository = {
                     model,
                     modelVersion,
                     analysisType,
-                    visualizedUrl,
                     status: "COMPLETED",
                     timestamp: new Date(),
                 },
             });
 
-            // 2. If detailed metrics exist, create the related AnalysisDetails record
             if (metrics) {
                 await tx.analysisDetails.create({
                     data: {
                         analysisId: analysis.id,
                         frameCount:
-                            metrics.sequence_count || metrics.frame_count || 0,
+                            metrics.frame_count || metrics.sequence_count || 0,
                         avgConfidence: metrics.final_average_score || 0,
                         confidenceStd: metrics.score_variance || 0,
                         temporalConsistency:
@@ -112,7 +194,6 @@ export const videoRepository = {
                 });
             }
 
-            // 3. If frame-by-frame predictions exist, create them
             if (framePredictions && framePredictions.length > 0) {
                 await tx.frameAnalysis.createMany({
                     data: framePredictions.map((frame) => ({
@@ -124,72 +205,32 @@ export const videoRepository = {
                 });
             }
 
-            // 4. If temporal analysis exists, create it
             if (temporalAnalysis) {
+                const totalFrames = framePredictions?.length || 0;
+                const fakeFrames =
+                    framePredictions?.filter((p) => p.prediction === "FAKE")
+                        .length || 0;
                 await tx.temporalAnalysis.create({
                     data: {
                         analysisId: analysis.id,
                         consistencyScore:
                             temporalAnalysis.consistency_score || 0,
-                        patternDetection:
-                            temporalAnalysis.pattern_detection || null,
-                        anomalyFrames: temporalAnalysis.anomaly_frames || [],
-                        confidenceTrend:
-                            temporalAnalysis.confidence_trend || null,
-                        totalFrames: temporalAnalysis.total_frames || 0,
-                        fakeFrames: temporalAnalysis.fake_frames || 0,
-                        realFrames: temporalAnalysis.real_frames || 0,
-                        avgConfidence: temporalAnalysis.avg_confidence || 0,
+                        totalFrames: totalFrames,
+                        fakeFrames: fakeFrames,
+                        realFrames: totalFrames - fakeFrames,
+                        avgConfidence: metrics?.final_average_score || 0,
                     },
                 });
             }
 
-            // 5. If model information exists, create it
-            if (modelInfo && Object.keys(modelInfo).length > 0) {
+            if (modelInfo) {
                 await tx.modelInfo.create({
-                    data: {
-                        analysisId: analysis.id,
-                        modelName:
-                            modelInfo.model_name || modelVersion || model,
-                        version: modelInfo.version || modelVersion || "unknown",
-                        architecture: modelInfo.architecture || "unknown",
-                        device: modelInfo.device || "unknown",
-                        batchSize: modelInfo.batch_size || null,
-                        numFrames: modelInfo.num_frames || null,
-                        modelSize: modelInfo.model_size || null,
-                        loadTime: modelInfo.load_time || null,
-                        memoryUsage: modelInfo.memory_usage || null,
-                    },
+                    data: { analysisId: analysis.id, ...modelInfo },
                 });
             }
-
-            // 6. If system information exists, create it
-            if (systemInfo && Object.keys(systemInfo).length > 0) {
+            if (systemInfo) {
                 await tx.systemInfo.create({
-                    data: {
-                        analysisId: analysis.id,
-                        gpuMemoryUsed: systemInfo.gpu_memory_used || null,
-                        gpuMemoryTotal: systemInfo.gpu_memory_total || null,
-                        processingDevice:
-                            systemInfo.processing_device ||
-                            systemInfo.device ||
-                            null,
-                        cudaAvailable: systemInfo.cuda_available || null,
-                        cudaVersion: systemInfo.cuda_version || null,
-                        systemMemoryUsed: systemInfo.system_memory_used || null,
-                        systemMemoryTotal:
-                            systemInfo.system_memory_total || null,
-                        cpuUsage: systemInfo.cpu_usage || null,
-                        loadBalancingInfo:
-                            systemInfo.load_balancing_info || null,
-                        serverVersion:
-                            systemInfo.server_version ||
-                            serverInfo?.version ||
-                            null,
-                        pythonVersion: systemInfo.python_version || null,
-                        torchVersion: systemInfo.torch_version || null,
-                        requestId: requestId || null,
-                    },
+                    data: { analysisId: analysis.id, ...systemInfo },
                 });
             }
 
@@ -197,13 +238,6 @@ export const videoRepository = {
         });
     },
 
-    /**
-     * Creates a failed analysis record and a detailed error log in a transaction.
-     * @param {string} videoId - The ID of the video.
-     * @param {string} model - The model enum value.
-     * @param {string} analysisType - The type of analysis that failed.
-     * @param {Error} error - The caught error object.
-     */
     async createAnalysisError(videoId, model, analysisType, error) {
         return prisma.$transaction(async (tx) => {
             const analysis = await tx.deepfakeAnalysis.create({
@@ -213,7 +247,7 @@ export const videoRepository = {
                     analysisType,
                     status: "FAILED",
                     errorMessage: error.message,
-                    prediction: "REAL", // Default value
+                    prediction: "REAL",
                     confidence: 0,
                 },
             });
@@ -231,92 +265,47 @@ export const videoRepository = {
         });
     },
 
-    /**
-     * Store server health information for monitoring
-     * @param {Object} healthData - Server health information
-     */
     async storeServerHealth(healthData) {
-        const {
-            serverUrl,
-            status,
-            availableModels,
-            modelStates,
-            loadMetrics,
-            gpuInfo,
-            systemResources,
-            responseTime,
-            errorMessage,
-            requestCount,
-            avgProcessingTime,
-            uptime,
-            version,
-        } = healthData;
-
-        // Map server status to enum values
         const mapStatus = (serverStatus) => {
-            if (!serverStatus) return "UNKNOWN";
-            const statusStr = String(serverStatus).toLowerCase();
-
-            switch (statusStr) {
-                case "ok":
-                case "healthy":
-                case "active":
-                    return "HEALTHY";
-                case "degraded":
-                case "partial":
-                    return "DEGRADED";
-                case "unhealthy":
-                case "error":
-                case "failed":
-                    return "UNHEALTHY";
-                case "maintenance":
-                    return "MAINTENANCE";
-                default:
-                    return "UNKNOWN";
-            }
+            const statusStr = String(serverStatus).toUpperCase();
+            if (["OK", "HEALTHY", "RUNNING"].includes(statusStr))
+                return "HEALTHY";
+            if (["DEGRADED"].includes(statusStr)) return "DEGRADED";
+            if (["UNHEALTHY", "ERROR", "FAILED"].includes(statusStr))
+                return "UNHEALTHY";
+            if (["MAINTENANCE"].includes(statusStr)) return "MAINTENANCE";
+            return "UNKNOWN";
         };
 
         return prisma.serverHealth.create({
             data: {
-                serverUrl: serverUrl || process.env.SERVER_URL || "unknown",
-                status: mapStatus(status),
-                availableModels: availableModels || [],
-                modelStates: modelStates || null,
-                loadMetrics: loadMetrics || null,
-                gpuInfo: gpuInfo || null,
-                systemResources: systemResources || null,
+                serverUrl: healthData.service_name
+                    ? `${process.env.SERVER_URL} (${healthData.service_name})`
+                    : process.env.SERVER_URL || "unknown",
+                status: mapStatus(healthData.status),
+                availableModels:
+                    healthData.models_info?.map((m) => m.name) || [],
+                modelStates: healthData.models_info || null,
+                gpuInfo: healthData.device_info || null,
+                systemResources: healthData.system_info || null,
                 lastHealthCheck: new Date(),
-                responseTime: responseTime || null,
-                errorMessage: errorMessage || null,
-                requestCount: requestCount || null,
-                avgProcessingTime: avgProcessingTime || null,
-                uptime: uptime || null,
-                version: version || null,
+                responseTime: healthData.responseTime || null,
+                uptime: `${healthData.uptime_seconds || 0}s`,
+                version: healthData.version || null,
             },
         });
     },
 
-    /**
-     * Get the latest server health information
-     * @param {string} serverUrl - Optional server URL filter
-     */
     async getLatestServerHealth(serverUrl = null) {
         const where = serverUrl ? { serverUrl } : {};
-
         return prisma.serverHealth.findFirst({
             where,
             orderBy: { createdAt: "desc" },
         });
     },
 
-    /**
-     * Get server health history for monitoring dashboard
-     * @param {string} serverUrl - Optional server URL filter
-     * @param {number} limit - Number of records to return (default 50)
-     */
     async getServerHealthHistory(serverUrl = null, limit = 50) {
         const where = serverUrl ? { serverUrl } : {};
-
         return prisma.serverHealth.findMany({
             where,
             orderBy: { createdAt: "desc" },

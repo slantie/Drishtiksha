@@ -1,34 +1,37 @@
 // Backend/server.js
 
 import dotenv from "dotenv";
+import { createServer } from "http"; // ADDED
 import { app } from "./src/app.js";
 import { connectDatabase, disconnectDatabase } from "./src/config/database.js";
+import { initializeSocketIO } from "./src/config/socket.js"; // ADDED
 
-// Load environment variables from .env file
-dotenv.config({
-    path: "./.env",
-});
+dotenv.config({ path: "./.env" });
 
 const PORT = process.env.PORT || 4000;
 
+// ADDED: Create an HTTP server to attach both Express and Socket.IO
+const httpServer = createServer(app);
+
+// ADDED: Initialize Socket.IO and pass the server instance
+const io = initializeSocketIO(httpServer);
+app.set("io", io); // Make io accessible in request handlers
+
 const startServer = async () => {
     try {
-        // 1. Connect to the database
         await connectDatabase();
-        console.log("🗄️  Database connected successfully.");
 
-        // 2. Start the Express server
-        const server = app.listen(PORT, () => {
+        // CHANGED: Use the httpServer to listen for requests
+        httpServer.listen(PORT, () => {
             console.log(`\n🚀 Server is running at: http://localhost:${PORT}`);
             console.log(
                 `   Environment: ${process.env.NODE_ENV || "development"}`
             );
         });
 
-        // Graceful shutdown logic
         const shutdown = async (signal) => {
             console.log(`\n${signal} received. Shutting down gracefully...`);
-            server.close(async () => {
+            httpServer.close(async () => {
                 await disconnectDatabase();
                 console.log("🔌 Server and database connections closed.");
                 process.exit(0);
