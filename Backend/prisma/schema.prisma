@@ -96,7 +96,7 @@ model DeepfakeAnalysis {
   prediction     PredictionType
   confidence     Float
   processingTime Float? // in seconds
-  model          AnalysisModel
+  model          String
   modelVersion   String?
   analysisType   AnalysisType   @default(QUICK)
   status         AnalysisStatus @default(PENDING)
@@ -251,7 +251,7 @@ enum VideoStatus {
   QUEUED
   PROCESSING
   ANALYZED
-  PARTIALLY_ANALYZED // ADDED: For cases where some analyses succeed and others fail
+  PARTIALLY_ANALYZED
   FAILED
 }
 
@@ -273,12 +273,6 @@ enum AnalysisType {
   FRAMES // Frame-by-frame analysis - /analyze/frames endpoint
   VISUALIZE // Visual analysis with overlays - /analyze/visualize endpoint
   COMPREHENSIVE // Complete analysis with all features - /analyze/comprehensive endpoint
-}
-
-enum AnalysisModel {
-  SIGLIP_LSTM_V1 // SIGLIP-LSTM-V1: Balanced performance, fast inference
-  SIGLIP_LSTM_V3 // SIGLIP-LSTM-V3: Enhanced accuracy, detailed analysis
-  COLOR_CUES_LSTM_V1 // COLOR-CUES-LSTM-V1: Color-based deepfake detection
 }
 
 enum ServerStatus {

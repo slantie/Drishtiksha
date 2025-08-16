@@ -1,43 +1,105 @@
 // Backend/server.js
 
 import dotenv from "dotenv";
-import { createServer } from "http"; // ADDED
+import { createServer } from "http";
 import { app } from "./src/app.js";
 import { connectDatabase, disconnectDatabase } from "./src/config/database.js";
-import { initializeSocketIO } from "./src/config/socket.js"; // ADDED
+import { initializeSocketIO } from "./src/config/socket.js";
+import { QueueEvents } from "bullmq";
+import { VIDEO_PROCESSING_QUEUE_NAME } from "./src/config/constants.js";
+import { videoRepository } from "./src/repositories/video.repository.js";
+import logger from "./src/utils/logger.js";
 
 dotenv.config({ path: "./.env" });
 
 const PORT = process.env.PORT || 4000;
-
-// ADDED: Create an HTTP server to attach both Express and Socket.IO
 const httpServer = createServer(app);
 
-// ADDED: Initialize Socket.IO and pass the server instance
 const io = initializeSocketIO(httpServer);
-app.set("io", io); // Make io accessible in request handlers
+app.set("io", io);
+
+// --- BullMQ Event Listener ---
+const queueEvents = new QueueEvents(VIDEO_PROCESSING_QUEUE_NAME, {
+    connection: {
+        host: process.env.REDIS_URL
+            ? new URL(process.env.REDIS_URL).hostname
+            : "localhost",
+        port: process.env.REDIS_URL
+            ? parseInt(new URL(process.env.REDIS_URL).port)
+            : 6379,
+    },
+});
+
+// CORRECTED: Reverted to the 'completed' event, which is more reliable.
+// ADDED: Robust logic to specifically identify the finalizer job.
+// REASON: This is the definitive fix. It ensures we only act when the entire workflow is
+// verifiably complete, and then sends the final, correct state to the client.
+queueEvents.on("completed", async ({ jobId }) => {
+    // We only care about the finalizer job, which signals the end of the entire flow.
+    if (jobId.endsWith("-finalizer")) {
+        const videoId = jobId.replace("-finalizer", "");
+        logger.info(
+            `[QueueEvents] Finalizer Job for video ${videoId} has completed.`
+        );
+
+        try {
+            const video = await videoRepository.findById(videoId);
+            if (video) {
+                io.to(video.userId).emit("video_update", video);
+                logger.info(
+                    `[SocketIO] Emitted final 'video_update' for video ${videoId} to user ${video.userId}.`
+                );
+            }
+        } catch (error) {
+            logger.error(
+                `[QueueEvents] Error fetching video ${videoId} after completion: ${error.message}`
+            );
+        }
+    }
+});
+
+queueEvents.on("failed", async ({ jobId, failedReason }) => {
+    logger.error(`[QueueEvents] Job ${jobId} failed: ${failedReason}`);
+    const videoId = jobId.split("-")[0];
+
+    try {
+        const video = await videoRepository.findById(videoId);
+        if (video) {
+            io.to(video.userId).emit("processing_error", {
+                videoId,
+                error: failedReason,
+            });
+            io.to(video.userId).emit("video_update", video); // Send the video in its current FAILED/PARTIAL state
+            logger.info(
+                `[SocketIO] Emitted 'processing_error' for failed job ${jobId} to user ${video.userId}.`
+            );
+        }
+    } catch (error) {
+        logger.error(
+            `[QueueEvents] Error fetching video ${videoId} after failure: ${error.message}`
+        );
+    }
+});
+// --- End BullMQ Event Listener ---
 
 const startServer = async () => {
     try {
         await connectDatabase();
-
-        // CHANGED: Use the httpServer to listen for requests
         httpServer.listen(PORT, () => {
             console.log(`\n🚀 Server is running at: http://localhost:${PORT}`);
             console.log(
                 `   Environment: ${process.env.NODE_ENV || "development"}`
             );
         });
-
         const shutdown = async (signal) => {
             console.log(`\n${signal} received. Shutting down gracefully...`);
+            await queueEvents.close();
             httpServer.close(async () => {
                 await disconnectDatabase();
                 console.log("🔌 Server and database connections closed.");
                 process.exit(0);
             });
         };
-
         process.on("SIGTERM", () => shutdown("SIGTERM"));
         process.on("SIGINT", () => shutdown("SIGINT"));
     } catch (error) {

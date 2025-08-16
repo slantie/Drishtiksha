@@ -1,6 +1,6 @@
 // src/config/queue.js
 
-import { Queue } from "bullmq";
+import { Queue, FlowProducer } from "bullmq";
 import { VIDEO_PROCESSING_QUEUE_NAME } from "./constants.js";
 import logger from "../utils/logger.js";
 
@@ -13,7 +13,6 @@ const redisConnection = {
         : 6379,
 };
 
-// This is the single queue instance for the application.
 export const videoQueue = new Queue(VIDEO_PROCESSING_QUEUE_NAME, {
     connection: redisConnection,
     defaultJobOptions: {
@@ -22,19 +21,19 @@ export const videoQueue = new Queue(VIDEO_PROCESSING_QUEUE_NAME, {
     },
 });
 
+export const videoFlowProducer = new FlowProducer({
+    connection: redisConnection,
+});
+
 videoQueue.on("error", (err) => {
     logger.error(`BullMQ Queue Error: ${err.message}`);
 });
 
-// ADDED: This function adds a job to the queue.
-// REASON: Consolidates queue interaction logic into this file.
 export const addVideoToQueue = async (videoId) => {
-    await videoQueue.add("process-video", { videoId }, { jobId: videoId });
-    logger.info(`Video ${videoId} job added to the processing queue.`);
+    await videoQueue.add("analysis-flow", { videoId }, { jobId: videoId });
+    logger.info(`Video ${videoId} 'analysis-flow' job added to the queue.`);
 };
 
-// ADDED: This function retrieves queue status for monitoring.
-// REASON: Consolidates queue interaction logic into this file.
 export const getQueueStatus = async () => {
     return {
         pendingJobs: await videoQueue.getWaitingCount(),

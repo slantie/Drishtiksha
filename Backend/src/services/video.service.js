@@ -1,7 +1,6 @@
 // src/services/video.service.js
 
 import { videoRepository } from "../repositories/video.repository.js";
-// CORRECTED IMPORT: Points to the consolidated queue config file.
 import { addVideoToQueue } from "../config/queue.js";
 import {
     uploadOnCloudinary,
@@ -11,7 +10,8 @@ import { ApiError } from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 
 class VideoService {
-    async createVideoAndQueueForAnalysis(file, user, description, io) {
+    // REMOVED: 'io' parameter is no longer needed.
+    async createVideoAndQueueForAnalysis(file, user, description) {
         if (!file) throw new ApiError(400, "A video file is required.");
 
         const cloudinaryResponse = await uploadOnCloudinary(file.path);
@@ -29,22 +29,13 @@ class VideoService {
             userId: user.id,
         });
 
-        // This now calls the function from the correct file.
         await addVideoToQueue(newVideo.id);
 
-        this.emitVideoUpdate(io, newVideo.userId, newVideo);
-
+        // REMOVED: Socket emission logic is now handled by the event listener in server.js
         return newVideo;
     }
 
-    emitVideoUpdate(io, userId, videoData) {
-        if (io) {
-            io.to(userId).emit("video_update", videoData);
-            logger.info(
-                `Emitted 'video_update' for video ${videoData.id} to user ${userId}.`
-            );
-        }
-    }
+    // REMOVED: emitVideoUpdate method. This logic is now centralized.
 
     async getAllVideosForUser(userId) {
         return videoRepository.findAllByUserId(userId);

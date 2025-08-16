@@ -19,12 +19,6 @@ const MONITORING_ENDPOINTS = {
     STATS: "/stats",
 };
 
-const MODEL_ENUM_MAPPING = {
-    "SIGLIP-LSTM-V1": "SIGLIP_LSTM_V1",
-    "SIGLIP-LSTM-V3": "SIGLIP_LSTM_V3",
-    "COLOR-CUES-LSTM-V1": "COLOR_CUES_LSTM_V1",
-};
-
 class ModelAnalysisService {
     constructor() {
         this.serverUrl = process.env.SERVER_URL;

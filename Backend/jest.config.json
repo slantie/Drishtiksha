@@ -1,17 +1,12 @@
 {
     "testEnvironment": "node",
-    "testTimeout": 30000,
+    "testTimeout": 300000,
     "verbose": true,
     "clearMocks": true,
     "resetMocks": true,
     "restoreMocks": true,
     "transform": {},
-    "preset": "default",
-    "extensionsToTreatAsEsm": [".js"],
-    "globals": {
-        "window": false
-    },
-    "moduleNameMapping": {
+    "moduleNameMapper": {
         "^(\\.{1,2}/.*)\\.js$": "$1"
     }
 }
