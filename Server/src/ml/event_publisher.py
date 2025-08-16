@@ -28,6 +28,6 @@ def publish_progress(event_data: dict):
             # The payload must match what the Node.js event service expects
             payload = json.dumps(event_data)
             redis_client.publish(VIDEO_PROGRESS_CHANNEL, payload)
-            logger.info(f"🚀 Published event '{event_data.get('event')}' to Redis channel '{VIDEO_PROGRESS_CHANNEL}'")
+            # logger.info(f"🚀 Published event '{event_data.get('event')}' to Redis channel '{VIDEO_PROGRESS_CHANNEL}'")
         except Exception as e:
             logger.error(f"Failed to publish progress event to Redis: {e}")

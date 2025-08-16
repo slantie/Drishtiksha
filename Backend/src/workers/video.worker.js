@@ -1,5 +1,4 @@
 // src/workers/video.worker.js
-
 import { Worker } from "bullmq";
 import fs from "fs";
 import { promises as fsPromises } from "fs";
@@ -101,7 +100,6 @@ async function handleAnalysisFlow(job) {
     );
 }
 
-// ... (rest of the file is unchanged, collapsed for brevity)
 async function handleSingleAnalysis(job) {
     const { videoId, modelName, serverStats } = job.data;
     let localVideoPath;
@@ -191,10 +189,12 @@ async function runAndSaveComprehensiveAnalysis(
     serverStats
 ) {
     try {
+        // MERGED FIX: Pass the userId to the analysis service.
         const response = await modelAnalysisService.analyzeVideoComprehensive(
             videoPath,
             modelName,
-            videoId
+            videoId,
+            userId
         );
 
         const analysisData = toCamelCase(response.data);
