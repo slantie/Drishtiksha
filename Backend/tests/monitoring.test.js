@@ -14,7 +14,6 @@ describe("Monitoring Endpoints", () => {
         lastName: "Test",
     };
 
-    // Setup: Create a user and get a token before any tests run.
     beforeAll(async () => {
         api = request(app);
         const registerRes = await api
@@ -23,7 +22,6 @@ describe("Monitoring Endpoints", () => {
         authToken = registerRes.body.data.token;
     });
 
-    // CORRECTED: The afterAll hook is now defined synchronously at the top level of the describe block.
     afterAll(async () => {
         await prisma.user.deleteMany({ where: { email: testUser.email } });
     });
@@ -37,15 +35,16 @@ describe("Monitoring Endpoints", () => {
         expect(res.body.success).toBe(true);
         const { data } = res.body;
 
-        expect(data.service_name).toBeDefined();
-        expect(data.device_info).toBeDefined();
-        expect(data.system_info).toBeDefined();
-        expect(data.models_info).toBeInstanceOf(Array);
+        // CORRECTED: Use camelCase properties to match the API's transformed response.
+        expect(data.serviceName).toBeDefined();
+        expect(data.deviceInfo).toBeDefined();
+        expect(data.systemInfo).toBeDefined();
+        expect(data.modelsInfo).toBeInstanceOf(Array);
 
-        expect(typeof data.device_info.type).toBe("string");
-        expect(typeof data.system_info.python_version).toBe("string");
-        if (data.models_info.length > 0) {
-            expect(data.models_info[0].name).toBeDefined();
+        expect(typeof data.deviceInfo.type).toBe("string");
+        expect(typeof data.systemInfo.pythonVersion).toBe("string");
+        if (data.modelsInfo.length > 0) {
+            expect(data.modelsInfo[0].name).toBeDefined();
         }
     }, 25000);
 

@@ -7,6 +7,7 @@ import { getQueueStatus } from "../../config/queue.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import logger from "../../utils/logger.js";
+import { toCamelCase } from "../../utils/formatKeys.js";
 
 const getServerStatus = asyncHandler(async (req, res) => {
     try {
@@ -21,7 +22,7 @@ const getServerStatus = asyncHandler(async (req, res) => {
         res.status(200).json(
             new ApiResponse(
                 200,
-                serverStats,
+                toCamelCase(serverStats),
                 "Server status retrieved successfully"
             )
         );
@@ -50,7 +51,7 @@ const getServerHealthHistory = asyncHandler(async (req, res) => {
     res.status(200).json(
         new ApiResponse(
             200,
-            history,
+            toCamelCase(history),
             "Server health history retrieved successfully"
         )
     );
@@ -62,7 +63,7 @@ const getAnalysisStats = asyncHandler(async (req, res) => {
     res.status(200).json(
         new ApiResponse(
             200,
-            stats,
+            toCamelCase(stats),
             `Analysis statistics for ${timeframe} retrieved successfully`
         )
     );
@@ -74,7 +75,7 @@ const getQueueStatusHandler = asyncHandler(async (req, res) => {
     res.status(200).json(
         new ApiResponse(
             200,
-            queueStatus,
+            toCamelCase(queueStatus),
             "Video processing queue status retrieved successfully."
         )
     );

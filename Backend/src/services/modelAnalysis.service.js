@@ -68,7 +68,7 @@ class ModelAnalysisService {
     // DEPRECATED: This method is no longer needed as getServerStatistics provides all necessary info.
     // getHealthStatus() is now fully replaced.
 
-    async analyzeVideoComprehensive(videoPath, modelName, videoId) {
+    async analyzeVideoComprehensive(videoPath, modelName, videoId, userId) {
         if (!this.isAvailable()) {
             throw new ApiError(
                 503,
@@ -89,8 +89,10 @@ class ModelAnalysisService {
             const formData = new FormData();
             formData.append("video", fs.createReadStream(videoPath));
             formData.append("model", modelName);
-            formData.append("include_frames", "true");
-            formData.append("include_visualization", "true");
+
+            // ADDED: Send the context to the Python server.
+            if (videoId) formData.append("video_id", videoId);
+            if (userId) formData.append("user_id", userId);
             const response = await axios.post(
                 `${this.serverUrl}${ANALYSIS_ENDPOINTS.COMPREHENSIVE}`,
                 formData,

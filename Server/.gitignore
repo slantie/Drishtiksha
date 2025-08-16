@@ -10,6 +10,8 @@
 /models/*.dat
 /src/__pycache__
 /src/app/__pycache__
+/src/app/routers/__pycache__
 /src/ml/__pycache__
 /src/ml/models/__pycache__
+/src/ml/architectures/__pycache__
 /src/training/__pycache__

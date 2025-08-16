@@ -4,7 +4,7 @@ import os
 import asyncio
 import aiofiles
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
@@ -179,6 +179,8 @@ async def analyze_comprehensive(
     proc_data: tuple = VideoProcessingDeps,
     include_frames: bool = True,
     include_visualization: bool = True,
+    video_id: str = Form(None),
+    user_id: str = Form(None),
 ):
     """
     Performs a comprehensive analysis combining all analysis types in a single request.
@@ -209,7 +211,7 @@ async def analyze_comprehensive(
     # 1. Basic comprehensive analysis (detailed if available)
     analysis_start = time.time()
     try:
-        basic_result = await asyncio.to_thread(model.predict_detailed, video_path)
+        basic_result = await asyncio.to_thread(model.predict_detailed, video_path, video_id=video_id, user_id=user_id)
         analysis_type = "COMPREHENSIVE"
     except NotImplementedError:
         basic_result = await asyncio.to_thread(model.predict, video_path)

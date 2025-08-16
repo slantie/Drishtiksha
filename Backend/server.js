@@ -8,6 +8,7 @@ import { initializeSocketIO } from "./src/config/socket.js";
 import { QueueEvents } from "bullmq";
 import { VIDEO_PROCESSING_QUEUE_NAME } from "./src/config/constants.js";
 import { videoRepository } from "./src/repositories/video.repository.js";
+import { eventService } from "./src/services/event.service.js";
 import logger from "./src/utils/logger.js";
 
 dotenv.config({ path: "./.env" });
@@ -35,24 +36,16 @@ const queueEvents = new QueueEvents(VIDEO_PROCESSING_QUEUE_NAME, {
 // REASON: This is the definitive fix. It ensures we only act when the entire workflow is
 // verifiably complete, and then sends the final, correct state to the client.
 queueEvents.on("completed", async ({ jobId }) => {
-    // We only care about the finalizer job, which signals the end of the entire flow.
     if (jobId.endsWith("-finalizer")) {
         const videoId = jobId.replace("-finalizer", "");
         logger.info(
             `[QueueEvents] Finalizer Job for video ${videoId} has completed.`
         );
-
-        try {
-            const video = await videoRepository.findById(videoId);
-            if (video) {
-                io.to(video.userId).emit("video_update", video);
-                logger.info(
-                    `[SocketIO] Emitted final 'video_update' for video ${videoId} to user ${video.userId}.`
-                );
-            }
-        } catch (error) {
-            logger.error(
-                `[QueueEvents] Error fetching video ${videoId} after completion: ${error.message}`
+        const video = await videoRepository.findById(videoId);
+        if (video) {
+            io.to(video.userId).emit("video_update", video);
+            logger.info(
+                `[SocketIO] Emitted final 'video_update' for video ${videoId} to user ${video.userId}.`
             );
         }
     }
@@ -69,7 +62,7 @@ queueEvents.on("failed", async ({ jobId, failedReason }) => {
                 videoId,
                 error: failedReason,
             });
-            io.to(video.userId).emit("video_update", video); // Send the video in its current FAILED/PARTIAL state
+            io.to(video.userId).emit("video_update", video);
             logger.info(
                 `[SocketIO] Emitted 'processing_error' for failed job ${jobId} to user ${video.userId}.`
             );
@@ -81,6 +74,15 @@ queueEvents.on("failed", async ({ jobId, failedReason }) => {
     }
 });
 // --- End BullMQ Event Listener ---
+
+eventService.listenForProgress((progressData) => {
+    if (progressData.userId) {
+        io.to(progressData.userId).emit("progress_update", progressData);
+        logger.info(
+            `[SocketIO] Emitted 'progress_update' (${progressData.event}) for video ${progressData.videoId} to user ${progressData.userId}.`
+        );
+    }
+});
 
 const startServer = async () => {
     try {
