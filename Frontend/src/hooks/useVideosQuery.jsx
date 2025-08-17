@@ -118,7 +118,7 @@ export const useCreateAnalysisMutation = () => {
         mutationFn: ({ videoId, analysisConfig }) =>
             videoApi.createAnalysis(videoId, analysisConfig),
         onSuccess: (data, { videoId }) => {
-            showToast.success("New analysis has been queued!");
+            showToast.success("Analysis Versioning Coming Soon!");
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.detail(videoId),
             });

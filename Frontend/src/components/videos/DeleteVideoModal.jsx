@@ -1,8 +1,9 @@
 // src/components/videos/DeleteVideoModal.jsx
 
 import React, { useState } from "react";
-import { Trash2, X, Loader2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Modal } from "../ui/Modal"; // REFACTOR: Using the new base Modal component.
 
 export const DeleteVideoModal = ({ isOpen, onClose, video, onDelete }) => {
     const [isDeleting, setIsDeleting] = useState(false);
@@ -21,51 +22,45 @@ export const DeleteVideoModal = ({ isOpen, onClose, video, onDelete }) => {
 
     if (!isOpen || !video) return null;
 
+    // REFACTOR: Using the destructive variant for the primary button.
+    const modalFooter = (
+        <>
+            <Button variant="outline" onClick={onClose} disabled={isDeleting}>
+                Cancel
+            </Button>
+            <Button
+                variant="destructive"
+                onClick={handleDelete}
+                isLoading={isDeleting}
+            >
+                {!isDeleting && <Trash2 className="mr-2 h-4 w-4" />}
+                Delete Video
+            </Button>
+        </>
+    );
+
     return (
-        <div className="fixed inset-[-25px] z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="relative w-full max-w-md bg-light-background dark:bg-dark-background rounded-3xl p-8 shadow-2xl border border-red-500/20">
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-light-muted-background dark:hover:bg-dark-muted-background"
-                >
-                    <X />
-                </button>
-                <div className="text-center">
-                    <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">
-                        Confirm Deletion
-                    </h2>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Confirm Deletion"
+            footer={modalFooter}
+        >
+            <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 sm:mx-0 sm:h-10 sm:w-10">
+                    <AlertTriangle
+                        className="h-6 w-6 text-red-600"
+                        aria-hidden="true"
+                    />
+                </div>
+                <div className="text-sm">
                     <p>
-                        Are you sure you want to delete "{video.filename}"? This
-                        action cannot be undone.
+                        Are you sure you want to delete{" "}
+                        <span className="font-semibold">{video.filename}</span>?
+                        This action cannot be undone.
                     </p>
-                    <div className="flex justify-center space-x-4 mt-6">
-                        <Button
-                            variant="outline"
-                            onClick={onClose}
-                            disabled={isDeleting}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="bg-red-500 hover:bg-red-600 text-white"
-                        >
-                            {isDeleting ? (
-                                <>
-                                    <Loader2 className="animate-spin mr-2" />{" "}
-                                    Deleting...
-                                </>
-                            ) : (
-                                <>
-                                    <Trash2 className="mr-2" /> Delete
-                                </>
-                            )}
-                        </Button>
-                    </div>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };

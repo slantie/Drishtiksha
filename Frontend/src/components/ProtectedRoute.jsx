@@ -2,19 +2,16 @@
 
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext.jsx"; // Updated import path
-import LoadingSpinner from "./ui/LoadingSpinner.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import { PageLoader } from "./ui/LoadingSpinner.jsx"; // REFACTOR: Using our standardized PageLoader.
 
 const ProtectedRoute = ({ children, roles = [] }) => {
     const { isAuthenticated, user, isLoading } = useAuth();
     const location = useLocation();
 
     if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <LoadingSpinner />
-            </div>
-        );
+        // REFACTOR: Provides a full-screen, consistent loading experience.
+        return <PageLoader text="Verifying session..." />;
     }
 
     if (!isAuthenticated) {

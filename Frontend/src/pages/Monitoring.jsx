@@ -1,9 +1,6 @@
 // src/pages/Monitoring.jsx
 
-import React, { useState } from "react";
-import { Card } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { SkeletonCard } from "../components/ui/SkeletonCard";
+import React from "react";
 import {
     useServerStatusQuery,
     useServerHistoryQuery,
@@ -12,7 +9,6 @@ import {
 } from "../hooks/useMonitoringQuery";
 import {
     Server,
-    Clock,
     CheckCircle,
     AlertTriangle,
     Cpu,
@@ -20,49 +16,56 @@ import {
     Activity,
     Layers,
     RefreshCw,
-    Loader2,
 } from "lucide-react";
-import { showToast } from "../utils/toast";
+import { PageHeader } from "../components/layout/PageHeader";
+import { Button } from "../components/ui/Button";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
+import { SkeletonCard } from "../components/ui/SkeletonCard";
+import { Alert, AlertTitle, AlertDescription } from "../components/ui/Alert";
+import { showToast } from "../utils/toast";
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Cell,
+} from "recharts";
 
-// --- HELPER FUNCTIONS & COMPONENTS ---
+// --- HELPER FUNCTIONS & SUB-COMPONENTS (Restored & Refined) ---
 
 const formatUptime = (totalSeconds) => {
     if (totalSeconds == null || isNaN(totalSeconds) || totalSeconds < 0)
         return "N/A";
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    return `${hours}h ${minutes}m ${seconds}s`;
-};
-
-const ProgressBar = ({ value, total, colorClass }) => {
-    const percentage = total > 0 ? (value / total) * 100 : 0;
-    return (
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-            <div
-                className={`${colorClass} h-2.5 rounded-full`}
-                style={{ width: `${percentage}%` }}
-            ></div>
-        </div>
-    );
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    return `${days}d ${hours}h`;
 };
 
 const RadialProgressChart = ({ percentage, label, color }) => {
-    const radius = 50;
+    const radius = 40;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (percentage / 100) * circumference;
     return (
-        <div className="relative flex items-center justify-center w-32 h-32">
-            <svg className="w-full h-full" viewBox="0 0 120 120">
+        <div className="relative flex-shrink-0 flex items-center justify-center w-28 h-28">
+            <svg className="w-full h-full" viewBox="0 0 100 100">
                 <circle
-                    className="text-gray-200 dark:text-gray-700"
+                    className="text-light-hover dark:text-dark-hover"
                     strokeWidth="10"
                     stroke="currentColor"
                     fill="transparent"
                     r={radius}
-                    cx="60"
-                    cy="60"
+                    cx="50"
+                    cy="50"
                 />
                 <circle
                     className={color}
@@ -73,9 +76,9 @@ const RadialProgressChart = ({ percentage, label, color }) => {
                     stroke="currentColor"
                     fill="transparent"
                     r={radius}
-                    cx="60"
-                    cy="60"
-                    transform="rotate(-90 60 60)"
+                    cx="50"
+                    cy="50"
+                    transform="rotate(-90 50 50)"
                     style={{ transition: "stroke-dashoffset 0.5s ease-out" }}
                 />
             </svg>
@@ -83,359 +86,197 @@ const RadialProgressChart = ({ percentage, label, color }) => {
                 <span className="text-2xl font-bold">
                     {percentage.toFixed(0)}%
                 </span>
-                <span className="text-xs text-gray-500">{label}</span>
+                <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+                    {label}
+                </span>
             </div>
         </div>
     );
 };
 
-const MonitoringHeader = ({ onRefresh, isRefetching }) => {
-    const [isManualRefresh, setIsManualRefresh] = useState(false);
-    const handleRefresh = async () => {
-        setIsManualRefresh(true);
-        try {
-            await onRefresh();
-            showToast.success("Monitoring data updated.");
-        } catch (error) {
-            showToast.error("Failed to refresh data.");
-            console.error("Refresh error:", error);
-        } finally {
-            setIsManualRefresh(false);
-        }
-    };
-    const isLoading = isRefetching || isManualRefresh;
-    return (
-        <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">System Monitoring</h1>
-            <Button
-                onClick={handleRefresh}
-                variant="outline"
-                disabled={isLoading}
-            >
-                <>
-                    {isLoading ? (
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                        <RefreshCw className="mr-2 h-5 w-5" />
-                    )}
-                    {isLoading ? "Refreshing..." : "Refresh Data"}
-                </>
-            </Button>
-        </div>
-    );
-};
+const ResourceCard = ({ title, icon: Icon, chartData, details }) => (
+    <Card>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+                <Icon className="h-5 w-5 text-primary-main" /> {title}
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+            {chartData && (
+                <div className="flex-shrink-0">
+                    <RadialProgressChart
+                        percentage={chartData.percentage}
+                        label={chartData.label}
+                        color={chartData.color}
+                    />
+                </div>
+            )}
+            <div className="w-full text-sm space-y-2">
+                {details.map((item) => (
+                    <div
+                        key={item.label}
+                        className="flex justify-between items-center border-b border-light-secondary/50 dark:border-dark-secondary/50 py-1"
+                    >
+                        <span className="text-light-muted-text dark:text-dark-muted-text">
+                            {item.label}:
+                        </span>
+                        <span className="font-semibold ">{item.value}</span>
+                    </div>
+                ))}
+            </div>
+        </CardContent>
+    </Card>
+);
 
 const LiveStatusIndicator = ({ status, responseTime, uptimeSeconds }) => {
     const isHealthy = status === "running";
     return (
-        <div className="p-4 rounded-lg bg-light-muted-background dark:bg-dark-muted-background flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-                <div
-                    className={`w-4 h-4 rounded-full animate-pulse ${
-                        isHealthy ? "bg-green-500" : "bg-red-500"
-                    }`}
-                ></div>
-                <div>
-                    <h2 className="text-xl font-bold">ML Service Status</h2>
-                    <p
-                        className={`font-semibold ${
-                            isHealthy ? "text-green-600" : "text-red-600"
-                        }`}
-                    >
-                        {isHealthy ? "Healthy & Operational" : "Unavailable"}
-                    </p>
-                </div>
-            </div>
-            <div className="text-center sm:text-right">
-                <div className="text-sm text-gray-500">
-                    Uptime:{" "}
-                    <span className="font-bold text-light-text dark:text-dark-text">
-                        {formatUptime(uptimeSeconds)}
-                    </span>
-                </div>
-                <div className="text-sm text-gray-500">
-                    Response:{" "}
-                    <span className="font-bold text-light-text dark:text-dark-text">
-                        {responseTime}ms
-                    </span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const GpuInfoCard = ({ gpuInfo }) => {
-    if (!gpuInfo || gpuInfo.type !== "cuda")
-        return (
-            <Card>
-                <div className="p-6">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Cpu className="h-5 w-5" />
-                        GPU Vitals
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-2">
-                        No CUDA-enabled GPU detected.
-                    </p>
-                </div>
-            </Card>
-        );
-    return (
-        <Card>
-            <div className="p-6">
-                <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                    <Cpu className="h-5 w-5 text-green-500" />
-                    GPU Vitals
-                </h3>
+        <Card
+            className={`${isHealthy ? "border-green-500" : "border-red-500"}`}
+        >
+            <CardContent className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <RadialProgressChart
-                        percentage={gpuInfo.memoryUsagePercent}
-                        label="VRAM"
-                        color="text-green-500"
-                    />
-                    <div className="text-sm space-y-2 flex-1">
-                        <p className="font-semibold text-base truncate">
-                            {gpuInfo.name}
+                    {isHealthy ? (
+                        <CheckCircle className="h-8 w-8 text-green-500" />
+                    ) : (
+                        <AlertTriangle className="h-8 w-8 text-red-500" />
+                    )}
+                    <div>
+                        <h2 className="font-bold">ML Service Status</h2>
+                        <p
+                            className={`font-semibold ${
+                                isHealthy ? "text-green-600" : "text-red-600"
+                            }`}
+                        >
+                            {isHealthy
+                                ? "Healthy & Operational"
+                                : "Unavailable"}
                         </p>
-                        <p className="font-semibold text-base truncate">
-                            CUDA Version: {gpuInfo.cudaVersion}
-                        </p>
-                        <div className="flex justify-between">
-                            <span>Used:</span>{" "}
-                            <span className="font-mono">
-                                {gpuInfo.usedMemory?.toFixed(2)} GB
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Total:</span>{" "}
-                            <span className="font-mono">
-                                {gpuInfo.totalMemory?.toFixed(2)} GB
-                            </span>
-                        </div>
                     </div>
                 </div>
-            </div>
-        </Card>
-    );
-};
-
-// CPU Info Card
-
-const CpuInfoCard = ({ cpuInfo }) => {
-    if (!cpuInfo)
-        return (
-            <Card>
-                <div className="p-6">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Cpu className="h-5 w-5" />
-                        CPU Vitals
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-2">
-                        No CPU information available.
-                    </p>
+                <div className="text-sm text-light-muted-text dark:text-dark-muted-text text-center sm:text-right space-y-1">
+                    <div>
+                        Uptime:{" "}
+                        <span className="font-semibold text-light-text dark:text-dark-text">
+                            {formatUptime(uptimeSeconds)}
+                        </span>
+                    </div>
+                    <div>
+                        Response:{" "}
+                        <span className="font-semibold text-light-text dark:text-dark-text">
+                            {responseTime}ms
+                        </span>
+                    </div>
                 </div>
-            </Card>
-        );
-    return (
-        <Card>
-            <div className="p-6">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Cpu className="h-5 w-5 text-green-500" />
-                    CPU: {cpuInfo.name}
-                </h3>
-            </div>
+            </CardContent>
         </Card>
     );
 };
 
-// *** RESTORED HEALTH CHECK HISTORY BAR CHART ***
 const HealthCheckHistoryChart = ({ data }) => {
-    if (!data || data.length === 0)
+    if (!data || data.length === 0) {
         return (
-            <Card className="p-6 text-center text-gray-500">
+            <Card className="p-6 text-center text-light-muted-text dark:text-dark-muted-text">
                 No health check history available.
             </Card>
         );
-
-    const displayData = [...data];
-    while (displayData.length < 50) {
-        displayData.unshift({
-            status: "NODATA",
-            createdAt: new Date().toISOString(),
-            responseTime: 0,
-        });
     }
-    const finalData = displayData.slice(-50);
 
-    const getStatusColor = (status) => {
+    // REFACTOR: Data preparation is the same, ensuring we show the latest 50 checks.
+    const displayData = [...data].reverse().slice(0, 50);
+
+    // REFACTOR: Color logic now returns hex codes for the SVG 'fill' property.
+    const getStatusFillColor = (status) => {
         switch (status?.toUpperCase()) {
             case "HEALTHY":
-                return "bg-green-500";
+                return "#22c55e"; // green-500
             case "UNHEALTHY":
-                return "bg-red-500";
-            case "DEGRADED":
-                return "bg-yellow-500";
+                return "#ef4444"; // red-500
             default:
-                return "bg-gray-300 dark:bg-gray-700";
+                return "#f59e0b"; // amber-500 for DEGRADED or other statuses
         }
+    };
+
+    // REFACTOR: A custom tooltip component for Recharts to display formatted data.
+    const CustomTooltip = ({ active, payload }) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className="p-2 bg-gray-800 text-white rounded-md shadow-lg border border-gray-700 text-xs">
+                    <p className="font-bold capitalize">
+                        Status: {data.status}
+                    </p>
+                    <p>Response Time: {data.responseTime}ms</p>
+                </div>
+            );
+        }
+        return null;
     };
 
     return (
         <Card>
-            <div className="p-6">
-                <h3 className="text-lg font-bold mb-2">Health Check History</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                    Visualizing the status of the last 50 server health checks.
-                    (Newest on the right)
-                </p>
-                <div className="flex items-center gap-[0.25rem] w-full h-20 bg-light-muted-background dark:bg-dark-muted-background p-2 rounded-lg">
-                    {finalData.map((item, index) => (
-                        <div
-                            key={index}
-                            className="flex-1 h-full group relative"
-                        >
-                            <div
-                                className={`w-full h-full rounded-sm ${getStatusColor(
-                                    item.status
-                                )}`}
-                            ></div>
-                            <div className="absolute bottom-full mb-2 w-max p-2 text-xs bg-gray-800 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none -translate-x-1/2 left-1/2 z-10">
-                                Status: {item.status}
-                                <br />
-                                Response: {item.responseTime}ms
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        Healthy
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        Degraded
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        Unhealthy
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-700"></div>
-                        No Data
-                    </div>
-                </div>
-            </div>
-        </Card>
-    );
-};
-
-const SystemInfoCard = ({ systemInfo }) => {
-    if (!systemInfo) return null;
-    return (
-        <Card>
-            <div className="p-6">
-                <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                    <Server className="h-5 w-5 text-indigo-500" />
-                    System Resources
-                </h3>
-                <div className="flex items-center gap-4">
-                    <RadialProgressChart
-                        percentage={systemInfo.ramUsagePercent}
-                        label="RAM"
-                        color="text-indigo-500"
-                    />
-                    <div className="text-sm space-y-2 flex-1">
-                        <p className="font-semibold text-base">
-                            {systemInfo.platform.includes("Windows")
-                                ? "Platform: Windows"
-                                : "Platform: Linux"}
-                        </p>
-                        <p className="font-semibold text-base">
-                            Python Version: {systemInfo.pythonVersion}
-                        </p>
-                        <div className="flex justify-between">
-                            <span>Used:</span>{" "}
-                            <span className="font-mono">
-                                {systemInfo.usedRam?.toFixed(2)} GB
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Total:</span>{" "}
-                            <span className="font-mono">
-                                {systemInfo.totalRam?.toFixed(2)} GB
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Card>
-    );
-};
-
-// Analysis Stats Card
-const AnalysisStatsCard = ({ stats }) => {
-    if (!stats) return null;
-    const successRate =
-        stats.total > 0 ? (stats.successful / stats.total) * 100 : 100;
-    return (
-        <Card>
-            <div className="p-6">
-                <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                    <PieChart className="h-5 w-5 text-amber-500" />
-                    Model Analysis Performance (24h)
-                </h3>
-                <div className="space-y-4 text-sm">
-                    <div>
-                        <div className="flex justify-between mb-1">
-                            <span>Success Rate</span>
-                            <span className="font-mono">
-                                {successRate.toFixed(1)}%
-                            </span>
-                        </div>
-                        <ProgressBar
-                            value={successRate}
-                            total={100}
-                            colorClass="bg-amber-500"
+            <CardHeader>
+                <CardTitle>Health Check History</CardTitle>
+                <CardDescription>
+                    Response time of the last 50 server health checks. (Newest
+                    on right)
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {/* REFACTOR: The entire chart is now built with Recharts components. */}
+                <ResponsiveContainer width="100%" height={150}>
+                    <BarChart
+                        data={displayData}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="currentColor"
+                            className="opacity-10"
                         />
-                    </div>
-                    <div className="flex justify-between border-t pt-2 mt-2 dark:border-gray-700">
-                        <span>Total Analyses:</span>{" "}
-                        <span className="font-mono">{stats.total}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Successful:</span>{" "}
-                        <span className="font-mono text-green-600">
-                            {stats.successful}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Failed:</span>{" "}
-                        <span className="font-mono text-red-600">
-                            {stats.failed}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Avg. Analysis Response Time:</span>{" "}
-                        <span className="font-mono">
-                            {stats.avgProcessingTime.toFixed(2)}s
-                        </span>
-                    </div>
-                </div>
-            </div>
+                        <XAxis hide={true} />
+                        <YAxis
+                            unit="ms"
+                            tick={{ fill: "currentColor", fontSize: 11 }}
+                        />
+                        <Tooltip
+                            content={<CustomTooltip />}
+                            cursor={{ fill: "rgba(128,128,128,0.1)" }}
+                        />
+                        <Bar
+                            dataKey="responseTime"
+                            radius={[4, 4, 0, 0]}
+                            barSize={25}
+                            alignmentBaseline="middle"
+                        >
+                            {displayData.map((entry, index) => (
+                                <Cell
+                                    key={`bar-cell-${index}`}
+                                    fill={getStatusFillColor(entry.status)}
+                                    className="cursor-pointer"
+                                />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
         </Card>
     );
 };
 
 const MonitoringSkeleton = () => (
-    <div className="space-y-6">
-        <SkeletonCard className="h-24" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-                <SkeletonCard className="h-96" />
+    <div className="space-y-4">
+        <div className="flex justify-between items-center">
+            <SkeletonCard className="h-10 w-64" />
+            <SkeletonCard className="h-10 w-32" />
+        </div>
+        <SkeletonCard className="h-20" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-8">
                 <SkeletonCard className="h-64" />
+                <SkeletonCard className="h-80" />
             </div>
-            <div className="lg:col-span-1 space-y-6">
-                <SkeletonCard className="h-48" />
+            <div className="lg:col-span-1 space-y-4">
                 <SkeletonCard className="h-48" />
                 <SkeletonCard className="h-48" />
             </div>
@@ -444,38 +285,19 @@ const MonitoringSkeleton = () => (
 );
 
 const Monitoring = () => {
+    // --- DATA FETCHING (Preserved) ---
     const {
         data: serverStatus,
+        error: serverStatusError,
         isLoading: statusLoading,
         isRefetching: statusRefetching,
         refetch: refetchStatus,
     } = useServerStatusQuery();
-    const {
-        data: history = [],
-        isLoading: historyLoading,
-        isRefetching: historyRefetching,
-        refetch: refetchHistory,
-    } = useServerHistoryQuery({ limit: 50 });
-    const {
-        data: queueStatus,
-        isLoading: queueLoading,
-        isRefetching: queueRefetching,
-        refetch: refetchQueue,
-    } = useQueueStatusQuery();
-    const {
-        data: analysisStats,
-        isLoading: statsLoading,
-        isRefetching: statsRefetching,
-        refetch: refetchStats,
-    } = useAnalysisStatsQuery({ timeframe: "24h" });
-
-    const isLoading =
-        statusLoading || historyLoading || queueLoading || statsLoading;
-    const isRefetching =
-        statusRefetching ||
-        historyRefetching ||
-        queueRefetching ||
-        statsRefetching;
+    const { data: history = [], refetch: refetchHistory } =
+        useServerHistoryQuery({ limit: 50 });
+    const { data: queueStatus, refetch: refetchQueue } = useQueueStatusQuery();
+    const { data: analysisStats, refetch: refetchStats } =
+        useAnalysisStatsQuery({ timeframe: "24h" });
 
     const handleRefreshAll = () =>
         Promise.all([
@@ -483,21 +305,43 @@ const Monitoring = () => {
             refetchHistory(),
             refetchQueue(),
             refetchStats(),
-        ]);
+        ])
+            .then(() => showToast.success("Monitoring data updated."))
+            .catch(() => showToast.error("Failed to refresh data."));
 
-    if (isLoading && !serverStatus)
+    // --- RENDER LOGIC ---
+    if (statusLoading) return <MonitoringSkeleton />;
+
+    // REFACTOR: Added a dedicated error state for when the backend is unreachable (e.g., 503 error).
+    if (serverStatusError) {
         return (
-            <div className="space-y-6">
-                <MonitoringHeader onRefresh={() => {}} isRefetching={true} />
-                <MonitoringSkeleton />
+            <div className="space-y-4">
+                <PageHeader
+                    title="System Monitoring"
+                    description="Live status and performance metrics for the analysis services."
+                    actions={
+                        <Button onClick={handleRefreshAll} variant="outline">
+                            <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+                        </Button>
+                    }
+                />
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-5 w-5" />
+                    <AlertTitle>Service Unavailable</AlertTitle>
+                    <AlertDescription>
+                        {serverStatusError.message ||
+                            "The monitoring service is currently unreachable. Please try again later."}
+                    </AlertDescription>
+                </Alert>
             </div>
         );
+    }
 
     const modelColumns = [
         {
             key: "name",
             header: "Model Name",
-            accessor: (item) => (
+            render: (item) => (
                 <span className="font-semibold">{item.name}</span>
             ),
         },
@@ -506,27 +350,25 @@ const Monitoring = () => {
             header: "Status",
             render: (item) =>
                 item.loaded ? (
-                    <span className="flex items-center text-green-600">
-                        <CheckCircle className="w-4 h-4 mr-2" /> Loaded
+                    <span className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" /> Loaded
                     </span>
                 ) : (
-                    <span className="flex items-center text-red-600">
-                        <AlertTriangle className="w-4 h-4 mr-2" /> Not Loaded
+                    <span className="flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="w-4 h-4" /> Not Loaded
                     </span>
                 ),
         },
         {
             key: "device",
             header: "Device",
-            accessor: (item) => (
-                <span className="font-mono uppercase">{item.device}</span>
-            ),
+            render: (item) => <span className=" uppercase">{item.device}</span>,
         },
         {
             key: "memoryUsageMb",
-            header: "Memory Usage",
-            accessor: (item) => (
-                <span className="font-mono">
+            header: "Memory",
+            render: (item) => (
+                <span className="">
                     {item.memoryUsageMb
                         ? `${item.memoryUsageMb.toFixed(1)} MB`
                         : "N/A"}
@@ -536,11 +378,21 @@ const Monitoring = () => {
     ];
 
     return (
-        <div className="space-y-6">
-            <MonitoringHeader
-                onRefresh={handleRefreshAll}
-                isRefetching={isRefetching}
+        <div className="space-y-4">
+            <PageHeader
+                title="System Monitoring"
+                description="Live status and performance metrics for the analysis services."
+                actions={
+                    <Button
+                        onClick={handleRefreshAll}
+                        isLoading={statusRefetching}
+                        variant="outline"
+                    >
+                        <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
+                    </Button>
+                }
             />
+
             {serverStatus && (
                 <LiveStatusIndicator
                     status={serverStatus.status}
@@ -548,73 +400,156 @@ const Monitoring = () => {
                     uptimeSeconds={serverStatus.uptimeSeconds}
                 />
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
+
+            {/* REFACTOR: The main grid now has a breakpoint for medium screens for better tablet responsiveness. */}
+            <div className="grid grid-cols-1 md:grid-cols-2 items-start space-y-4">
+                <div className="md:col-span-2 lg:col-span-2 space-y-4">
                     <HealthCheckHistoryChart data={history} />
                     <DataTable
-                        title="Model Status & Specifications"
-                        data={serverStatus?.modelsInfo || []}
+                        title="Loaded AI Models"
                         columns={modelColumns}
-                        pageSize={5}
+                        data={serverStatus?.modelsInfo || []}
+                        loading={statusRefetching}
                         showPagination={false}
-                        loading={isRefetching}
                     />
                 </div>
-                <div className="lg:col-span-1 space-y-6">
-                    {serverStatus &&
-                    serverStatus.deviceInfo &&
-                    serverStatus.deviceInfo.type === "cuda" ? (
-                        <GpuInfoCard gpuInfo={serverStatus?.deviceInfo} />
-                    ) : (
-                        serverStatus &&
-                        serverStatus.deviceInfo && (
-                            <CpuInfoCard cpuInfo={serverStatus?.deviceInfo} />
-                        )
-                    )}
-                    {serverStatus && (
-                        <SystemInfoCard systemInfo={serverStatus?.systemInfo} />
-                    )}
-                    {analysisStats && (
-                        <AnalysisStatsCard stats={analysisStats} />
-                    )}
-                    <Card>
-                        <div className="p-6">
-                            <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                                <Layers className="h-5 w-5 text-blue-500" />
-                                Model Processing Queue ( Lifetime )
-                            </h3>
-                            <div className="space-y-3 text-sm">
-                                <div className="space-y-2 flex items-center justify-between">
-                                    <div className="flex justify-between">
-                                        <span>Queued Jobs: </span>
-                                        <span className=" font-bold">
-                                            {queueStatus?.pendingJobs ?? 0}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Active Jobs: </span>
-                                        <span className=" font-bold">
-                                            {queueStatus?.activeJobs ?? 0}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="space-y-2 flex items-center justify-between">
-                                    <div className="flex justify-between dark:border-gray-700">
-                                        <span>Completed Jobs: </span>
-                                        <span className="">
-                                            {queueStatus?.completedJobs ?? 0}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Failed Jobs: </span>
-                                        <span className=" text-red-500">
-                                            {queueStatus?.failedJobs ?? 0}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
+                <div className="col-span-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* REFACTOR: Now using the new, responsive ResourceCard for all system info. */}
+                        {serverStatus?.deviceInfo && (
+                            <ResourceCard
+                                title={
+                                    serverStatus.deviceInfo.type === "cuda"
+                                        ? "GPU Vitals"
+                                        : "CPU Vitals"
+                                }
+                                icon={Cpu}
+                                chartData={
+                                    serverStatus.deviceInfo.type === "cuda"
+                                        ? {
+                                              percentage:
+                                                  serverStatus.deviceInfo
+                                                      .memoryUsagePercent,
+                                              label: "VRAM",
+                                              color: "text-green-500",
+                                          }
+                                        : null
+                                }
+                                details={[
+                                    {
+                                        label: "Name",
+                                        value: serverStatus.deviceInfo.name,
+                                    },
+                                    ...(serverStatus.deviceInfo.type === "cuda"
+                                        ? [
+                                              {
+                                                  label: "CUDA",
+                                                  value: serverStatus.deviceInfo
+                                                      .cudaVersion,
+                                              },
+                                              {
+                                                  label: "Used",
+                                                  value: `${serverStatus.deviceInfo.usedMemory?.toFixed(
+                                                      2
+                                                  )} GB`,
+                                              },
+                                              {
+                                                  label: "Total",
+                                                  value: `${serverStatus.deviceInfo.totalMemory?.toFixed(
+                                                      2
+                                                  )} GB`,
+                                              },
+                                          ]
+                                        : []),
+                                ]}
+                            />
+                        )}
+                        {serverStatus?.systemInfo && (
+                            <ResourceCard
+                                title="System Resources"
+                                icon={Server}
+                                chartData={{
+                                    percentage:
+                                        serverStatus.systemInfo.ramUsagePercent,
+                                    label: "RAM",
+                                    color: "text-indigo-500",
+                                }}
+                                details={[
+                                    {
+                                        label: "Platform",
+                                        value: serverStatus.systemInfo.platform,
+                                    },
+                                    {
+                                        label: "Python",
+                                        value: serverStatus.systemInfo
+                                            .pythonVersion,
+                                    },
+                                    {
+                                        label: "Used",
+                                        value: `${serverStatus.systemInfo.usedRam?.toFixed(
+                                            2
+                                        )} GB`,
+                                    },
+                                    {
+                                        label: "Total",
+                                        value: `${serverStatus.systemInfo.totalRam?.toFixed(
+                                            2
+                                        )} GB`,
+                                    },
+                                ]}
+                            />
+                        )}
+                        {analysisStats && (
+                            <ResourceCard
+                                title="Analysis Stats (24h)"
+                                icon={PieChart}
+                                details={[
+                                    {
+                                        label: "Total",
+                                        value: analysisStats.total,
+                                    },
+                                    {
+                                        label: "Successful",
+                                        value: analysisStats.successful,
+                                    },
+                                    {
+                                        label: "Failed",
+                                        value: analysisStats.failed,
+                                    },
+                                    {
+                                        label: "Avg. Time",
+                                        value: `${analysisStats.avgProcessingTime.toFixed(
+                                            2
+                                        )}s`,
+                                    },
+                                ]}
+                            />
+                        )}
+                        {queueStatus && (
+                            <ResourceCard
+                                title="Processing Queue"
+                                icon={Layers}
+                                details={[
+                                    {
+                                        label: "Pending",
+                                        value: queueStatus.pendingJobs,
+                                    },
+                                    {
+                                        label: "Active",
+                                        value: queueStatus.activeJobs,
+                                    },
+                                    {
+                                        label: "Completed",
+                                        value: queueStatus.completedJobs,
+                                    },
+                                    {
+                                        label: "Failed",
+                                        value: queueStatus.failedJobs,
+                                    },
+                                ]}
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

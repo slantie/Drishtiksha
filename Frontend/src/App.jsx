@@ -16,6 +16,7 @@ import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
 import DetailedAnalysis from "./pages/DetailedAnalysis";
 import Monitoring from "./pages/Monitoring.jsx";
+import Analysis from "./pages/Analysis.jsx";
 
 function App() {
     return (
@@ -72,6 +73,16 @@ function App() {
                     />
                     <Route
                         path="/results/:videoId/:analysisId"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <Analysis />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/results/legacy/:videoId/:analysisId"
                         element={
                             <ProtectedRoute>
                                 <Layout>

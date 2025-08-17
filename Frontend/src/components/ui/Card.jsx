@@ -1,66 +1,41 @@
-/**
- * @file src/components/ui/Card.jsx
- * @description A flexible card component with multiple variants and compound components.
- */
+// src/components/ui/Card.jsx
 
-"use client";
-
-import React from "react";
-import PropTypes from "prop-types";
-import { cva } from "class-variance-authority";
+import * as React from "react";
 import { cn } from "../../lib/utils";
 
-// CVA definition remains the same
-const cardVariants = cva("rounded-lg border transition-colors", {
-    variants: {
-        variant: {
-            default: "bg-light-background border-light-secondary dark:bg-dark-noisy-background dark:border-dark-secondary",
-            elevated: "bg-light-background border-light-secondary shadow-md dark:bg-dark-noisy-background dark:border-dark-secondary dark:shadow-lg",
-            outlined: "bg-transparent border-2 border-light-secondary dark:border-dark-secondary",
-            ghost: "bg-transparent border-transparent hover:bg-light-hover dark:hover:bg-dark-noisy-background",
-            gradient: "bg-gradient-to-br from-primary-lighter to-light-background border-primary-light dark:from-dark-background dark:to-dark-secondary dark:border-dark-secondary", // Adjusted dark gradient
-        },
-        padding: {
-            none: "p-0",
-            sm: "p-3",
-            default: "p-4",
-            lg: "p-6",
-            xl: "p-8",
-        },
-    },
-    defaultVariants: {
-        variant: "default",
-        padding: "default",
-    },
-});
+// REFACTOR: The base Card component is refined for consistent styling.
+// It uses theme-compliant background colors and borders for both light and dark modes.
+const Card = React.forwardRef(({ className, ...props }, ref) => (
+    <div
+        ref={ref}
+        className={cn(
+            "rounded-xl border border-light-secondary dark:border-dark-secondary bg-light-background dark:bg-dark-muted-background shadow-sm",
+            className
+        )}
+        {...props}
+    />
+));
+Card.displayName = "Card";
 
-// --- Main Card Component ---
-
-function Card({ className, variant, padding, ...props }) {
-    return (
-        <div
-            className={cn(cardVariants({ variant, padding }), className)}
-            {...props}
-        />
-    );
-}
-
-// --- Card Sub-components ---
-
+// REFACTOR: Standardized padding and added a bottom border for clear separation of the header.
 const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
     <div
         ref={ref}
-        className={cn("flex flex-col space-y-1.5 p-6", className)}
+        className={cn(
+            "flex flex-col space-y-1.5 p-6 border-b border-light-secondary dark:border-dark-secondary",
+            className
+        )}
         {...props}
     />
 ));
 CardHeader.displayName = "CardHeader";
 
+// REFACTOR: Typography is now more distinct for titles, improving visual hierarchy.
 const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
     <h3
         ref={ref}
         className={cn(
-            "text-xl font-semibold leading-none tracking-tight text-light-text dark:text-dark-text", // Adjusted colors to match theme
+            "text-lg font-semibold leading-none tracking-tight",
             className
         )}
         {...props}
@@ -68,11 +43,12 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardTitle.displayName = "CardTitle";
 
+// REFACTOR: Ensured description text uses the correct muted text color from the theme.
 const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
     <p
         ref={ref}
         className={cn(
-            "text-sm text-light-muted-text dark:text-dark-noisy-text", // Adjusted colors to match theme
+            "text-sm text-light-muted-text dark:text-dark-muted-text",
             className
         )}
         {...props}
@@ -80,54 +56,24 @@ const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardDescription.displayName = "CardDescription";
 
+// REFACTOR: Standardized content padding.
 const CardContent = React.forwardRef(({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+    <div ref={ref} className={cn("p-6", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
+// REFACTOR: Added a top border to clearly separate the footer from the content.
 const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
     <div
         ref={ref}
-        className={cn("flex items-center p-6 pt-0", className)}
+        className={cn(
+            "flex items-center p-6 border-t border-light-secondary dark:border-dark-secondary",
+            className
+        )}
         {...props}
     />
 ));
 CardFooter.displayName = "CardFooter";
-
-// --- PropTypes Definitions ---
-
-Card.propTypes = {
-    className: PropTypes.string,
-    variant: PropTypes.oneOf(['default', 'elevated', 'outlined', 'ghost', 'gradient']),
-    padding: PropTypes.oneOf(['none', 'sm', 'default', 'lg', 'xl']),
-    children: PropTypes.node,
-};
-
-CardHeader.propTypes = {
-    className: PropTypes.string,
-    children: PropTypes.node,
-};
-
-CardTitle.propTypes = {
-    className: PropTypes.string,
-    children: PropTypes.node,
-};
-
-CardDescription.propTypes = {
-    className: PropTypes.string,
-    children: PropTypes.node,
-};
-
-CardContent.propTypes = {
-    className: PropTypes.string,
-    children: PropTypes.node,
-};
-
-CardFooter.propTypes = {
-    className: PropTypes.string,
-    children: PropTypes.node,
-};
-
 
 export {
     Card,
@@ -136,5 +82,4 @@ export {
     CardTitle,
     CardDescription,
     CardContent,
-    cardVariants,
 };

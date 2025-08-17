@@ -1,8 +1,10 @@
 // src/components/videos/UploadModal.jsx
 
 import React, { useState, useRef, useCallback } from "react";
-import { Upload, X, CheckCircle, FileVideo, Loader2 } from "lucide-react";
+import { Upload, CheckCircle, FileVideo } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Modal } from "../ui/Modal"; // REFACTOR: Using the new base Modal component.
 import { showToast } from "../../utils/toast";
 
 export const UploadModal = ({ isOpen, onClose, onUpload }) => {
@@ -29,9 +31,8 @@ export const UploadModal = ({ isOpen, onClose, onUpload }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!videoFile) {
-            return showToast.warning("Please select a video file.");
-        }
+        if (!videoFile) return showToast.warning("Please select a video file.");
+
         setIsUploading(true);
         const formData = new FormData();
         formData.append("video", videoFile);
@@ -47,95 +48,89 @@ export const UploadModal = ({ isOpen, onClose, onUpload }) => {
         }
     };
 
-    if (!isOpen) return null;
+    // REFACTOR: The footer actions are now defined separately for clarity.
+    const modalFooter = (
+        <Button
+            onClick={handleSubmit}
+            isLoading={isUploading}
+            disabled={!videoFile}
+            className="w-full"
+            size="lg"
+        >
+            {!isUploading && <Upload className="mr-2 h-4 w-4" />}
+            Upload & Analyze
+        </Button>
+    );
 
     return (
-        <div className="fixed inset-[-25px] z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="relative w-full max-w-2xl bg-light-background dark:bg-dark-background rounded-3xl p-8 shadow-2xl border border-light-secondary dark:border-dark-secondary">
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-light-muted-background dark:hover:bg-dark-muted-background"
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Upload Video"
+            description="Select a video file to begin analysis."
+            footer={modalFooter}
+        >
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragActive(true);
+                    }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        setDragActive(false);
+                        handleFileSelect(e.dataTransfer.files[0]);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                        dragActive
+                            ? "border-primary-main bg-primary-main/10"
+                            : "border-light-secondary dark:border-dark-secondary"
+                    }`}
                 >
-                    <X />
-                </button>
-                <h2 className="text-2xl font-bold mb-6">Upload Video</h2>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Drag and drop area */}
-                    <div
-                        onDragOver={(e) => {
-                            e.preventDefault();
-                            setDragActive(true);
-                        }}
-                        onDragLeave={() => setDragActive(false)}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            setDragActive(false);
-                            handleFileSelect(e.dataTransfer.files[0]);
-                        }}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
-                            dragActive
-                                ? "border-primary-main"
-                                : "border-light-secondary dark:border-dark-secondary"
-                        }`}
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="video/*"
-                            onChange={(e) =>
-                                handleFileSelect(e.target.files[0])
-                            }
-                            className="hidden"
-                        />
-                        {videoFile ? (
-                            <div className="space-y-2">
-                                <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
-                                <p>{videoFile.name}</p>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        clearForm();
-                                    }}
-                                    className="text-primary-main"
-                                >
-                                    Choose another file
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <FileVideo className="w-12 h-12 mx-auto" />
-                                <p>Drag & drop or click to browse</p>
-                            </div>
-                        )}
-                    </div>
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Description (optional)"
-                        className="w-full p-3 bg-light-muted-background dark:bg-dark-muted-background rounded-lg border border-light-secondary dark:border-dark-secondary"
-                        rows={3}
-                    ></textarea>
-                    <Button
-                        type="submit"
-                        disabled={isUploading || !videoFile}
-                        className="w-full py-3 text-lg"
-                    >
-                        {isUploading ? (
-                            <>
-                                <Loader2 className="animate-spin mr-2" />{" "}
-                                Uploading...
-                            </>
-                        ) : (
-                            <>
-                                {" "}
-                                <Upload className="mr-2" /> Upload & Analyze
-                            </>
-                        )}
-                    </Button>
-                </form>
-            </div>
-        </div>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => handleFileSelect(e.target.files[0])}
+                        className="hidden"
+                    />
+                    {videoFile ? (
+                        <div className="space-y-2 flex flex-col items-center">
+                            <CheckCircle className="w-12 h-12 text-green-500" />
+                            <p className="font-semibold">{videoFile.name}</p>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearForm();
+                                }}
+                                className="text-sm text-primary-main font-semibold hover:underline"
+                            >
+                                Choose another file
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-2 flex flex-col items-center text-light-muted-text dark:text-dark-muted-text">
+                            <FileVideo className="w-12 h-12" />
+                            <p>
+                                <span className="font-semibold text-primary-main">
+                                    Click to browse
+                                </span>{" "}
+                                or drag & drop
+                            </p>
+                            <p className="text-xs">Maximum file size: 100MB</p>
+                        </div>
+                    )}
+                </div>
+                {/* REFACTOR: Replaced textarea with our consistent Input component. */}
+                <Input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Description (optional)"
+                />
+            </form>
+        </Modal>
     );
 };

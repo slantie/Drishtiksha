@@ -1044,6 +1044,7 @@ const ReportHeader = ({
             showToast.success("Report data has been updated.");
         } catch (error) {
             showToast.error("Failed to refresh data.");
+            console.error("Error refreshing data:", error);
         } finally {
             setIsManuallyRefetching(false);
         }
@@ -1114,7 +1115,7 @@ const AnalysisResultCard = ({ analysis }) => {
     const confidence = analysis.confidence * 100;
     return (
         <Card
-            className={`border-2 ${
+            className={`border-2 p-6 ${
                 isReal ? "border-green-500/30" : "border-red-500/30"
             }`}
             padding="lg"

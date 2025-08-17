@@ -25,7 +25,7 @@ export const API_ENDPOINTS = {
         // GET all videos, POST to upload a new video
         ALL: `/videos`,
         // GET, PATCH, DELETE a specific video by its ID
-        BY_ID: (videoId) => `/videos/${videoId}`,
+        BY_ID: (id) => `/videos/${id}`,
     },
 
     // --- Monitoring Routes ---

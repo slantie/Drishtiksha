@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { authApi } from "../services/api/auth.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.js";
+import { authStorage } from "../utils/authStorage.js";
 
 /**
  * Hook for the user login mutation.
@@ -14,17 +15,20 @@ export const useLoginMutation = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ email, password, rememberMe }) =>
+        mutationFn: ({ email, password }) =>
             authApi.login({ email, password }),
-        onSuccess: (response, { rememberMe }) => {
+        onSuccess: (response) => {
             const { token, user } = response.data;
-            const storage = rememberMe ? localStorage : sessionStorage;
 
-            storage.setItem("authToken", token);
-            storage.setItem("user", JSON.stringify(user));
+            // Store in sessionStorage (browser will handle session persistence)
+            sessionStorage.setItem("authToken", token);
+            sessionStorage.setItem("user", JSON.stringify(user));
 
-            // Set user profile data in cache immediately for a faster UI update
-            queryClient.setQueryData(queryKeys.auth.profile(), response);
+            // Put the profile data into the cache for immediate UI updates
+            queryClient.setQueryData(queryKeys.auth.profile(), response.data);
+
+            // Optionally refetch authenticated queries (keeps cache consistent)
+            queryClient.invalidateQueries(queryKeys.auth.profile());
 
             showToast.success("Login successful!");
             navigate("/dashboard");
@@ -66,8 +70,13 @@ export const useLogoutMutation = () => {
         onSuccess: () => {
             // Clear the entire query cache to remove all authenticated data.
             queryClient.clear();
+
+            // Clear session storage
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
+
             showToast.success("You have been logged out.");
-            navigate("/auth");
+            navigate("/");
         },
         onError: (error) => {
             showToast.error(error.message || "Logout failed.");
@@ -79,9 +88,7 @@ export const useLogoutMutation = () => {
  * Hook to fetch the authenticated user's profile.
  */
 export const useProfileQuery = () => {
-    const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
+    const token = sessionStorage.getItem("authToken");
     return useQuery({
         queryKey: queryKeys.auth.profile(),
         queryFn: authApi.getProfile,
@@ -107,6 +114,8 @@ export const useUpdateProfileMutation = () => {
                 updatedProfileResponse
             );
             showToast.success("Profile updated successfully!");
+            // Refetch the profile query to get the latest data.
+            queryClient.invalidateQueries(queryKeys.auth.profile());
         },
         onError: (error) => {
             showToast.error(error.message || "Profile update failed.");
@@ -141,6 +150,7 @@ export const useUpdateAvatarMutation = () => {
             queryClient.invalidateQueries({
                 queryKey: queryKeys.auth.profile(),
             });
+            queryClient.invalidateQueries(queryKeys.auth.profile());
             showToast.success("Avatar updated successfully!");
         },
         onError: (error) => {
@@ -160,6 +170,7 @@ export const useDeleteAvatarMutation = () => {
             queryClient.invalidateQueries({
                 queryKey: queryKeys.auth.profile(),
             });
+            queryClient.invalidateQueries(queryKeys.auth.profile());
             showToast.success("Avatar removed.");
         },
         onError: (error) => {

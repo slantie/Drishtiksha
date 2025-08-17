@@ -1,206 +1,160 @@
 // src/components/analysis/ModelSelectionModal.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     X,
     Brain,
     Play,
-    Clock,
     Info,
     CheckCircle2,
     Loader2,
-    BarChart3,
-    Zap,
-    Search,
-    Layers,
-    TrendingUp,
+    AlertTriangle,
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
-import {
-    ANALYSIS_TYPES,
-    MODEL_INFO,
-    ANALYSIS_TYPE_INFO,
-} from "../../constants/apiEndpoints.js";
+import { Modal } from "../ui/Modal"; // REFACTOR: Using our new base Modal component.
+import { Alert, AlertDescription, AlertTitle } from "../ui/Alert"; // REFACTOR: Using our new Alert component.
+import { MODEL_INFO } from "../../constants/apiEndpoints.js";
 import { useServerStatusQuery } from "../../hooks/useMonitoringQuery.js";
 import { useCreateAnalysisMutation } from "../../hooks/useVideosQuery.jsx";
+import { cn } from "../../lib/utils";
 
-const ModelSelectionModal = ({ isOpen, onClose, videoId, onAnalysisStart }) => {
-    const [selectedAnalysisType, setSelectedAnalysisType] = useState(
-        ANALYSIS_TYPES.COMPREHENSIVE
-    );
-    const [selectedModels, setSelectedModels] = useState([]);
+// REFACTOR: Extracted the model selection card into a sub-component for clarity.
+const ModelCard = ({
+    modelKey,
+    modelInfo,
+    isSelected,
+    isAvailable,
+    onSelect,
+}) => (
+    <Card
+        className={cn(
+            "cursor-pointer transition-all duration-200",
+            !isAvailable &&
+                "opacity-50 cursor-not-allowed bg-light-hover dark:bg-dark-hover",
+            isSelected && "border-primary-main ring-2 ring-primary-main/50",
+            isAvailable && "hover:border-primary-main/50"
+        )}
+        onClick={() => isAvailable && onSelect(modelKey)}
+    >
+        <div className="p-4">
+            <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-primary-main/10 rounded-lg flex items-center justify-center">
+                    <Brain className="w-6 h-6 text-primary-main" />
+                </div>
+                <div className="flex-1">
+                    <h4 className="font-semibold">{modelInfo.label}</h4>
+                    <p className="text-sm text-light-muted-text dark:text-dark-muted-text">
+                        {modelInfo.description}
+                    </p>
+                </div>
+                {isSelected && (
+                    <CheckCircle2 className="h-6 w-6 text-primary-main flex-shrink-0" />
+                )}
+                {!isAvailable && (
+                    <div className="text-xs text-red-500 flex items-center gap-1 font-semibold">
+                        <Info className="h-3 w-3" /> Unavailable
+                    </div>
+                )}
+            </div>
+        </div>
+    </Card>
+);
 
+export const ModelSelectionModal = ({
+    isOpen,
+    onClose,
+    videoId,
+    onAnalysisStart,
+}) => {
+    // REFACTOR: Logic is preserved.
+    const [selectedModel, setSelectedModel] = useState(null);
     const { data: serverStatus, isLoading: isModelsLoading } =
         useServerStatusQuery();
-    const availableModels =
-        serverStatus?.modelsInfo?.filter((m) => m.loaded).map((m) => m.name) ||
-        [];
-
+    const availableModels = useMemo(() => {
+        return (
+            serverStatus?.modelsInfo?.filter((m) => m.loaded).map((m) => m.name) ||
+            []
+        );
+    }, [serverStatus?.modelsInfo]);
     const createAnalysisMutation = useCreateAnalysisMutation();
 
     useEffect(() => {
-        if (availableModels.length > 0) {
-            setSelectedModels([availableModels[0]]);
+        if (isOpen && availableModels.length > 0 && !selectedModel) {
+            setSelectedModel(availableModels[0]);
         }
-    }, [availableModels.length]);
-
-    if (!isOpen) return null;
-
-    const handleModelToggle = (modelKey) => {
-        setSelectedModels([modelKey]); // Only allow selecting one model for now
-    };
+    }, [isOpen, availableModels, selectedModel]);
 
     const handleStartAnalysis = async () => {
-        if (selectedModels.length === 0 || !videoId) return;
+        if (!selectedModel || !videoId) return;
 
-        const analysisConfig = {
-            type: selectedAnalysisType,
-            model: selectedModels[0],
-        };
-
+        const analysisConfig = { model: selectedModel };
         await createAnalysisMutation.mutateAsync({ videoId, analysisConfig });
 
         onAnalysisStart?.();
         onClose();
     };
 
-    const getAnalysisIcon = (type) => {
-        switch (type) {
-            case ANALYSIS_TYPES.QUICK:
-                return <Zap className="h-5 w-5" />;
-            case ANALYSIS_TYPES.DETAILED:
-                return <Search className="h-5 w-5" />;
-            case ANALYSIS_TYPES.FRAMES:
-                return <Layers className="h-5 w-5" />;
-            case ANALYSIS_TYPES.VISUALIZE:
-                return <TrendingUp className="h-5 w-5" />;
-            default:
-                return <BarChart3 className="h-5 w-5" />;
-        }
-    };
+    const modalFooter = (
+        <>
+            <Button variant="outline" onClick={onClose}>
+                Cancel
+            </Button>
+            <Button
+                onClick={handleStartAnalysis}
+                isLoading={createAnalysisMutation.isPending}
+                disabled={
+                    !selectedModel ||
+                    isModelsLoading ||
+                    availableModels.length === 0
+                }
+            >
+                {!createAnalysisMutation.isPending && (
+                    <Play className="mr-2 h-4 w-4" />
+                )}
+                Start Analysis
+            </Button>
+        </>
+    );
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-dark-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-3">
-                        <Brain className="h-6 w-6 text-primary-main" />
-                        <h2 className="text-2xl font-bold">
-                            Start New Analysis
-                        </h2>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Start New Analysis"
+            description="Choose an available AI model to process your video."
+            footer={modalFooter}
+        >
+            <div className="space-y-4">
+                {isModelsLoading ? (
+                    <div className="flex items-center justify-center h-48">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary-main" />
                     </div>
-                    <Button
-                        onClick={onClose}
-                        variant="ghost"
-                        size="sm"
-                        className="p-2"
-                    >
-                        <X className="h-5 w-5" />
-                    </Button>
-                </div>
-
-                <div className="p-6 space-y-6">
-                    {isModelsLoading && (
-                        <Card>
-                            <div className="flex items-center gap-3 p-4">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                <span>Checking model availability...</span>
-                            </div>
-                        </Card>
-                    )}
-
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Brain className="h-5 w-5" /> Select Model
-                        </h3>
-                        <div className="grid grid-cols-1 gap-4">
-                            {Object.entries(MODEL_INFO).map(
-                                ([key, modelInfo]) => {
-                                    const isSelected =
-                                        selectedModels.includes(key);
-                                    const isAvailable =
-                                        availableModels.includes(key);
-                                    return (
-                                        <Card
-                                            key={key}
-                                            className={`cursor-pointer transition-all ${
-                                                !isAvailable
-                                                    ? "opacity-50 cursor-not-allowed"
-                                                    : isSelected
-                                                    ? "border-primary-main bg-primary-main/10"
-                                                    : "hover:border-gray-300 dark:hover:border-gray-600"
-                                            }`}
-                                            onClick={() =>
-                                                isAvailable &&
-                                                handleModelToggle(key)
-                                            }
-                                        >
-                                            <div className="p-4">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <div className="flex-1">
-                                                        <h4 className="font-semibold">
-                                                            {modelInfo.label}
-                                                        </h4>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                            {
-                                                                modelInfo.description
-                                                            }
-                                                        </p>
-                                                    </div>
-                                                    {isSelected && (
-                                                        <CheckCircle2 className="h-5 w-5 text-primary-main" />
-                                                    )}
-                                                    {!isAvailable && (
-                                                        <div className="text-xs text-red-500 flex items-center gap-1">
-                                                            <Info className="h-3 w-3" />
-                                                            Unavailable
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </Card>
-                                    );
-                                }
-                            )}
-                        </div>
+                ) : availableModels.length === 0 ? (
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>All Models Unavailable</AlertTitle>
+                        <AlertDescription>
+                            The analysis server is running, but no AI models are
+                            currently loaded. Please contact support.
+                        </AlertDescription>
+                    </Alert>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                        {Object.entries(MODEL_INFO).map(([key, modelInfo]) => (
+                            <ModelCard
+                                key={key}
+                                modelKey={key}
+                                modelInfo={modelInfo}
+                                isSelected={selectedModel === key}
+                                isAvailable={availableModels.includes(key)}
+                                onSelect={setSelectedModel}
+                            />
+                        ))}
                     </div>
-                </div>
-
-                <div className="flex items-center justify-end p-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex gap-3">
-                        <Button
-                            onClick={onClose}
-                            variant="outline"
-                            disabled={createAnalysisMutation.isPending}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleStartAnalysis}
-                            disabled={
-                                selectedModels.length === 0 ||
-                                createAnalysisMutation.isPending ||
-                                isModelsLoading ||
-                                availableModels.length === 0
-                            }
-                        >
-                            {createAnalysisMutation.isPending ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Starting...
-                                </>
-                            ) : (
-                                <>
-                                    <Play className="mr-2 h-4 w-4" />
-                                    Start Analysis
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </div>
+                )}
             </div>
-        </div>
+        </Modal>
     );
 };
 

@@ -3,15 +3,9 @@
 import React, { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { validationToast } from "../../utils/toast.js";
-import {
-    Eye,
-    EyeOff,
-    Mail,
-    Lock,
-    Loader2,
-    ArrowRight,
-    User,
-} from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 
 const SignupForm = ({ onSwitchToLogin }) => {
     const [formData, setFormData] = useState({
@@ -34,7 +28,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
         if (formData.password.length < 6)
             return validationToast.minLength("Password", 6);
         if (formData.password !== formData.confirmPassword)
-            return validationToast.mismatch("Passwords");
+            return validationToast.mismatch("Passwords", "Passwords");
 
         try {
             await signup({
@@ -43,11 +37,31 @@ const SignupForm = ({ onSwitchToLogin }) => {
                 email: formData.email,
                 password: formData.password,
             });
-            onSwitchToLogin(); // Switch to login view after successful signup
+            onSwitchToLogin();
         } catch (error) {
             console.error("Signup failed:", error);
         }
     };
+
+    // REFACTOR: Interactive elements to be passed as props.
+    const passwordToggle = (
+        <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            aria-label="Toggle password visibility"
+        >
+            {showPassword ? <EyeOff /> : <Eye />}
+        </button>
+    );
+    const confirmPasswordToggle = (
+        <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            aria-label="Toggle confirm password visibility"
+        >
+            {showConfirmPassword ? <EyeOff /> : <Eye />}
+        </button>
+    );
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -60,137 +74,78 @@ const SignupForm = ({ onSwitchToLogin }) => {
                 </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
-                        First Name
-                    </label>
-                    <input
-                        name="firstName"
-                        type="text"
-                        required
-                        value={formData.firstName}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
-                        placeholder="John"
-                        disabled={isSigningUp}
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
-                        Last Name
-                    </label>
-                    <input
-                        name="lastName"
-                        type="text"
-                        required
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
-                        placeholder="Doe"
-                        disabled={isSigningUp}
-                    />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                    name="firstName"
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    placeholder="First Name"
+                    disabled={isSigningUp}
+                    leftIcon={<User />}
+                    rightIcon={<></>}
+                />
+                <Input
+                    name="lastName"
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    placeholder="Last Name"
+                    disabled={isSigningUp}
+                    leftIcon={<User />}
+                    rightIcon={<></>}
+                />
             </div>
 
-            <div>
-                <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
-                    Email Address
-                </label>
-                <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                        name="email"
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full pl-10 pr-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
-                        placeholder="john@example.com"
-                        disabled={isSigningUp}
-                    />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
-                        Password
-                    </label>
-                    <div className="relative">
-                        <input
-                            name="password"
-                            type={showPassword ? "text" : "password"}
-                            required
-                            value={formData.password}
-                            onChange={handleChange}
-                            className="w-full pr-10 px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
-                            placeholder="••••••••"
-                            disabled={isSigningUp}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary-main"
-                        >
-                            {showPassword ? (
-                                <EyeOff className="h-4 w-4" />
-                            ) : (
-                                <Eye className="h-4 w-4" />
-                            )}
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
-                        Confirm Password
-                    </label>
-                    <div className="relative">
-                        <input
-                            name="confirmPassword"
-                            type={showConfirmPassword ? "text" : "password"}
-                            required
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                            className="w-full pr-10 px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
-                            placeholder="••••••••"
-                            disabled={isSigningUp}
-                        />
-                        <button
-                            type="button"
-                            onClick={() =>
-                                setShowConfirmPassword(!showConfirmPassword)
-                            }
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary-main"
-                        >
-                            {showConfirmPassword ? (
-                                <EyeOff className="h-4 w-4" />
-                            ) : (
-                                <Eye className="h-4 w-4" />
-                            )}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <button
-                type="submit"
+            <Input
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="john@example.com"
                 disabled={isSigningUp}
-                className="w-full flex items-center justify-center bg-primary-main text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-primary-main/90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                leftIcon={<Mail />}
+                rightIcon={<></>}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* REFACTOR: Correctly passing the password toggles to the rightIcon prop. */}
+                <Input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Password"
+                    disabled={isSigningUp}
+                    leftIcon={<Lock />}
+                    rightIcon={passwordToggle}
+                />
+                <Input
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Confirm Password"
+                    disabled={isSigningUp}
+                    leftIcon={<Lock />}
+                    rightIcon={confirmPasswordToggle}
+                />
+            </div>
+
+            <Button
+                type="submit"
+                isLoading={isSigningUp}
+                className="w-full"
+                size="lg"
             >
-                {isSigningUp ? (
-                    <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />{" "}
-                        Creating Account...
-                    </>
-                ) : (
-                    <>
-                        <User className="w-5 h-5 mr-2" /> Create Account
-                    </>
-                )}
-            </button>
+                {!isSigningUp && <User className="w-5 h-5 mr-2" />}
+                {isSigningUp ? "Creating Account..." : "Create Account"}
+            </Button>
 
             <div className="text-center pt-4">
                 <p className="text-sm text-light-muted-text dark:text-dark-muted-text">
@@ -198,7 +153,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
                     <button
                         type="button"
                         onClick={onSwitchToLogin}
-                        className="text-primary-main font-semibold hover:underline"
+                        className="font-semibold text-primary-main hover:underline"
                     >
                         Sign In
                     </button>

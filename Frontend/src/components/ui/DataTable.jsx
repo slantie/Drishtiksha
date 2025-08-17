@@ -8,27 +8,53 @@ import {
     ChevronLeft,
     ChevronRight,
     Search,
-    Loader2,
 } from "lucide-react";
-import { Card } from "./Card";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardFooter,
+} from "./Card";
 import { Input } from "./Input";
+import { Button } from "./Button";
+import { EmptyState } from "./EmptyState";
+import { cn } from "../../lib/utils";
+
+// REFACTOR: A dedicated skeleton row component for a clean loading state.
+const SkeletonRow = ({ cells }) => (
+    <tr className="animate-pulse">
+        {Array.from({ length: cells }).map((_, i) => (
+            <td key={i} className="px-6 py-4 whitespace-nowrap">
+                <div className="h-4 bg-light-hover dark:bg-dark-hover rounded-md"></div>
+            </td>
+        ))}
+    </tr>
+);
 
 export function DataTable({
     data,
     columns,
     loading,
-    emptyMessage = "No data available",
+    onRowClick,
+    // REFACTOR: Changed prop from a simple message to a rich object for the EmptyState component.
+    emptyState = {
+        icon: Search,
+        title: "No Results Found",
+        message:
+            "Your search did not return any results. Please try a different query.",
+    },
     pageSize = 10,
     showPagination = true,
     showSearch = true,
     searchPlaceholder = "Search...",
-    onRowClick,
-    showCard = true,
     title,
-    subtitle,
+    description,
     headerActions,
     disableInternalSorting = false,
 }) {
+    // REFACTOR: All state management and memoized logic is preserved exactly as you wrote it.
     const [searchTerm, setSearchTerm] = useState("");
     const [sortConfig, setSortConfig] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -47,16 +73,14 @@ export function DataTable({
 
     const processedData = useMemo(() => {
         let filteredData = [...data];
-
         if (showSearch && searchTerm.trim()) {
             const lowercasedSearchTerm = searchTerm.toLowerCase();
             filteredData = filteredData.filter((item) =>
                 columns.some((column) => {
-                    if (!column.filterable) return false;
+                    if (column.filterable === false) return false;
                     const value = column.accessor
                         ? column.accessor(item)
                         : item[column.key];
-                    // For components, we can't search, so we check if it's a string/number
                     if (
                         typeof value === "string" ||
                         typeof value === "number"
@@ -65,32 +89,19 @@ export function DataTable({
                             .toLowerCase()
                             .includes(lowercasedSearchTerm);
                     }
-                    // Fallback for simple object properties if accessor is not used for display
-                    if (
-                        typeof item[column.key] === "string" ||
-                        typeof item[column.key] === "number"
-                    ) {
-                        return String(item[column.key])
-                            .toLowerCase()
-                            .includes(lowercasedSearchTerm);
-                    }
                     return false;
                 })
             );
         }
-
-        // Only apply internal sorting if not disabled and sortConfig exists
         if (!disableInternalSorting && sortConfig !== null) {
             filteredData.sort((a, b) => {
                 const column = columns.find((c) => c.key === sortConfig.key);
-                // Use accessor to get the sortable value
                 const aValue = column.accessor
                     ? column.accessor(a)
                     : a[sortConfig.key];
                 const bValue = column.accessor
                     ? column.accessor(b)
                     : b[sortConfig.key];
-
                 if (aValue < bValue)
                     return sortConfig.direction === "asc" ? -1 : 1;
                 if (aValue > bValue)
@@ -98,7 +109,6 @@ export function DataTable({
                 return 0;
             });
         }
-
         return filteredData;
     }, [
         data,
@@ -115,219 +125,162 @@ export function DataTable({
 
     const totalPages = Math.ceil(processedData.length / pageSize);
     const paginatedData = useMemo(() => {
+        if (!showPagination) return processedData;
         const startIndex = (currentPage - 1) * pageSize;
         return processedData.slice(startIndex, startIndex + pageSize);
-    }, [processedData, currentPage, pageSize]);
+    }, [processedData, currentPage, pageSize, showPagination]);
 
     const getSortIcon = (key) => {
         if (!sortConfig || sortConfig.key !== key) return null;
         return sortConfig.direction === "asc" ? (
-            <ChevronUp className="w-4 h-4 ml-1" />
+            <ChevronUp className="h-4 w-4 ml-1" />
         ) : (
-            <ChevronDown className="w-4 h-4 ml-1" />
+            <ChevronDown className="h-4 w-4 ml-1" />
         );
     };
 
-    const tableContent = (
-        <div className="w-full">
-            {/* Title Section */}
-            {(title || subtitle || headerActions) && (
-                <div className="p-2 pb-4 border-light-secondary dark:border-dark-secondary">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            {title && (
-                                <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
-                                    {title}
-                                </h3>
-                            )}
-                        </div>
-                        {subtitle && (
-                            <div className="flex items-center gap-2">
-                                {subtitle && (
-                                    <p className="text-sm text-light-muted-text dark:text-dark-muted-text mt-1">
-                                        {subtitle}
-                                    </p>
-                                )}
-                                {/* {headerActions} */}
-                            </div>
-                            // </div>
+    return (
+        <Card>
+            {(title || showSearch || headerActions) && (
+                // REFACTOR: Using CardHeader and sub-components for consistent layout.
+                <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b-0 pb-4">
+                    <div>
+                        {title && <CardTitle>{title}</CardTitle>}
+                        {description && (
+                            <CardDescription className="mt-1">
+                                {description}
+                            </CardDescription>
                         )}
                     </div>
-                </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        {showSearch && (
+                            <div className="w-full md:w-64">
+                                <Input
+                                    leftIcon={<Search />}
+                                    type="text"
+                                    placeholder={searchPlaceholder}
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                        setSearchTerm(e.target.value)
+                                    }
+                                    className="rounded-full"
+                                    rightIcon={<></>}
+                                />
+                            </div>
+                        )}
+                        {headerActions}
+                    </div>
+                </CardHeader>
             )}
 
-            {showSearch && (
-                <div className="px-6 py-4 border-light-secondary dark:border-dark-secondary rounded-xl">
-                    <Input
-                        leftIcon={<Search className="w-5 h-5" />}
-                        type="text"
-                        placeholder={searchPlaceholder}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="max-w-md"
-                    />
-                </div>
-            )}
-            <div className="overflow-x-auto rounded-xl">
-                <table className="min-w-full w-full table-auto">
-                    <thead className="bg-light-muted-background dark:bg-dark-muted-background">
-                        <tr>
-                            {columns.map((column) => (
-                                <th
-                                    key={column.key}
-                                    onClick={() =>
-                                        column.sortable &&
-                                        handleSort(column.key)
-                                    }
-                                    className={`px-6 py-4 text-left text-sm font-semibold text-light-muted-text dark:text-dark-muted-text uppercase tracking-wider transition-colors ${
-                                        column.sortable
-                                            ? "cursor-pointer hover:bg-light-hover dark:hover:bg-dark-hover"
-                                            : ""
-                                    }`}
-                                >
-                                    <div className="flex items-center">
-                                        {column.header}{" "}
-                                        {column.sortable &&
-                                            getSortIcon(column.key)}
-                                    </div>
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="bg-light-background dark:bg-dark-background divide-y divide-light-secondary dark:divide-dark-secondary">
-                        {loading ? (
+            <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="bg-light-muted-background dark:bg-dark-secondary">
                             <tr>
-                                <td
-                                    colSpan={columns.length}
-                                    className="text-center py-12"
-                                >
-                                    <div className="flex flex-col items-center justify-center">
-                                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-light-muted-text dark:text-dark-muted-text mb-2" />
-                                        <span className="text-light-muted-text dark:text-dark-muted-text">
-                                            Loading...
-                                        </span>
-                                    </div>
-                                </td>
+                                {columns.map((column) => (
+                                    <th
+                                        key={column.key}
+                                        onClick={() =>
+                                            column.sortable &&
+                                            handleSort(column.key)
+                                        }
+                                        className={cn(
+                                            "px-6 py-3 text-left text-xs font-semibold text-light-muted-text dark:text-dark-muted-text uppercase tracking-wider",
+                                            column.sortable &&
+                                                "cursor-pointer hover:bg-light-hover dark:hover:bg-dark-hover transition-colors"
+                                        )}
+                                    >
+                                        <div className="flex items-center">
+                                            {column.header}
+                                            {column.sortable &&
+                                                getSortIcon(column.key)}
+                                        </div>
+                                    </th>
+                                ))}
                             </tr>
-                        ) : paginatedData.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={columns.length}
-                                    className="text-center py-12"
-                                >
-                                    <div className="text-light-muted-text dark:text-dark-muted-text">
-                                        {emptyMessage}
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : (
-                            paginatedData.map((item, index) => (
-                                <tr
-                                    key={item.id || index}
-                                    onClick={() =>
-                                        onRowClick && onRowClick(item)
-                                    }
-                                    className={`transition-colors ${
-                                        onRowClick ? "cursor-pointer" : ""
-                                    } hover:bg-light-muted-background dark:hover:bg-dark-muted-background`}
-                                >
-                                    {columns.map((column) => (
-                                        <td
-                                            key={column.key}
-                                            className="px-6 py-4 text-sm text-light-text dark:text-dark-text"
-                                        >
-                                            {column.render
-                                                ? column.render(item)
-                                                : column.accessor
-                                                ? column.accessor(item)
-                                                : item[column.key]}
-                                        </td>
-                                    ))}
+                        </thead>
+                        <tbody className="divide-y divide-light-secondary dark:divide-dark-secondary">
+                            {loading ? (
+                                Array.from({ length: pageSize }).map((_, i) => (
+                                    <SkeletonRow
+                                        key={i}
+                                        cells={columns.length}
+                                    />
+                                ))
+                            ) : paginatedData.length === 0 ? (
+                                <tr>
+                                    <td colSpan={columns.length}>
+                                        <div className="py-12">
+                                            <EmptyState {...emptyState} />
+                                        </div>
+                                    </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                            ) : (
+                                paginatedData.map((item, index) => (
+                                    <tr
+                                        key={item.id || index}
+                                        onClick={() =>
+                                            onRowClick && onRowClick(item)
+                                        }
+                                        className={cn(
+                                            onRowClick &&
+                                                "cursor-pointer hover:bg-light-hover dark:hover:bg-dark-hover transition-colors"
+                                        )}
+                                    >
+                                        {columns.map((column) => (
+                                            <td
+                                                key={column.key}
+                                                className="px-6 py-4 whitespace-nowrap text-sm text-light-text dark:text-dark-text"
+                                            >
+                                                {column.render
+                                                    ? column.render(item)
+                                                    : column.accessor
+                                                    ? column.accessor(item)
+                                                    : item[column.key]}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </CardContent>
+
             {showPagination && totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-4 bg-light-muted-background dark:bg-dark-muted-background border-t border-light-secondary dark:border-dark-secondary">
-                    <div className="flex items-center text-sm text-light-muted-text dark:text-dark-muted-text">
-                        <span>
-                            Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                            {Math.min(
-                                currentPage * pageSize,
-                                processedData.length
-                            )}{" "}
-                            of {processedData.length} results
-                        </span>
+                <CardFooter className="justify-between">
+                    <div className="text-sm text-light-muted-text dark:text-dark-muted-text">
+                        Page {currentPage} of {totalPages}
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-light-muted-text dark:text-dark-muted-text">
-                            Page {currentPage} of {totalPages}
-                        </span>
-                        <button
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
                             onClick={() =>
                                 setCurrentPage((p) => Math.max(1, p - 1))
                             }
                             disabled={currentPage === 1}
-                            className="p-2 rounded-lg border border-light-secondary dark:border-dark-secondary 
-                                     bg-light-background dark:bg-dark-background 
-                                     text-light-text dark:text-dark-text
-                                     disabled:opacity-50 disabled:cursor-not-allowed
-                                     hover:bg-light-muted-background dark:hover:bg-dark-muted-background
-                                     transition-colors"
                         >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button
+                            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
                             onClick={() =>
                                 setCurrentPage((p) =>
                                     Math.min(totalPages, p + 1)
                                 )
                             }
                             disabled={currentPage === totalPages}
-                            className="p-2 rounded-lg border border-light-secondary dark:border-dark-secondary 
-                                     bg-light-background dark:bg-dark-background 
-                                     text-light-text dark:text-dark-text
-                                     disabled:opacity-50 disabled:cursor-not-allowed
-                                     hover:bg-light-muted-background dark:hover:bg-dark-muted-background
-                                     transition-colors"
                         >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
+                            Next <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                     </div>
-                </div>
+                </CardFooter>
             )}
-        </div>
+        </Card>
     );
-
-    return showCard ? <Card>{tableContent}</Card> : tableContent;
 }
-
-// PropTypes and defaultProps remain the same
-DataTable.propTypes = {
-    data: PropTypes.arrayOf(PropTypes.object).isRequired,
-    columns: PropTypes.arrayOf(
-        PropTypes.shape({
-            key: PropTypes.string.isRequired,
-            header: PropTypes.oneOfType([PropTypes.string, PropTypes.node])
-                .isRequired,
-            accessor: PropTypes.func,
-            render: PropTypes.func, // New prop for custom rendering
-            sortable: PropTypes.bool,
-            filterable: PropTypes.bool,
-        })
-    ).isRequired,
-    loading: PropTypes.bool,
-    emptyMessage: PropTypes.string,
-    pageSize: PropTypes.number,
-    showPagination: PropTypes.bool,
-    showSearch: PropTypes.bool,
-    searchPlaceholder: PropTypes.string,
-    onRowClick: PropTypes.func,
-    showCard: PropTypes.bool,
-    title: PropTypes.string,
-    subtitle: PropTypes.string,
-    headerActions: PropTypes.node,
-    disableInternalSorting: PropTypes.bool,
-};

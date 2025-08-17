@@ -1,157 +1,50 @@
-/**
- * @file src/components/ui/Input.jsx
- * @description A flexible and accessible input component with variants, icons, and password visibility toggle.
- */
+// src/components/ui/Input.jsx
 
-"use client";
-
-import React from "react";
-import PropTypes from "prop-types"; // ADDED: For runtime type validation
-import { cva } from "class-variance-authority";
+import * as React from "react";
 import { cn } from "../../lib/utils";
-import { Eye, EyeOff } from "lucide-react";
-
-// CVA definition remains the same
-const inputVariants = cva(
-    "flex w-full rounded-lg border bg-white dark:bg-dark-secondary transition-all duration-200 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-secondary-main dark:placeholder:text-dark-tertiary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-    {
-        variants: {
-            variant: {
-                default: "border-light-secondary dark:border-dark-secondary focus:ring-2 focus:ring-primary-main/50 focus:border-primary-main dark:focus:border-primary-main",
-                error: "border-red-500 dark:border-red-500 focus:ring-2 focus:ring-red-500/50 focus:border-red-500", // Adjusted to standard colors
-                success: "border-green-500 dark:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:border-green-500", // Adjusted to standard colors
-            },
-            size: {
-                default: "h-10 px-3 py-2 text-sm",
-                sm: "h-8 px-2 py-1 text-xs",
-                lg: "h-12 px-4 py-3 text-base",
-                xl: "h-14 px-4 py-3.5 text-lg",
-            },
-        },
-        defaultVariants: {
-            variant: "default",
-            size: "default",
-        },
-    }
-);
 
 const Input = React.forwardRef(
-    (
-        {
-            className,
-            variant,
-            size,
-            type,
-            label,
-            error,
-            helperText,
-            leftIcon,
-            rightIcon,
-            showPasswordToggle,
-            id,
-            ...props
-        },
-        ref
-    ) => {
-        const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
-        const [inputType, setInputType] = React.useState(type);
-
-        const uniqueId = React.useId();
-        const inputId = id || `input-${uniqueId}`;
-
-        React.useEffect(() => {
-            if (showPasswordToggle && type === "password") {
-                setInputType(isPasswordVisible ? "text" : "password");
-            }
-        }, [isPasswordVisible, showPasswordToggle, type]);
-
-        const inputVariant = error ? "error" : variant;
-
+    ({ className, type, leftIcon, rightIcon, ...props }, ref) => {
         return (
-            <div className="space-y-1 w-full">
-                {label && (
-                    <label
-                        htmlFor={inputId}
-                        className="text-xs sm:text-sm font-medium text-light-text dark:text-dark-text block"
-                    >
-                        {label}
-                    </label>
+            <div className="relative w-full">
+                {/* REFACTOR: Left icon is now a purely decorative element with pointer-events-none. */}
+                {leftIcon && (
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        {React.cloneElement(leftIcon, {
+                            className:
+                                "h-5 w-5 text-light-muted-text dark:text-dark-muted-text",
+                        })}
+                    </div>
                 )}
-                <div className="relative">
-                    {leftIcon && (
-                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-light-muted-text dark:text-dark-noisy-text">
-                            {leftIcon}
-                        </div>
+                <input
+                    type={type}
+                    className={cn(
+                        "flex h-10 w-full rounded-lg border border-light-secondary dark:border-dark-secondary bg-transparent py-2 text-sm",
+                        "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+                        "placeholder:text-light-muted-text dark:placeholder:text-dark-muted-text",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-main",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                        // REFACTOR: Correctly applied padding based on icon presence.
+                        leftIcon ? "pl-10" : "px-3",
+                        rightIcon ? "pr-10" : "px-3",
+                        className
                     )}
-                    <input
-                        type={inputType}
-                        className={cn(
-                            inputVariants({
-                                variant: inputVariant,
-                                size,
-                                className,
-                            }),
-                            leftIcon && "pl-10",
-                            (rightIcon || showPasswordToggle) && "pr-10"
-                        )}
-                        ref={ref}
-                        id={inputId}
-                        {...props}
-                    />
-                    {(rightIcon || (showPasswordToggle && type === "password")) && (
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            {showPasswordToggle && type === "password" ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-                                    className="text-light-muted-text dark:text-dark-noisy-text hover:text-light-text dark:hover:text-dark-text transition-colors focus:outline-none"
-                                    tabIndex={-1}
-                                >
-                                    {isPasswordVisible ? (
-                                        <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                        <Eye className="h-4 w-4" />
-                                    )}
-                                </button>
-                            ) : (
-                                rightIcon
-                            )}
-                        </div>
-                    )}
-                </div>
-                {(error || helperText) && (
-                    <p className={cn("text-xs", error ? "text-red-500 dark:text-red-500" : "text-light-muted-text dark:text-dark-noisy-text")}>
-                        {error || helperText}
-                    </p>
+                    ref={ref}
+                    {...props}
+                />
+                {/* REFACTOR: Correctly implemented the rightIcon slot. It is now interactive. */}
+                {rightIcon && rightIcon !== <></> && (
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                        {React.cloneElement(rightIcon, {
+                            className:
+                                "h-6 w-6 text-light-muted-text dark:text-dark-muted-text hover:text-primary-main transition-colors",
+                        })}
+                    </div>
                 )}
             </div>
         );
     }
 );
-
 Input.displayName = "Input";
 
-// --- PropTypes and DefaultProps ---
-
-Input.propTypes = {
-    className: PropTypes.string,
-    variant: PropTypes.oneOf(['default', 'error', 'success']),
-    size: PropTypes.oneOf(['default', 'sm', 'lg', 'xl']),
-    type: PropTypes.string,
-    label: PropTypes.string,
-    error: PropTypes.string,
-    helperText: PropTypes.string,
-    leftIcon: PropTypes.node,
-    rightIcon: PropTypes.node,
-    showPasswordToggle: PropTypes.bool,
-    id: PropTypes.string,
-};
-
-Input.defaultProps = {
-    showPasswordToggle: false,
-    type: 'text',
-    variant: 'default',
-    size: 'default',
-};
-
-export { Input, inputVariants };
+export { Input };

@@ -1,25 +1,27 @@
 // src/components/videos/EditVideoModal.jsx
 
 import React, { useState, useEffect } from "react";
-import { Save, X, Loader2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Modal } from "../ui/Modal";
 
 export const EditVideoModal = ({ isOpen, onClose, video, onUpdate }) => {
-    const [description, setDescription] = useState("");
     const [filename, setFilename] = useState("");
+    const [description, setDescription] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (video) {
-            setDescription(video.description || "");
             setFilename(video.filename || "");
+            setDescription(video.description || "");
         }
     }, [video]);
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await onUpdate(video.id, { description, filename });
+            await onUpdate(video.id, { filename, description });
             onClose();
         } catch (error) {
             console.error("Update failed:", error);
@@ -30,49 +32,42 @@ export const EditVideoModal = ({ isOpen, onClose, video, onUpdate }) => {
 
     if (!isOpen || !video) return null;
 
+    const modalFooter = (
+        <>
+            <Button variant="outline" onClick={onClose}>
+                Cancel
+            </Button>
+            <Button onClick={handleSave} isLoading={isSaving}>
+                {!isSaving && <Save className="mr-2 h-4 w-4" />}
+                Save Changes
+            </Button>
+        </>
+    );
+
     return (
-        <div className="fixed inset-[-25px] z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="relative w-full max-w-lg bg-light-background dark:bg-dark-background rounded-3xl p-8 shadow-2xl border border-light-secondary dark:border-dark-secondary">
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-light-muted-background dark:hover:bg-dark-muted-background"
-                >
-                    <X />
-                </button>
-                <h2 className="text-2xl font-bold mb-6">Edit Video</h2>
-                <div className="space-y-4">
-                    <input
-                        type="text"
-                        value={filename}
-                        onChange={(e) => setFilename(e.target.value)}
-                        placeholder="Filename"
-                        className="w-full p-3 bg-light-muted-background dark:bg-dark-muted-background rounded-lg border border-light-secondary dark:border-dark-secondary"
-                    />
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Description"
-                        className="w-full p-3 bg-light-muted-background dark:bg-dark-muted-background rounded-lg border border-light-secondary dark:border-dark-secondary"
-                        rows={5}
-                    ></textarea>
-                    <Button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="w-full py-3 text-lg"
-                    >
-                        {isSaving ? (
-                            <>
-                                <Loader2 className="animate-spin mr-2" />{" "}
-                                Saving...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="mr-2" /> Save Changes
-                            </>
-                        )}
-                    </Button>
-                </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Edit Video Details"
+            footer={modalFooter}
+        >
+            <div className="space-y-4">
+                <Input
+                    label="Filename"
+                    type="text"
+                    value={filename}
+                    onChange={(e) => setFilename(e.target.value)}
+                    placeholder="Enter a new filename"
+                />
+                <Input
+                    as="textarea"
+                    label="Description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Enter a description"
+                    rows={4}
+                />
             </div>
-        </div>
+        </Modal>
     );
 };

@@ -39,6 +39,7 @@ export const videoApi = {
      * @returns {Promise<object>} The API response with the updated video data.
      */
     update: async (videoId, updateData) => {
+        console.log("Updating video:", videoId, "with data:", updateData); // Debug log
         return await axiosInstance.patch(
             API_ENDPOINTS.VIDEOS.BY_ID(videoId),
             updateData

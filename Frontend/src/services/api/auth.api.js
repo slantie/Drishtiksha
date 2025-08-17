@@ -77,8 +77,6 @@ export const authApi = {
      * @returns {Promise<void>}
      */
     logout: async () => {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("user");
         sessionStorage.removeItem("authToken");
         sessionStorage.removeItem("user");
         return Promise.resolve();

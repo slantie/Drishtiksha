@@ -465,21 +465,41 @@ export const DownloadService = {
 
     async downloadVideo(videoUrl, filename) {
         try {
-            const response = await fetch(videoUrl);
-            if (!response.ok)
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            if (!videoUrl) throw new Error("Video URL is missing.");
+
+            // 1. Create a new URL object to safely manipulate it.
+            const url = new URL(videoUrl);
+
+            // 2. Remove any existing format transformations (like f_auto) and add flags
+            //    to force the format to mp4 and trigger a download attachment.
+            const parts = url.pathname.split("/upload/");
+            if (parts.length > 1) {
+                const transformations = parts[1].split("/");
+                // Filter out existing transformations to start fresh
+                const publicIdAndFormat = transformations.slice(1).join("/");
+
+                // 3. Construct the new download URL
+                // fl_attachment: Tells the browser to download the file with the given filename.
+                // f_mp4: Forces the video format to be MP4, ensuring consistency.
+                url.pathname = `${parts[0]}/upload/fl_attachment,f_mp4/${publicIdAndFormat}`;
+            } else {
+                throw new Error("Invalid Cloudinary URL structure.");
+            }
+
+            // 4. Create a temporary link and click it to trigger the browser's native download manager.
+            //    This is far more reliable than using fetch/blob for large files.
             const link = document.createElement("a");
-            link.href = url;
-            link.download = filename;
+            link.href = url.href;
+
+            // Use the provided filename or default to a sensible name.
+            link.download = filename || "download.mp4";
+
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
         } catch (error) {
-            console.error("Error downloading video:", error);
-            alert(`Failed to download video: ${error.message}`);
+            console.error("Error preparing video download link:", error);
+            // showToast.error(`Failed to download video: ${error.message}`);
         }
     },
 

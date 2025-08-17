@@ -25,14 +25,14 @@ export const StatCard = ({
             onClick={onClick}
             // Use clsx for cleaner conditional class application
             className={clsx(
-                "relative overflow-hidden transition-all duration-300 rounded-2xl",
-                "bg-light-background dark:bg-dark-noisy-background",
+                "p-4 relative overflow-hidden transition-all duration-300 rounded-2xl",
+                "bg-light-background dark:bg-dark-muted-background",
                 "border border-light-secondary dark:border-dark-secondary",
-                "flex flex-col justify-between", // Ensure content is spaced
+                "flex flex-col justify-between",
                 {
                     "cursor-pointer group hover:shadow-lg": isClickable, // Added 'group' here for hover effects
                     "hover:border-primary-main": isClickable, // Border color change on hover
-                    "hover:bg-light-muted-background dark:hover:bg-dark-noisy-background":
+                    "":
                         isClickable, // Background change
                 },
                 className
@@ -49,7 +49,7 @@ export const StatCard = ({
                 <div className="absolute top-0 left-0 w-2 h-full bg-primary-main transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
             )}
 
-            <div className="p-3 flex justify-between items-start gap-4">
+            <div className="p-3 flex ml-2 justify-between items-start gap-4">
                 {" "}
                 {/* Increased padding slightly */}
                 <div className="flex-grow">
@@ -74,16 +74,17 @@ export const StatCard = ({
                             </div>
                         ) : isLoading ? (
                             <div className="flex items-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-4 border-current border-t-transparent text-primary-main"></div>{" "}
+                                <div className="animate-spin rounded-full h-10 w-10 border-4 border-current border-t-transparent text-primary-main"></div>{" "}
                                 {/* Larger spinner, primary color */}
                             </div>
                         ) : typeof value === "number" ? (
                             <CountUp
                                 end={value}
-                                duration={2.5} // Slightly longer duration for smoother animation
+                                duration={2} // Slightly longer duration for smoother animation
                                 separator=","
                                 enableScrollSpy={true}
                                 scrollSpyOnce={true}
+                                className="md:text-4xl lg:text-6xl font-black"
                             />
                         ) : (
                             value

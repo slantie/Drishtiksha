@@ -9,23 +9,28 @@ import {
 } from "../hooks/useAuthQuery.js";
 import { socketService } from "../lib/socket.jsx"; // CORRECTED IMPORT
 import { showToast } from "../utils/toast.js";
+import { authStorage } from "../utils/authStorage.js";
 
 export const AuthContext = createContext(null);
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
+
     if (!context) {
         throw new Error("useAuth must be used within an AuthProvider");
     }
     return context;
 };
 
+export const useUser = () => {
+    const { user } = useAuth();
+    return user;
+};
+
 export const AuthProvider = ({ children }) => {
-    const [token, setToken] = useState(
-        () =>
-            sessionStorage.getItem("authToken") ||
-            localStorage.getItem("authToken")
-    );
+    const [token, setToken] = useState(() => {
+        return sessionStorage.getItem("authToken");
+    });
 
     const loginMutation = useLoginMutation();
     const signupMutation = useSignupMutation();
@@ -53,14 +58,14 @@ export const AuthProvider = ({ children }) => {
         if (isProfileError) {
             showToast.error("Your session has expired. Please log in again.");
             setToken(null);
-            localStorage.removeItem("authToken");
             sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("user");
         }
     }, [isProfileError]);
 
-    const login = (email, password, rememberMe) => {
+    const login = (email, password) => {
         return loginMutation
-            .mutateAsync({ email, password, rememberMe })
+            .mutateAsync({ email, password })
             .then((response) => {
                 const authToken = response.data.token;
                 setToken(authToken);

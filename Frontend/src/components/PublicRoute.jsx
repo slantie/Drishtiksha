@@ -2,18 +2,15 @@
 
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext.jsx"; // CORRECTED IMPORT
-import LoadingSpinner from "./ui/LoadingSpinner.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import { PageLoader } from "./ui/LoadingSpinner.jsx"; // REFACTOR: Using our standardized PageLoader.
 
 const PublicRoute = ({ children }) => {
     const { isAuthenticated, isLoading } = useAuth();
 
     if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <LoadingSpinner />
-            </div>
-        );
+        // REFACTOR: Ensures a consistent loading UI for public routes as well.
+        return <PageLoader text="Loading..." />;
     }
 
     if (isAuthenticated) {

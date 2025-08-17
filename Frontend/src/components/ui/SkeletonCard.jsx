@@ -2,23 +2,17 @@
 
 import React from "react";
 import { Card } from "./Card";
+import { cn } from "../../lib/utils";
 
-/**
- * A reusable skeleton card component for displaying loading states.
- * It uses a pulsing animation and can be customized with a specific height/width via className.
- * @param {{className?: string}} props
- */
-export const SkeletonCard = ({ className = "" }) => {
+// REFACTOR: Simplified and aligned with the theme's colors for a more subtle loading state.
+export const SkeletonCard = ({ className }) => {
     return (
-        <Card className={`bg-gray-100 dark:bg-gray-800/50 ${className}`}>
-            <div className="p-6 h-full">
-                <div className="space-y-4 h-full animate-pulse">
-                    <div className="w-2/3 h-6 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                    <div className="space-y-2">
-                        <div className="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                        <div className="w-5/6 h-4 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                        <div className="w-3/4 h-4 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
-                    </div>
+        <Card className={cn("animate-pulse", className)}>
+            <div className="p-6 space-y-4">
+                <div className="h-6 w-2/3 rounded bg-light-hover dark:bg-dark-hover"></div>
+                <div className="space-y-2">
+                    <div className="h-4 w-full rounded bg-light-hover dark:bg-dark-hover"></div>
+                    <div className="h-4 w-5/6 rounded bg-light-hover dark:bg-dark-hover"></div>
                 </div>
             </div>
         </Card>
