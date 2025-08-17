@@ -37,6 +37,21 @@ const getVideoById = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, video));
 });
 
+const updateVideo = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const updatedVideo = await videoService.updateVideo(
+        id,
+        req.user.id,
+        updateData
+    );
+
+    res.status(200).json(
+        new ApiResponse(200, updatedVideo, "Video updated successfully.")
+    );
+});
+
 const deleteVideo = asyncHandler(async (req, res) => {
     await videoService.deleteVideoById(req.params.id, req.user.id);
     res.status(200).json(
@@ -48,5 +63,6 @@ export const videoController = {
     uploadVideo,
     getAllVideos,
     getVideoById,
+    updateVideo,
     deleteVideo,
 };

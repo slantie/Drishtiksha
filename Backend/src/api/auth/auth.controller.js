@@ -17,7 +17,12 @@ const signup = asyncHandler(async (req, res) => {
 const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const { user, token } = await authService.loginUser(email, password);
-    const response = new ApiResponse(200, { user, token }, "Login successful");
+
+    const response = new ApiResponse(
+        200,
+        { user, token },
+        "Login successful"
+    );
     res.status(response.statusCode).json(response);
 });
 

@@ -51,6 +51,23 @@ class VideoService {
         return video;
     }
 
+    // Route to Update basic Video details (only filename and description)
+    async updateVideo(videoId, userId, updateData) {
+        const video = await this.getVideoWithAnalyses(videoId, userId);
+        if (!video) throw new ApiError(404, "Video not found.");
+
+        // Update only the allowed fields
+        const allowedFields = ["filename", "description"];
+        for (const key of Object.keys(updateData)) {
+            if (!allowedFields.includes(key)) {
+                throw new ApiError(400, `Field '${key}' is not updatable.`);
+            }
+        }
+
+        const updatedVideo = await videoRepository.updateById(videoId, updateData);
+        return updatedVideo;
+    }
+
     async deleteVideoById(videoId, userId) {
         const video = await this.getVideoWithAnalyses(videoId, userId);
         if (video.publicId) await deleteFromCloudinary(video.publicId, "video");

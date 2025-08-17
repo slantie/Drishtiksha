@@ -45,16 +45,21 @@ export const authService = {
             throw new ApiError(401, "Invalid email or password");
         }
 
-        const token = generateToken({
+        const tokenPayload = {
             userId: user.id,
             email: user.email,
             role: user.role,
-        });
+        };
+
+        const token = generateToken(tokenPayload);
 
         // eslint-disable-next-line no-unused-vars
         const { password: _, ...userWithoutPassword } = user;
 
-        return { user: userWithoutPassword, token };
+        return {
+            user: userWithoutPassword,
+            token,
+        };
     },
 
     async getUserProfile(userId) {

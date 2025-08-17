@@ -21,6 +21,7 @@ router
 router
     .route("/:id")
     .get(videoController.getVideoById)
+    .patch(videoController.updateVideo)
     .delete(videoController.deleteVideo);
 
 export default router;

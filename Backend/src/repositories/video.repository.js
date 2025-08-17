@@ -56,6 +56,15 @@ export const videoRepository = {
             data,
         });
     },
+
+    // Update Video details (only filename and description)
+    async updateById(videoId, updateData) {
+        return prisma.video.update({
+            where: { id: videoId },
+            data: updateData,
+        });
+    },
+
     async deleteById(videoId) {
         return prisma.video.delete({ where: { id: videoId } });
     },
