@@ -12,7 +12,7 @@ export const useServerStatusQuery = () => {
     return useQuery({
         queryKey: queryKeys.monitoring.serverStatus(),
         queryFn: monitoringApi.getServerStatus,
-        refetchInterval: 30000, // 30 seconds
+        refetchInterval: 60000,
         select: (response) => response.data,
     });
 };

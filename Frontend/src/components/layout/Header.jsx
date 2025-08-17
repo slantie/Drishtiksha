@@ -5,7 +5,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { User, LogOut, Menu, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "../ThemeToggle";
-import { useAuth } from "../../hooks/useAuth.js";
+import { useAuth } from "../../contexts/AuthContext.jsx"; // CORRECTED IMPORT
 
 const projectName = import.meta.env.VITE_PROJECT_NAME;
 
@@ -13,18 +13,15 @@ const navItems = [{ path: "/", label: "Home" }];
 
 const authenticatedNavItems = [
     { path: "/dashboard", label: "Dashboard" },
-    { path: "/profile", label: "Profile" },
+    { path: "/monitor", label: "Monitoring" },
 ];
 
 function Header() {
-    // Get auth state and functions from the context
     const { isAuthenticated, user, logout } = useAuth();
-
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const navigate = useNavigate();
 
-    // Simplified logout handler
     const handleLogout = () => {
         logout();
         setShowUserMenu(false);
@@ -65,7 +62,6 @@ function Header() {
         };
     }, [showMobileMenu]);
 
-    // Animation variants
     const headerVariants = {
         hidden: { opacity: 0, y: -20 },
         visible: {
@@ -107,14 +103,8 @@ function Header() {
     };
 
     const mobileMenuVariants = {
-        hidden: {
-            x: "100%",
-            transition: { duration: 0.3, ease: "easeInOut" },
-        },
-        visible: {
-            x: 0,
-            transition: { duration: 0.3, ease: "easeInOut" },
-        },
+        hidden: { x: "100%", transition: { duration: 0.3, ease: "easeInOut" } },
+        visible: { x: 0, transition: { duration: 0.3, ease: "easeInOut" } },
     };
 
     const overlayVariants = {
@@ -151,7 +141,6 @@ function Header() {
                             src="/Logo.svg"
                             alt="Logo"
                             className="w-10 h-10 drop-shadow-sm"
-                            // whileHover={{ rotate: 5 }}
                             transition={{ duration: 0.2 }}
                         />
                         <motion.h1
@@ -163,7 +152,6 @@ function Header() {
                         </motion.h1>
                     </motion.div>
 
-                    {/* Desktop Navigation */}
                     <div className="hidden lg:flex items-center space-x-3">
                         <nav>
                             <ul className="flex space-x-3">
@@ -247,7 +235,6 @@ function Header() {
                                             <ChevronDown className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
                                         </motion.div>
                                     </motion.button>
-
                                     <AnimatePresence>
                                         {showUserMenu && (
                                             <motion.div
@@ -256,9 +243,7 @@ function Header() {
                                                 initial="hidden"
                                                 animate="visible"
                                                 exit="hidden"
-                                                style={{
-                                                    zIndex: 99999,
-                                                }}
+                                                style={{ zIndex: 99999 }}
                                             >
                                                 <div className="px-5 py-4 border-b border-light-muted-text/10 dark:border-dark-muted-text/10 bg-gradient-to-r from-light-muted-background/30 to-transparent dark:from-dark-muted-background/30">
                                                     <div className="flex items-center space-x-4">
@@ -354,7 +339,6 @@ function Header() {
                         </div>
                     </div>
 
-                    {/* Mobile Menu Button */}
                     <div className="flex lg:hidden items-center space-x-3">
                         <ThemeToggle />
                         <div className="mobile-menu-container">
@@ -384,7 +368,6 @@ function Header() {
                 </div>
             </motion.header>
 
-            {/* Mobile Menu */}
             <AnimatePresence>
                 {showMobileMenu && (
                     <>

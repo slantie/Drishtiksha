@@ -15,6 +15,7 @@ import Profile from "./pages/Profile.jsx";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
 import DetailedAnalysis from "./pages/DetailedAnalysis";
+import Monitoring from "./pages/Monitoring.jsx";
 
 function App() {
     return (
@@ -75,6 +76,16 @@ function App() {
                             <ProtectedRoute>
                                 <Layout>
                                     <DetailedAnalysis />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/monitor"
+                        element={
+                            <ProtectedRoute>
+                                <Layout>
+                                    <Monitoring />
                                 </Layout>
                             </ProtectedRoute>
                         }

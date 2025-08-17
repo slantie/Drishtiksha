@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth.js";
+import { useAuth } from "../contexts/AuthContext.jsx"; // CORRECTED IMPORT
 import LoadingSpinner from "./ui/LoadingSpinner.jsx";
 
 const PublicRoute = ({ children }) => {
@@ -17,11 +17,9 @@ const PublicRoute = ({ children }) => {
     }
 
     if (isAuthenticated) {
-        // If the user is logged in, redirect them away from public pages (like login/signup)
         return <Navigate to="/dashboard" replace />;
     }
 
-    // If not authenticated, render the public page.
     return children;
 };
 

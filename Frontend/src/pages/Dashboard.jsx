@@ -12,13 +12,12 @@ import {
     Trash2,
     Clock,
     Loader2 as ProcessingIcon,
-    Copy,
     ShieldX,
     ShieldCheck,
-    ChartNetwork,
-    Brain,
     Activity,
-    Plus,
+    Brain,
+    HelpCircle,
+    Loader2,
 } from "lucide-react";
 import {
     useVideosQuery,
@@ -26,7 +25,7 @@ import {
     useUploadVideoMutation,
     useUpdateVideoMutation,
     useDeleteVideoMutation,
-} from "../hooks/useVideosQuery.js";
+} from "../hooks/useVideosQuery.jsx";
 import { StatCard } from "../components/ui/StatCard";
 import { DataTable } from "../components/ui/DataTable";
 import { PageLoader } from "../components/ui/LoadingSpinner";
@@ -37,32 +36,78 @@ import { EditVideoModal } from "../components/videos/EditVideoModal.jsx";
 import { DeleteVideoModal } from "../components/videos/DeleteVideoModal.jsx";
 import { VideoSearchFilter } from "../components/videos/VideoSearchFilter.jsx";
 import ModelSelectionModal from "../components/analysis/ModelSelectionModal.jsx";
-import { MODEL_INFO } from "../constants/apiEndpoints.js";
 import { showToast } from "../utils/toast.js";
+import { formatDate } from "../utils/formatters.js";
+import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
 
-// Helper functions and components for the DataTable
-const formatBytes = (bytes) =>
-    bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A";
-const formatDate = (isoDate) => {
-    if (!isoDate) return "N/A";
-    const date = new Date(isoDate);
+// Page-specific sub-components for cleanliness
+const DashboardHeader = ({ onRefresh, isRefetching, onUploadClick }) => {
+    const [isManuallyRefetching, setIsManuallyRefetching] = useState(false);
 
-    // Format time as HH:MM (24-hour format)
-    const timeString = date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-    });
+    const handleRefresh = async () => {
+        setIsManuallyRefetching(true);
+        try {
+            await onRefresh();
+            showToast.success("Dashboard data has been updated.");
+        } catch (error) {
+            showToast.error("Failed to refresh data.");
+            console.error("Error refreshing dashboard data:", error);
+        } finally {
+            setIsManuallyRefetching(false);
+        }
+    };
 
-    // Format date as DD/MM/YY
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = String(date.getFullYear()).slice(-2);
-    const dateString = `${day}/${month}/${year}`;
-
-    return `${timeString} ${dateString}`;
+    return (
+        <Card>
+            <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold">
+                        Drishtiksha Dashboard
+                    </h1>
+                    <p className="text-light-muted-text dark:text-dark-muted-text">
+                        Manage your video analyses.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        onClick={handleRefresh}
+                        variant="outline"
+                        disabled={isRefetching || isManuallyRefetching}
+                        aria-label="Refresh dashboard data"
+                    >
+                        {isRefetching || isManuallyRefetching ? (
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                            <RefreshCw className="mr-2 h-5 w-5" />
+                        )}
+                        {isRefetching || isManuallyRefetching
+                            ? "Refreshing..."
+                            : "Refresh"}
+                    </Button>
+                    <Button onClick={onUploadClick}>
+                        <Upload className="mr-2 h-5 w-5" /> Upload Video
+                    </Button>
+                </div>
+            </div>
+        </Card>
+    );
 };
 
+const DashboardSkeleton = () => (
+    <div className="space-y-6">
+        <SkeletonCard className="h-24" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+            <SkeletonCard className="h-32" />
+            <SkeletonCard className="h-32" />
+            <SkeletonCard className="h-32" />
+            <SkeletonCard className="h-32" />
+        </div>
+        <SkeletonCard className="h-24" />
+        <SkeletonCard className="h-96" />
+    </div>
+);
+
+// STATUS BADGE REMAINS THE SAME
 const StatusBadge = ({ status }) => {
     const styles = {
         ANALYZED: "bg-green-500/10 text-green-500",
@@ -96,11 +141,54 @@ const StatusBadge = ({ status }) => {
     );
 };
 
+// *** NEW ENHANCED ANALYSIS SUMMARY COMPONENT ***
+const AnalysisSummary = ({ analyses = [], totalModels = 2 }) => {
+    const completed = analyses.filter((a) => a.status === "COMPLETED");
+    if (completed.length === 0) {
+        return (
+            <span className="text-sm text-gray-500 italic">
+                Awaiting results...
+            </span>
+        );
+    }
+
+    const fakes = completed.filter((a) => a.prediction === "FAKE").length;
+    const reals = completed.filter((a) => a.prediction === "REAL").length;
+
+    let consensus, Icon, color;
+    if (fakes > reals) {
+        consensus = "Deepfake Detected";
+        Icon = ShieldX;
+        color = "text-red-500";
+    } else if (reals > fakes) {
+        consensus = "Authentic";
+        Icon = ShieldCheck;
+        color = "text-green-500";
+    } else {
+        consensus = "Inconclusive";
+        Icon = HelpCircle;
+        color = "text-yellow-500";
+    }
+
+    return (
+        <div className="flex flex-col">
+            <div className={`flex items-center font-bold text-sm ${color}`}>
+                <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>{consensus}</span>
+            </div>
+            <span className="text-xs text-gray-400 mt-1">
+                {completed.length} / {totalModels} Models Complete
+            </span>
+        </div>
+    );
+};
+
 export const Dashboard = () => {
     const {
         data: videos = [],
         isLoading,
-        refetch: fetchVideos,
+        refetch,
+        isRefetching,
     } = useVideosQuery();
     const { stats } = useVideoStats();
     const uploadMutation = useUploadVideoMutation();
@@ -108,12 +196,7 @@ export const Dashboard = () => {
     const deleteMutation = useDeleteVideoMutation();
 
     const navigate = useNavigate();
-
-    // Using a single state object for modals for cleaner management
     const [modal, setModal] = useState({ type: null, data: null });
-    const openModal = (type, data = null) => setModal({ type, data });
-    const closeModal = () => setModal({ type: null, data: null });
-
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [sizeFilter, setSizeFilter] = useState("ALL");
@@ -121,31 +204,31 @@ export const Dashboard = () => {
 
     const filteredVideos = useMemo(() => {
         let filtered = videos;
+        // Filtering logic remains the same...
         if (searchTerm.trim()) {
             const searchLower = searchTerm.toLowerCase();
             filtered = filtered.filter(
-                (video) =>
-                    video.filename?.toLowerCase().includes(searchLower) ||
-                    video.description?.toLowerCase().includes(searchLower)
+                (v) =>
+                    v.filename?.toLowerCase().includes(searchLower) ||
+                    v.description?.toLowerCase().includes(searchLower)
             );
         }
         if (statusFilter !== "ALL") {
-            filtered = filtered.filter(
-                (video) => video.status === statusFilter
-            );
+            filtered = filtered.filter((v) => v.status === statusFilter);
         }
         if (sizeFilter !== "ALL") {
             const ranges = {
-                small: { min: 0, max: 10485760 },
+                small: { max: 10485760 },
                 medium: { min: 10485760, max: 104857600 },
-                large: { min: 104857600, max: Infinity },
+                large: { min: 104857600 },
             };
             const range = ranges[sizeFilter];
-            if (range) {
+            if (range)
                 filtered = filtered.filter(
-                    (v) => v.size >= range.min && v.size < range.max
+                    (v) =>
+                        (range.min ? v.size >= range.min : true) &&
+                        (range.max ? v.size < range.max : true)
                 );
-            }
         }
         filtered.sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime();
@@ -161,67 +244,43 @@ export const Dashboard = () => {
                 key: "filename",
                 header: "File",
                 sortable: true,
-                filterable: true,
-                accessor: (item) => item.filename,
+                accessor: (item) => (
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                        {item.filename}
+                    </span>
+                ),
             },
             {
                 key: "status",
-                header: "Status",
+                header: "Job Status",
                 sortable: true,
-                filterable: true,
                 render: (item) => <StatusBadge status={item.status} />,
             },
             {
-                key: "size",
-                header: "Size",
-                sortable: true,
-                filterable: true,
-                render: (item) => formatBytes(item.size),
+                key: "summary",
+                header: "Analysis Result",
+                render: (item) => <AnalysisSummary analyses={item.analyses} />,
             },
             {
                 key: "createdAt",
-                header: "Uploaded",
+                header: "Uploaded On",
                 sortable: true,
-                filterable: true,
                 render: (item) => formatDate(item.createdAt),
             },
             {
                 key: "actions",
                 header: "Actions",
                 render: (item) => (
-                    <div className="flex items-center justify-start space-x-2">
+                    <div className="flex items-center justify-end space-x-1">
                         <Button
                             variant="ghost"
-                            size="icon"
-                            title="View Analysis Results"
+                            size="sm"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(`/results/${item.id}`);
                             }}
                         >
-                            <ChartNetwork className="h-5 w-5 text-purple-500" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Start New Analysis"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                openModal("new_analysis", item);
-                            }}
-                        >
-                            <Brain className="h-5 w-5 text-indigo-500" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Edit Video Details"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                openModal("edit", item);
-                            }}
-                        >
-                            <Edit className="h-5 w-5 text-blue-500" />
+                            View Report
                         </Button>
                         <Button
                             variant="ghost"
@@ -229,10 +288,10 @@ export const Dashboard = () => {
                             title="Delete Video"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                openModal("delete", item);
+                                setModal({ type: "delete", data: item });
                             }}
                         >
-                            <Trash2 className="h-5 w-5 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-gray-500" />
                         </Button>
                     </div>
                 ),
@@ -241,43 +300,15 @@ export const Dashboard = () => {
         [navigate]
     );
 
-    const isAnyLoading =
-        isLoading ||
-        uploadMutation.isPending ||
-        updateMutation.isPending ||
-        deleteMutation.isPending;
-    if (isAnyLoading && !videos.length) {
-        return <PageLoader text="Loading Dashboard..." />;
-    }
+    if (isLoading && !videos.length) return <DashboardSkeleton />;
 
     return (
         <div className="space-y-6 w-full min-h-screen">
-            <Card>
-                <div className="p-2 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold">
-                            Drishtiksha Dashboard
-                        </h1>
-                        <p className="text-light-muted-text dark:text-dark-muted-text">
-                            Manage your video analyses.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            onClick={() => {
-                                fetchVideos();
-                                showToast.success("Data refreshed!");
-                            }}
-                            variant="outline"
-                        >
-                            <RefreshCw className="mr-2 h-5 w-5" /> Refresh
-                        </Button>
-                        <Button onClick={() => openModal("upload")}>
-                            <Upload className="mr-2 h-5 w-5" /> Upload Video
-                        </Button>
-                    </div>
-                </div>
-            </Card>
+            <DashboardHeader
+                onRefresh={refetch}
+                isRefetching={isRefetching}
+                onUploadClick={() => setModal({ type: "upload" })}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
                 <StatCard
@@ -321,19 +352,20 @@ export const Dashboard = () => {
                 onRowClick={(item) => navigate(`/results/${item.id}`)}
                 searchPlaceholder="Search videos..."
                 showSearch={false}
-                loading={isAnyLoading}
-                emptyMessage="No videos found. Upload your first video to get started!"
+                loading={isRefetching}
+                emptyMessage="No videos found. Upload one to get started!"
                 disableInternalSorting={true}
             />
 
+            {/* Modals */}
             <UploadModal
                 isOpen={modal.type === "upload"}
-                onClose={closeModal}
+                onClose={() => setModal({ type: null })}
                 onUpload={uploadMutation.mutateAsync}
             />
             <EditVideoModal
                 isOpen={modal.type === "edit"}
-                onClose={closeModal}
+                onClose={() => setModal({ type: null })}
                 video={modal.data}
                 onUpdate={(videoId, data) =>
                     updateMutation.mutateAsync({ videoId, updateData: data })
@@ -341,17 +373,16 @@ export const Dashboard = () => {
             />
             <DeleteVideoModal
                 isOpen={modal.type === "delete"}
-                onClose={closeModal}
+                onClose={() => setModal({ type: null })}
                 video={modal.data}
                 onDelete={deleteMutation.mutateAsync}
             />
             <ModelSelectionModal
                 isOpen={modal.type === "new_analysis"}
-                onClose={closeModal}
+                onClose={() => setModal({ type: null })}
                 videoId={modal.data?.id}
                 onAnalysisStart={() => {
-                    fetchVideos();
-                    showToast.info("New analysis has been queued!");
+                    refetch();
                 }}
             />
         </div>

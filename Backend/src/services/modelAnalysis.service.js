@@ -58,15 +58,11 @@ class ModelAnalysisService {
             );
             const responseTime = Date.now() - startTime;
 
-            // Return the full stats object, now including responseTime
             return { ...response.data, responseTime };
         } catch (error) {
             this._handleAnalysisError(error, "STATS");
         }
     }
-
-    // DEPRECATED: This method is no longer needed as getServerStatistics provides all necessary info.
-    // getHealthStatus() is now fully replaced.
 
     async analyzeVideoComprehensive(videoPath, modelName, videoId, userId) {
         if (!this.isAvailable()) {

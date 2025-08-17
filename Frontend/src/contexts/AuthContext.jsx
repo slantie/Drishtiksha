@@ -1,72 +1,70 @@
 // src/contexts/AuthContext.jsx
 
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import {
     useLoginMutation,
     useSignupMutation,
     useLogoutMutation,
     useProfileQuery,
 } from "../hooks/useAuthQuery.js";
-import { socketService } from "../lib/socket.js";
+import { socketService } from "../lib/socket.jsx"; // CORRECTED IMPORT
+import { showToast } from "../utils/toast.js";
 
 export const AuthContext = createContext(null);
 
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+};
+
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
     const [token, setToken] = useState(
-        sessionStorage.getItem("authToken") || localStorage.getItem("authToken")
+        () =>
+            sessionStorage.getItem("authToken") ||
+            localStorage.getItem("authToken")
     );
-    const [isAuthenticated, setIsAuthenticated] = useState(!!token);
-    const [isLoading, setIsLoading] = useState(true);
 
     const loginMutation = useLoginMutation();
     const signupMutation = useSignupMutation();
     const logoutMutation = useLogoutMutation();
 
-    const { data: profileData, isError: isProfileError } = useProfileQuery();
+    const {
+        data: user,
+        isLoading: isProfileLoading,
+        isError: isProfileError,
+        isSuccess: isProfileSuccess,
+    } = useProfileQuery(!!token);
 
-    // Effect to initialize auth state from storage
     useEffect(() => {
-        const storedToken =
-            sessionStorage.getItem("authToken") ||
-            localStorage.getItem("authToken");
-        if (storedToken) {
-            setToken(storedToken);
-            setIsAuthenticated(true);
-            socketService.connect();
+        if (token && isProfileSuccess) {
+            socketService.connect(token);
+        } else {
+            socketService.disconnect();
         }
-        setIsLoading(false);
-    }, []);
+        return () => {
+            socketService.disconnect();
+        };
+    }, [token, isProfileSuccess]);
 
-    // Effect to sync user data from profile query or clear on error
     useEffect(() => {
-        if (profileData) {
-            setUser(profileData);
-            const storage = localStorage.getItem("authToken")
-                ? localStorage
-                : sessionStorage;
-            storage.setItem("user", JSON.stringify(profileData));
-        }
         if (isProfileError) {
-            // If fetching profile fails (e.g., token is invalid), log the user out.
-            logout();
+            showToast.error("Your session has expired. Please log in again.");
+            setToken(null);
+            localStorage.removeItem("authToken");
+            sessionStorage.removeItem("authToken");
         }
-    }, [profileData, isProfileError]);
+    }, [isProfileError]);
 
-    const login = async (email, password, rememberMe) => {
-        const result = await loginMutation.mutateAsync({
-            email,
-            password,
-            rememberMe,
-        });
-
-        const userData = result.data.user;
-        const authToken = result.data.token;
-
-        setToken(authToken);
-        setUser(userData);
-        setIsAuthenticated(true);
-        socketService.connect();
+    const login = (email, password, rememberMe) => {
+        return loginMutation
+            .mutateAsync({ email, password, rememberMe })
+            .then((response) => {
+                const authToken = response.data.token;
+                setToken(authToken);
+            });
     };
 
     const signup = (signupData) => {
@@ -74,19 +72,18 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        socketService.disconnect();
-        setToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-        logoutMutation.mutate();
+        logoutMutation.mutate(undefined, {
+            onSuccess: () => {
+                setToken(null);
+            },
+        });
     };
 
     const value = {
         user,
         token,
-        isAuthenticated,
-        isLoading:
-            isLoading || (isAuthenticated && !profileData && !isProfileError),
+        isAuthenticated: !!token && isProfileSuccess,
+        isLoading: isProfileLoading && !!token,
         login,
         signup,
         logout,

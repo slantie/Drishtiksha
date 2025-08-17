@@ -5,13 +5,17 @@ import react from "@vitejs/plugin-react-swc";
 
 export default defineConfig({
     plugins: [react()],
+    // This server block is essential for SPA routing during development
+    server: {
+        // middlewareMode: false is the default, but appType implies it.
+        // This ensures that Vite handles history API fallback for SPA routing.
+        appType: "spa",
+    },
     test: {
         globals: true,
-        // Use 'jsdom' for component tests, but we'll override for our new API tests
         environment: "jsdom",
         setupFiles: "./src/tests/setup.js",
         css: true,
-        // Add this to include our new test file pattern
         include: ["**/*.{test,spec,integration.test}.{js,jsx}"],
     },
 });

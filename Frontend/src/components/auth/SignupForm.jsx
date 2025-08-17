@@ -1,8 +1,8 @@
 // src/components/auth/SignupForm.jsx
 
 import React, { useState } from "react";
-import { useAuth } from "../../hooks/useAuth.js";
-import { authToast, validationToast, showToast } from "../../utils/toast.js";
+import { useAuth } from "../../contexts/AuthContext.jsx";
+import { validationToast } from "../../utils/toast.js";
 import {
     Eye,
     EyeOff,
@@ -23,8 +23,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const { signup } = useAuth();
+    const { signup, isSigningUp } = useAuth();
 
     const handleChange = (e) => {
         setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -32,13 +31,11 @@ const SignupForm = ({ onSwitchToLogin }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (formData.password.length < 6) {
+        if (formData.password.length < 6)
             return validationToast.minLength("Password", 6);
-        }
-        if (formData.password !== formData.confirmPassword) {
+        if (formData.password !== formData.confirmPassword)
             return validationToast.mismatch("Passwords");
-        }
-        setIsLoading(true);
+
         try {
             await signup({
                 firstName: formData.firstName,
@@ -46,29 +43,27 @@ const SignupForm = ({ onSwitchToLogin }) => {
                 email: formData.email,
                 password: formData.password,
             });
-            authToast.signupSuccess();
-            showToast.info("Account created! Please log in.");
-            onSwitchToLogin();
+            onSwitchToLogin(); // Switch to login view after successful signup
         } catch (error) {
-            authToast.signupError(error.message || "Account creation failed.");
-        } finally {
-            setIsLoading(false);
+            console.error("Signup failed:", error);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="text-center mb-6">
-                <div className="text-2xl flex items-center justify-center font-mono font-bold text-light-text dark:text-dark-text mb-2">
-                    <User className="w-6 h-6 mr-3 text-light-highlight dark:text-dark-highlight" />
-                    CREATE ACCOUNT
-                    <div className="ml-3 w-2 h-5 bg-light-highlight dark:bg-dark-highlight animate-pulse"></div>
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+                <h2 className="text-3xl font-bold text-light-text dark:text-dark-text">
+                    Create an Account
+                </h2>
+                <p className="text-light-muted-text dark:text-dark-muted-text">
+                    Get started by creating your new account.
+                </p>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
-                <div className="group">
-                    <label className="block text-sm font-mono text-light-muted-text dark:text-dark-muted-text mb-1">
-                        FIRST NAME:
+                <div>
+                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
+                        First Name
                     </label>
                     <input
                         name="firstName"
@@ -76,14 +71,14 @@ const SignupForm = ({ onSwitchToLogin }) => {
                         required
                         value={formData.firstName}
                         onChange={handleChange}
-                        className="w-full px-3 py-2.5 bg-light-muted-background/50 dark:bg-dark-muted-background/50 border border-light-muted-text/20 dark:border-dark-muted-text/20 rounded-lg text-light-text dark:text-dark-text focus:outline-none focus:border-light-highlight dark:focus:border-dark-highlight transition-all duration-300 text-sm font-mono"
+                        className="w-full px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
                         placeholder="John"
-                        disabled={isLoading}
+                        disabled={isSigningUp}
                     />
                 </div>
-                <div className="group">
-                    <label className="block text-sm font-mono text-light-muted-text dark:text-dark-muted-text mb-1">
-                        LAST NAME:
+                <div>
+                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
+                        Last Name
                     </label>
                     <input
                         name="lastName"
@@ -91,19 +86,20 @@ const SignupForm = ({ onSwitchToLogin }) => {
                         required
                         value={formData.lastName}
                         onChange={handleChange}
-                        className="w-full px-3 py-2.5 bg-light-muted-background/50 dark:bg-dark-muted-background/50 border border-light-muted-text/20 dark:border-dark-muted-text/20 rounded-lg text-light-text dark:text-dark-text focus:outline-none focus:border-light-highlight dark:focus:border-dark-highlight transition-all duration-300 text-sm font-mono"
+                        className="w-full px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
                         placeholder="Doe"
-                        disabled={isLoading}
+                        disabled={isSigningUp}
                     />
                 </div>
             </div>
-            <div className="group">
-                <label className="block text-sm font-mono text-light-muted-text dark:text-dark-muted-text mb-1">
-                    EMAIL ADDRESS:
+
+            <div>
+                <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
+                    Email Address
                 </label>
                 <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-4 w-4 text-light-muted-text dark:text-dark-muted-text" />
+                        <Mail className="h-4 w-4 text-gray-400" />
                     </div>
                     <input
                         name="email"
@@ -111,16 +107,17 @@ const SignupForm = ({ onSwitchToLogin }) => {
                         required
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full pl-9 pr-3 py-2.5 bg-light-muted-background/50 dark:bg-dark-muted-background/50 border border-light-muted-text/20 dark:border-dark-muted-text/20 rounded-lg text-light-text dark:text-dark-text focus:outline-none focus:border-light-highlight dark:focus:border-dark-highlight transition-all duration-300 text-sm font-mono"
+                        className="w-full pl-10 pr-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
                         placeholder="john@example.com"
-                        disabled={isLoading}
+                        disabled={isSigningUp}
                     />
                 </div>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
-                <div className="group">
-                    <label className="block text-sm font-mono text-light-muted-text dark:text-dark-muted-text mb-1">
-                        PASSWORD:
+                <div>
+                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
+                        Password
                     </label>
                     <div className="relative">
                         <input
@@ -129,15 +126,14 @@ const SignupForm = ({ onSwitchToLogin }) => {
                             required
                             value={formData.password}
                             onChange={handleChange}
-                            className="w-full pr-10 px-3 py-2.5 bg-light-muted-background/50 dark:bg-dark-muted-background/50 border border-light-muted-text/20 dark:border-dark-muted-text/20 rounded-lg text-light-text dark:text-dark-text focus:outline-none focus:border-light-highlight dark:focus:border-dark-highlight transition-all duration-300 text-sm font-mono"
+                            className="w-full pr-10 px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
                             placeholder="••••••••"
-                            disabled={isLoading}
+                            disabled={isSigningUp}
                         />
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-light-muted-text dark:text-dark-muted-text hover:text-light-highlight dark:hover:text-dark-highlight transition-colors"
-                            disabled={isLoading}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary-main"
                         >
                             {showPassword ? (
                                 <EyeOff className="h-4 w-4" />
@@ -147,9 +143,9 @@ const SignupForm = ({ onSwitchToLogin }) => {
                         </button>
                     </div>
                 </div>
-                <div className="group">
-                    <label className="block text-sm font-mono text-light-muted-text dark:text-dark-muted-text mb-1">
-                        CONFIRM PASSWORD:
+                <div>
+                    <label className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1">
+                        Confirm Password
                     </label>
                     <div className="relative">
                         <input
@@ -158,17 +154,16 @@ const SignupForm = ({ onSwitchToLogin }) => {
                             required
                             value={formData.confirmPassword}
                             onChange={handleChange}
-                            className="w-full pr-10 px-3 py-2.5 bg-light-muted-background/50 dark:bg-dark-muted-background/50 border border-light-muted-text/20 dark:border-dark-muted-text/20 rounded-lg text-light-text dark:text-dark-text focus:outline-none focus:border-light-highlight dark:focus:border-dark-highlight transition-all duration-300 text-sm font-mono"
+                            className="w-full pr-10 px-3 py-2.5 bg-light-muted-background dark:bg-dark-muted-background border border-light-secondary dark:border-dark-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main/50"
                             placeholder="••••••••"
-                            disabled={isLoading}
+                            disabled={isSigningUp}
                         />
                         <button
                             type="button"
                             onClick={() =>
                                 setShowConfirmPassword(!showConfirmPassword)
                             }
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-light-muted-text dark:text-dark-muted-text hover:text-light-highlight dark:hover:text-dark-highlight transition-colors"
-                            disabled={isLoading}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary-main"
                         >
                             {showConfirmPassword ? (
                                 <EyeOff className="h-4 w-4" />
@@ -179,32 +174,33 @@ const SignupForm = ({ onSwitchToLogin }) => {
                     </div>
                 </div>
             </div>
+
             <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-light-highlight to-light-highlight/90 dark:from-dark-highlight dark:to-dark-highlight/90 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl hover:shadow-light-highlight/30 dark:hover:shadow-dark-highlight/30 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2 font-mono text-sm border border-white/20"
+                disabled={isSigningUp}
+                className="w-full flex items-center justify-center bg-primary-main text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-primary-main/90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                {isLoading ? (
+                {isSigningUp ? (
                     <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>CREATING ACCOUNT...</span>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />{" "}
+                        Creating Account...
                     </>
                 ) : (
                     <>
-                        <span>CREATE ACCOUNT</span>
-                        <ArrowRight className="w-4 h-4" />
+                        <User className="w-5 h-5 mr-2" /> Create Account
                     </>
                 )}
             </button>
-            <div className="text-center pt-4 border-t border-light-muted-text/10 dark:border-dark-muted-text/10">
-                <p className="text-sm text-light-muted-text dark:text-dark-muted-text font-mono">
+
+            <div className="text-center pt-4">
+                <p className="text-sm text-light-muted-text dark:text-dark-muted-text">
                     Already have an account?{" "}
                     <button
                         type="button"
                         onClick={onSwitchToLogin}
-                        className="text-light-highlight dark:text-dark-highlight hover:underline transition-all duration-300 hover:scale-105 inline-block"
+                        className="text-primary-main font-semibold hover:underline"
                     >
-                        Login
+                        Sign In
                     </button>
                 </p>
             </div>

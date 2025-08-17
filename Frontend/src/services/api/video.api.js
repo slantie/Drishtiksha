@@ -28,7 +28,6 @@ export const videoApi = {
      */
     upload: async (formData) => {
         return await axiosInstance.post(API_ENDPOINTS.VIDEOS.ALL, formData, {
-            // Set a longer timeout for potentially large file uploads.
             timeout: 300000, // 5 minutes
         });
     },
@@ -53,5 +52,25 @@ export const videoApi = {
      */
     delete: async (videoId) => {
         return await axiosInstance.delete(API_ENDPOINTS.VIDEOS.BY_ID(videoId));
+    },
+
+    /**
+     * Triggers a new, manual analysis for a specific video.
+     * NOTE: This requires a corresponding backend endpoint (e.g., POST /videos/:id/analyze)
+     * which is not yet present in the backend code. This is a placeholder.
+     * @param {string} videoId - The ID of the video.
+     * @param {object} analysisConfig - { type, model }
+     * @returns {Promise<object>} The API response.
+     */
+    createAnalysis: async (videoId, analysisConfig) => {
+        console.warn(
+            "Frontend is calling createAnalysis, but the backend endpoint is not yet implemented. Simulating success."
+        );
+        // In a real scenario, the following line would be used:
+        // return await axiosInstance.post(`/videos/${videoId}/analyze`, analysisConfig);
+        return Promise.resolve({
+            success: true,
+            message: "Manual analysis queued successfully (simulated).",
+        });
     },
 };

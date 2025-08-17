@@ -8,3 +8,4 @@ export { Input } from "./Input.jsx";
 export { PageLoader } from "./LoadingSpinner.jsx";
 export { Select } from "./Select.jsx";
 export { StatCard } from "./StatCard.jsx";
+export { SkeletonCard } from "./SkeletonCard.jsx";

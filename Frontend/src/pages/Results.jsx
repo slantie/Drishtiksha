@@ -1,495 +1,142 @@
 // src/pages/Results.jsx
 
 import React, { useState, useContext } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-    Loader2,
-    AlertTriangle,
     ArrowLeft,
-    Cpu,
-    ShieldCheck,
-    ShieldAlert,
-    RefreshCw,
     Edit,
-    Trash,
-    Calendar,
-    FileText,
-    HardDrive,
-    Clock,
-    Activity,
-    TrendingUp,
-    Video as VideoIcon,
+    Trash2,
     Download,
     FileDown,
-    Film,
-    Plus,
     Brain,
-    Eye,
-    BarChart3,
+    Activity,
+    ShieldCheck,
+    ShieldAlert,
+    Clock,
+    AlertTriangle,
+    FileText,
+    HardDrive,
+    Video as VideoIcon,
 } from "lucide-react";
 import {
     useVideoQuery,
     useUpdateVideoMutation,
     useDeleteVideoMutation,
-    useVisualAnalysisMutation,
-} from "../hooks/useVideosQuery.js";
-import { useVideoAnalysis } from "../hooks/useAnalysisQuery.js";
+} from "../hooks/useVideosQuery.jsx";
+import { AuthContext } from "../contexts/AuthContext.jsx";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
-import { EditVideoModal } from "../components/videos/EditVideoModal";
-import { DeleteVideoModal } from "../components/videos/DeleteVideoModal";
 import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
-import { DownloadService } from "../services/DownloadReport.js";
-import { AuthContext } from "../contexts/AuthContext.jsx";
+import AnalysisInProgress from "../components/videos/AnalysisInProgress.jsx";
+import { EditVideoModal } from "../components/videos/EditVideoModal.jsx";
+import { DeleteVideoModal } from "../components/videos/DeleteVideoModal.jsx";
 import ModelSelectionModal from "../components/analysis/ModelSelectionModal.jsx";
-import { ANALYSIS_TYPE_INFO, MODEL_INFO } from "../constants/apiEndpoints.js";
-import showToast from "../utils/toast.js";
-
+import { DownloadService } from "../services/DownloadReport.js";
+import { MODEL_INFO } from "../constants/apiEndpoints.js";
 import {
-    formatBytes,
     formatDate,
     formatProcessingTime,
+    formatBytes,
 } from "../utils/formatters.js";
+import { showToast } from "../utils/toast.js";
 
-const getStatusColor = (status) => {
-    const statusColors = {
-        UPLOADED: "bg-blue-500/10 text-blue-600 border-blue-200",
-        PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-        ANALYZED: "bg-green-500/10 text-green-600 border-green-200",
-        FAILED: "bg-red-500/10 text-red-600 border-red-200",
-    };
-    return (
-        statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200"
-    );
-};
-
-const getAnalysisStatusColor = (status) => {
-    const statusColors = {
-        PENDING: "bg-gray-500/10 text-gray-600 border-gray-200",
-        PROCESSING: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-        COMPLETED: "bg-green-500/10 text-green-600 border-green-200",
-        FAILED: "bg-red-500/10 text-red-600 border-red-200",
-    };
-    return (
-        statusColors[status] || "bg-gray-500/10 text-gray-600 border-gray-200"
-    );
-};
-
-const VisualAnalysisCard = ({ video }) => {
-    const { mutate: generateVisuals, isPending: isVisualizing } =
-        useVisualAnalysisMutation();
-
-    const handleGenerateClick = () => {
-        if (video?.id) {
-            generateVisuals(video.id);
-        }
-    };
-
-    const isAnalyzed = video.status === "ANALYZED";
-    const hasVisuals = !!video.visualizedUrl;
-
-    return (
-        <Card>
-            <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                <Film className="h-5 w-5" />
-                Visual Analysis
-            </h3>
-            {hasVisuals ? (
-                <div className="aspect-video rounded-lg overflow-hidden bg-black">
-                    <VideoPlayer videoUrl={video.visualizedUrl} />
-                </div>
-            ) : (
-                <div className="aspect-video rounded-lg bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center text-center p-6">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        {isAnalyzed
-                            ? "A real-time analysis graph video can be generated."
-                            : "The initial analysis must be complete before generating visuals."}
-                    </p>
-                    <Button
-                        onClick={handleGenerateClick}
-                        disabled={!isAnalyzed || isVisualizing}
-                    >
-                        {isVisualizing ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Generating...
-                            </>
-                        ) : (
-                            "Generate Visuals"
-                        )}
-                    </Button>
-                </div>
-            )}
-        </Card>
-    );
-};
-
-// Enhanced Results Header with Model Selection
-const ResultsHeader = ({
-    video,
-    onRefresh,
-    onEditClick,
-    onDeleteClick,
-    onVisualizeClick,
-    onNewAnalysisClick,
-    isVisualizing,
-}) => (
-    <Card>
-        <div className="flex flex-col space-y-4">
-            {/* Main Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Link
-                        to="/dashboard"
-                        className="text-blue-600 hover:text-blue-800 mr-2 bg-blue-300/30 dark:bg-blue-800/30 rounded-full p-2"
-                    >
-                        <ArrowLeft className="h-6 w-6" />
-                    </Link>
-                    <div>
-                        <h1 className="text-3xl font-bold">Analysis Results</h1>
-                        <p className="text-light-muted-text dark:text-dark-muted-text mt-1">
-                            File:{" "}
-                            <span className="text-primary-main font-medium">
-                                {video.filename}
-                            </span>
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                        onClick={onRefresh}
-                        variant="outline"
-                        className="py-3 px-4"
-                    >
-                        <RefreshCw className="mr-2 h-5 w-5" /> Refresh
-                    </Button>
-                    <Button
-                        onClick={onNewAnalysisClick}
-                        variant="default"
-                        className="py-3 px-4"
-                    >
-                        <Plus className="mr-2 h-5 w-5" />
-                        New Analysis
-                    </Button>
-                    {!video.visualizedUrl && (
-                        <Button
-                            onClick={onVisualizeClick}
-                            variant="outline"
-                            className="py-3 px-4"
-                            disabled={
-                                video.status !== "ANALYZED" || isVisualizing
-                            }
-                        >
-                            {isVisualizing ? (
-                                <>
-                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <Film className="h-5 w-5 mr-2" />
-                                    Generate Visuals
-                                </>
-                            )}
-                        </Button>
-                    )}
-                    <Button
-                        onClick={onEditClick}
-                        variant="outline"
-                        className="py-3 px-4"
-                    >
-                        <Edit className="h-5 w-5 mr-2" /> Edit
-                    </Button>
-                    <Button
-                        onClick={onDeleteClick}
-                        variant="destructive"
-                        className="py-3 px-4"
-                    >
-                        <Trash className="h-5 w-5 mr-2" /> Delete
-                    </Button>
-                </div>
-            </div>
-
-            {/* Status and Quick Info */}
-            <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2">
-                    <VideoIcon className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Status:
-                    </span>
-                    <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
-                            video.status
-                        )}`}
-                    >
-                        {video.status}
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <HardDrive className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Size:
-                    </span>
-                    <span className="text-sm font-medium">
-                        {formatBytes(video.size)}
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Uploaded:
-                    </span>
-                    <span className="text-sm font-medium">
-                        {formatDate(video.createdAt)}
-                    </span>
-                </div>
-                {video.analyses?.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Analyses:
-                        </span>
-                        <span className="text-sm font-medium">
-                            {video.analyses.length} completed
-                        </span>
-                    </div>
-                )}
-            </div>
-        </div>
-    </Card>
-);
-
-// Function to group and render analyses by model
-const renderGroupedAnalyses = (analyses, videoId) => {
-    // Group analyses by model first, then by analysis type
-    const groupedByModel = analyses.reduce((groups, analysis) => {
-        const model = analysis.model;
-        if (!groups[model]) {
-            groups[model] = {};
-        }
-
-        const analysisType = analysis.analysisType || analysis.type;
-        if (!groups[model][analysisType]) {
-            groups[model][analysisType] = [];
-        }
-
-        groups[model][analysisType].push(analysis);
-        return groups;
-    }, {});
-
-    return Object.entries(groupedByModel).map(([model, typeGroups]) => {
-        const modelInfo = MODEL_INFO[model];
-
-        // Get total analysis count and latest date for model header
-        const allAnalyses = Object.values(typeGroups).flat();
-        const latestAnalysis = allAnalyses.sort(
-            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        )[0];
-
-        return (
-            <div key={model} className="space-y-4">
-                {/* Model Header */}
-                <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-                        <Cpu className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                        <h3 className="text-lg font-semibold">
-                            {modelInfo?.label || model}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {allAnalyses.length} analysis
-                            {allAnalyses.length !== 1 ? "es" : ""} available
-                        </p>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                        Latest:{" "}
-                        {new Date(
-                            latestAnalysis?.createdAt
-                        ).toLocaleDateString()}
-                    </div>
-                </div>
-
-                {/* Analysis Type Groups - Show only latest version */}
-                <div className="space-y-6">
-                    {Object.entries(typeGroups).map(
-                        ([analysisType, typeAnalyses]) => {
-                            // Sort analyses by createdAt (most recent first) and take only the latest
-                            const latestAnalysis = typeAnalyses.sort(
-                                (a, b) =>
-                                    new Date(b.createdAt) -
-                                    new Date(a.createdAt)
-                            )[0];
-
-                            const typeInfo = ANALYSIS_TYPE_INFO[analysisType];
-
-                            return (
-                                <div
-                                    key={`${model}-${analysisType}`}
-                                    className="space-y-2"
-                                >
-                                    {/* Analysis Type Header */}
-                                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                        <span className="text-lg">
-                                            {typeInfo?.icon}
-                                        </span>
-                                        <span className="font-medium">
-                                            {typeInfo?.label || analysisType}
-                                        </span>
-                                        <span className="text-sm text-gray-500">
-                                            (Latest of {typeAnalyses.length}{" "}
-                                            version
-                                            {typeAnalyses.length !== 1
-                                                ? "s"
-                                                : ""}
-                                            )
-                                        </span>
-                                    </div>
-
-                                    {/* Latest Analysis Card */}
-                                    <div className="ml-4">
-                                        <AnalysisCard
-                                            key={`${latestAnalysis.id}-${latestAnalysis.createdAt}`}
-                                            analysis={latestAnalysis}
-                                            videoId={videoId}
-                                            isLatest={true}
-                                            versionNumber={1}
-                                            totalVersions={typeAnalyses.length}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        }
-                    )}
-                </div>
-            </div>
-        );
-    });
-};
-
-// Enhanced Analysis Card with detailed view link
-const AnalysisCard = ({
-    analysis,
-    videoId,
-    isLatest = false,
-    versionNumber = 1,
-}) => {
+// A detailed card for displaying a single model's complete analysis
+const AnalysisResultCard = ({ analysis, videoId }) => {
     const isReal = analysis.prediction === "REAL";
     const confidence = analysis.confidence * 100;
-    const typeInfo = ANALYSIS_TYPE_INFO[analysis.analysisType || analysis.type];
-
-    const detailsLink = `/results/${videoId}/${
-        analysis.analysisType || analysis.type
-    }-${analysis.model}`;
+    const modelInfo = MODEL_INFO[analysis.model];
+    const detailsLink = `/results/${videoId}/${analysis.id}`;
 
     return (
         <Card
-            className={`border-2 relative ${
+            className={`border-2 ${
                 isReal ? "border-green-500/30" : "border-red-500/30"
-            } ${isLatest ? "ring-2 ring-blue-500/50" : ""}`}
+            } overflow-hidden`}
         >
-            {/* Version Badge */}
-            {versionNumber > 1 && (
-                <div className="absolute top-2 right-2 bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
-                    v{versionNumber}
-                </div>
-            )}
-            {isLatest && (
-                <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                    Latest
-                </div>
-            )}
-
-            {/* Compact Header */}
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
-                        <span className="text-lg">{typeInfo?.icon}</span>
+            <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-light-muted-background dark:bg-dark-muted-background rounded-lg">
+                            <Brain className="w-6 h-6 text-primary-main" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold">
+                                {modelInfo?.label || analysis.model}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                                {modelInfo?.description}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h4 className="text-lg font-semibold">
-                            {typeInfo?.label ||
-                                analysis.analysisType ||
-                                analysis.type}
-                        </h4>
-                        <p className="text-xs text-gray-500">
-                            {formatDate(analysis.createdAt)}
-                        </p>
-                    </div>
-                </div>
-                <div
-                    className={`p-2 rounded-lg ${
-                        isReal
-                            ? "bg-green-100 dark:bg-green-900"
-                            : "bg-red-100 dark:bg-red-900"
-                    }`}
-                >
-                    {isReal ? (
-                        <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    ) : (
-                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
-                    )}
-                </div>
-            </div>
-
-            {/* Results Summary */}
-            <div className="space-y-2 mb-4">
-                <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Prediction:</span>
-                    <span
-                        className={`text-sm font-bold ${
-                            isReal ? "text-green-600" : "text-red-600"
+                    <div
+                        className={`p-2 rounded-lg ${
+                            isReal
+                                ? "bg-green-100 dark:bg-green-900/30"
+                                : "bg-red-100 dark:bg-red-900/30"
                         }`}
                     >
-                        {analysis.prediction}
-                    </span>
+                        {isReal ? (
+                            <ShieldCheck className="h-7 w-7 text-green-600" />
+                        ) : (
+                            <ShieldAlert className="h-7 w-7 text-red-600" />
+                        )}
+                    </div>
                 </div>
-                <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Confidence:</span>
-                    <span className="text-sm font-mono">
-                        {confidence.toFixed(1)}%
-                    </span>
+
+                <div className="grid grid-cols-2 gap-4 text-center my-6">
+                    <div>
+                        <p className="text-4xl font-bold">
+                            {confidence.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-gray-500">Confidence</p>
+                    </div>
+                    <div>
+                        <p
+                            className={`text-4xl font-bold ${
+                                isReal ? "text-green-600" : "text-red-600"
+                            }`}
+                        >
+                            {analysis.prediction}
+                        </p>
+                        <p className="text-xs text-gray-500">Prediction</p>
+                    </div>
                 </div>
-                {analysis.processingTime && (
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">
+
+                <div className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                    <div className="flex justify-between">
+                        <span>
+                            <Clock className="inline w-4 h-4 mr-2 opacity-70" />
                             Processing Time:
-                        </span>
-                        <span className="text-sm font-mono">
+                        </span>{" "}
+                        <span className="font-mono">
                             {formatProcessingTime(analysis.processingTime)}
                         </span>
                     </div>
-                )}
-                <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Status:</span>
-                    <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold border ${getAnalysisStatusColor(
-                            analysis.status
-                        )}`}
-                    >
-                        {analysis.status}
-                    </span>
-                </div>
-            </div>
-
-            {/* Action Button */}
-            <Link to={detailsLink}>
-                <Button variant="outline" size="sm" className="w-full">
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                </Button>
-            </Link>
-
-            {analysis.errorMessage && (
-                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-red-600" />
-                        <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                            Error:
+                    <div className="flex justify-between">
+                        <span>
+                            <Activity className="inline w-4 h-4 mr-2 opacity-70" />
+                            Analysis Type:
+                        </span>{" "}
+                        <span className="font-mono">
+                            {analysis.analysisType}
                         </span>
                     </div>
-                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                </div>
+
+                <Link to={detailsLink} className="mt-6 block">
+                    <Button variant="outline" className="w-full">
+                        View Full Forensic Report
+                    </Button>
+                </Link>
+            </div>
+            {analysis.status === "FAILED" && (
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 border-t border-red-200 dark:border-red-700">
+                    <div className="flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="h-5 w-5" />
+                        <h4 className="font-bold">Analysis Failed</h4>
+                    </div>
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">
                         {analysis.errorMessage}
                     </p>
                 </div>
@@ -498,437 +145,242 @@ const AnalysisCard = ({
     );
 };
 
-const VideoDetailsCard = ({
-    video,
-    onDownloadVideo,
-    onDownloadPDF,
-    isDownloadingVideo,
-    isDownloadingPDF,
-}) => (
-    <Card>
-        {/* Video Player */}
-        <div className="rounded-lg overflow-hidden bg-black mb-6">
-            {video.visualizedUrl ? (
-                <VisualAnalysisCard video={video} />
-            ) : (
-                <VideoPlayer videoUrl={video.url} />
-            )}
-        </div>
-
-        {/* Download Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-            <Button
-                onClick={() => onDownloadVideo(video.url, video.filename)}
-                className="w-full"
-                variant="outline"
-                disabled={isDownloadingVideo}
-            >
-                {isDownloadingVideo ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                )}
-                {isDownloadingVideo ? "Downloading..." : "Download Video"}
-            </Button>
-            <Button
-                onClick={() => onDownloadPDF(video)}
-                className="w-full px-2"
-                disabled={isDownloadingPDF}
-                variant="outline"
-            >
-                {isDownloadingPDF ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <FileDown className="mr-2 h-4 w-4" />
-                )}
-                {isDownloadingPDF ? "Generating PDF..." : "PDF Report"}
-            </Button>
-        </div>
-
-        {/* Video Information */}
-        <div className="space-y-4">
-            <h3 className="text-lg font-bold flex items-center gap-2">
-                <VideoIcon className="h-5 w-5" />
-                Video Information
-            </h3>
-
-            <div className="grid grid-cols-1 gap-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Filename:</span>
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-mono break-all">
-                        {video.filename}
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <HardDrive className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">File Size:</span>
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {formatBytes(video.size)}
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <VideoIcon className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Format:</span>
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 uppercase">
-                        {video.mimetype?.split("/")[1] || "Unknown"}
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Uploaded:</span>
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {formatDate(video.createdAt)}
-                    </span>
-                </div>
-
-                {video.updatedAt !== video.createdAt && (
-                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <div className="flex items-center gap-2">
-                            <Edit className="h-4 w-4 text-gray-500" />
-                            <span className="text-sm font-medium">
-                                Last Modified:
-                            </span>
-                        </div>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {formatDate(video.updatedAt)}
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {/* Description */}
-            {video.description && (
-                <div className="mt-4">
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Description
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                        {video.description}
-                    </p>
-                </div>
-            )}
-        </div>
-    </Card>
-);
-
-// Enhanced Analysis Summary with model breakdown
-const AnalysisSummary = ({ analyses }) => {
-    if (!analyses || analyses.length === 0) return null;
-
-    const completedAnalyses = analyses.filter((a) => a.status === "COMPLETED");
-    const realCount = completedAnalyses.filter(
-        (a) => a.prediction === "REAL"
-    ).length;
-    const fakeCount = completedAnalyses.filter(
-        (a) => a.prediction === "FAKE"
-    ).length;
-    const avgConfidence =
-        completedAnalyses.length > 0
-            ? (completedAnalyses.reduce((sum, a) => sum + a.confidence, 0) /
-                  completedAnalyses.length) *
-              100
-            : 0;
-
-    // Group by model
-    const modelGroups = completedAnalyses.reduce((acc, analysis) => {
-        const model = analysis.model;
-        if (!acc[model]) acc[model] = [];
-        acc[model].push(analysis);
-        return acc;
-    }, {});
-
-    return (
-        <Card className="mb-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Analysis Summary
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-2xl font-bold text-blue-600">
-                        {completedAnalyses.length}
-                    </p>
-                    <p className="text-sm text-blue-600/80">Completed</p>
-                </div>
-
-                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p className="text-2xl font-bold text-green-600">
-                        {realCount}
-                    </p>
-                    <p className="text-sm text-green-600/80">Real Detections</p>
-                </div>
-
-                <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <p className="text-2xl font-bold text-red-600">
-                        {fakeCount}
-                    </p>
-                    <p className="text-sm text-red-600/80">Fake Detections</p>
-                </div>
-
-                <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <p className="text-2xl font-bold text-purple-600">
-                        {Object.keys(modelGroups).length}
-                    </p>
-                    <p className="text-sm text-purple-600/80">Models Used</p>
-                </div>
-            </div>
-
-            {completedAnalyses.length > 0 && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                            Average Confidence:
-                        </span>
-                        <span className="text-lg font-bold">
-                            {avgConfidence.toFixed(1)}%
-                        </span>
-                    </div>
-                </div>
-            )}
-        </Card>
-    );
-};
-
-// Main Results Component
-export const Results = () => {
+const Results = () => {
     const { videoId } = useParams();
+    const navigate = useNavigate();
+    const { user } = useContext(AuthContext);
 
-    // TanStack Query hooks
     const {
         data: video,
         isLoading,
         error,
-        refetch: fetchVideo,
-    } = useVideoQuery(videoId);
+        refetch,
+    } = useVideoQuery(videoId, {
+        refetchInterval: (query) =>
+            ["QUEUED", "PROCESSING"].includes(query.state.data?.status)
+                ? 3000
+                : false,
+    });
+
     const updateMutation = useUpdateVideoMutation();
     const deleteMutation = useDeleteVideoMutation();
-
-    // Enhanced analysis hooks
-    const { isCreatingVisualization, refetchAnalysis } =
-        useVideoAnalysis(videoId);
-
-    const { user } = useContext(AuthContext);
-
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [isModelSelectionOpen, setIsModelSelectionOpen] = useState(false);
-    const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
+    const [modal, setModal] = useState({ type: null, data: null });
     const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
 
-    const { mutate: generateVisuals, isPending: isVisualizing } =
-        useVisualAnalysisMutation();
-
-    const handleVisualizeClick = () => {
-        if (video?.id) {
-            generateVisuals(video.id);
-        }
-    };
-
-    const handleNewAnalysisClick = () => {
-        setIsModelSelectionOpen(true);
-    };
-
-    const handleAnalysisStart = () => {
-        // Refresh analysis data when new analysis starts
-        refetchAnalysis();
-        fetchVideo();
-    };
-
-    const handleDownloadVideo = async (videoUrl, filename) => {
-        setIsDownloadingVideo(true);
-        try {
-            await DownloadService.downloadVideo(videoUrl, filename);
-        } catch (error) {
-            alert(error.message || "Failed to download video");
-        } finally {
-            setIsDownloadingVideo(false);
-        }
-    };
-
-    const handleDownloadPDF = async (video) => {
+    const handleDownloadPDF = async () => {
+        if (!video) return;
         setIsDownloadingPDF(true);
         try {
             await DownloadService.generateAndDownloadPDF(video, user);
-        } catch (error) {
-            alert(error.message || "Failed to generate PDF report");
+        } catch (err) {
+            showToast.error(err.message || "Failed to generate PDF report.");
         } finally {
             setIsDownloadingPDF(false);
         }
     };
 
-    // Check for any loading state
-    const isAnyLoading =
-        isLoading || updateMutation.isPending || deleteMutation.isPending;
+    if (isLoading) return <PageLoader text="Loading Analysis Report..." />;
 
-    if (isAnyLoading && !video) {
-        return <PageLoader text="Loading video analysis..." />;
-    }
-
-    if (error) {
+    if (error)
         return (
-            <div className="text-center p-8 max-w-md mx-auto">
+            <div className="text-center p-8">
                 <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Error Loading Video</h2>
-                <p className="text-light-muted-text dark:text-dark-muted-text mb-6">
-                    {error}
-                </p>
+                <p className="mb-6">{error.message}</p>
                 <Link to="/dashboard">
                     <Button>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Dashboard
                     </Button>
                 </Link>
             </div>
         );
+
+    if (!video) return <div>Video not found.</div>;
+
+    const completedAnalyses =
+        video.analyses?.filter((a) => a.status === "COMPLETED") || [];
+    const failedAnalyses =
+        video.analyses?.filter((a) => a.status === "FAILED") || [];
+
+    if (["QUEUED", "PROCESSING"].includes(video.status)) {
+        return <AnalysisInProgress video={video} />;
     }
 
-    if (!video) return null;
-
     return (
-        <div className="space-y-6 mx-auto">
-            {/* Header */}
-            <ResultsHeader
-                video={video}
-                onRefresh={() => {
-                    fetchVideo();
-                    refetchAnalysis();
-                    showToast.success("Data refreshed!");
-                }}
-                onEditClick={() => setIsEditModalOpen(true)}
-                onDeleteClick={() => setIsDeleteModalOpen(true)}
-                onVisualizeClick={handleVisualizeClick}
-                onNewAnalysisClick={handleNewAnalysisClick}
-                isVisualizing={isVisualizing || isCreatingVisualization}
-            />
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column: Video Details & Actions */}
+                <div className="lg:col-span-1 space-y-6">
+                    <Card>
+                        <div className="p-4 border-b dark:border-gray-700">
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <VideoIcon className="w-5 h-5 text-primary-main" />
+                                Video Details
+                            </h3>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <VideoPlayer videoUrl={video.url} />
+                            <div>
+                                <h4 className="font-bold text-lg">
+                                    {video.filename}
+                                </h4>
+                                {video.description && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {video.description}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="text-xs space-y-2 text-gray-600 dark:text-gray-400">
+                                <div className="flex justify-between">
+                                    <span>
+                                        <FileText className="inline w-4 h-4 mr-1" />
+                                        MIME Type:
+                                    </span>{" "}
+                                    <span className="font-mono">
+                                        {video.mimetype}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>
+                                        <HardDrive className="inline w-4 h-4 mr-1" />
+                                        File Size:
+                                    </span>{" "}
+                                    <span className="font-mono">
+                                        {formatBytes(video.size)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
 
-            {/* Analysis Summary */}
-            <AnalysisSummary analyses={video.analyses} />
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="xl:col-span-1">
-                    <VideoDetailsCard
-                        video={video}
-                        onDownloadVideo={handleDownloadVideo}
-                        onDownloadPDF={handleDownloadPDF}
-                        isDownloadingVideo={isDownloadingVideo}
-                        isDownloadingPDF={isDownloadingPDF}
-                    />
+                    <Card>
+                        <div className="p-4 border-b dark:border-gray-700">
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-primary-main" />
+                                Actions
+                            </h3>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <Button
+                                onClick={handleDownloadPDF}
+                                variant="outline"
+                                className="w-full"
+                                disabled={isDownloadingPDF}
+                            >
+                                {isDownloadingPDF ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                )}
+                                {isDownloadingPDF
+                                    ? "Generating..."
+                                    : "Download PDF Report"}
+                            </Button>
+                            <Button
+                                onClick={() =>
+                                    setModal({
+                                        type: "new_analysis",
+                                        data: video,
+                                    })
+                                }
+                                className="w-full"
+                                variant="outline"
+                            >
+                                <Brain className="mr-2 h-4 w-4" />
+                                Run New Analysis
+                            </Button>
+                            <Button
+                                onClick={() =>
+                                    setModal({ type: "edit", data: video })
+                                }
+                                className="w-full"
+                                variant="outline"
+                            >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Details
+                            </Button>
+                            <Button
+                                onClick={() =>
+                                    setModal({ type: "delete", data: video })
+                                }
+                                className="w-full"
+                                variant="destructive"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Video
+                            </Button>
+                        </div>
+                    </Card>
                 </div>
 
-                <div className="xl:col-span-2 space-y-6">
-                    {video.analyses?.length > 0 ? (
-                        <>
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold flex items-center gap-2">
-                                    <Activity className="h-5 w-5" />
-                                    Analysis Results
-                                </h2>
-                                <Button
-                                    onClick={handleNewAnalysisClick}
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    <Brain className="mr-2 h-4 w-4" />
-                                    Add Analysis
-                                </Button>
-                            </div>
-                            {renderGroupedAnalyses(video.analyses, videoId)}
-                        </>
-                    ) : (
-                        <Card className="text-center p-12">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full">
-                                    <Activity className="h-8 w-8 text-gray-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold mb-2">
-                                        No Analyses Available
-                                    </h2>
-                                    <p className="text-light-muted-text dark:text-dark-muted-text mb-4">
-                                        This video is still being processed or
-                                        analysis has not started yet.
-                                    </p>
-                                    <div className="flex gap-2 justify-center">
-                                        <Button
-                                            onClick={handleNewAnalysisClick}
-                                            className="py-3 px-4"
-                                        >
-                                            <Brain className="mr-2 h-5 w-5" />
-                                            Start Analysis
-                                        </Button>
-                                        <Button
-                                            onClick={() => {
-                                                fetchVideo();
-                                                refetchAnalysis();
-                                                showToast.success(
-                                                    "Data refreshed!"
-                                                );
-                                            }}
-                                            variant="outline"
-                                            className="py-3 px-4"
-                                        >
-                                            <RefreshCw className="mr-2 h-5 w-5" />{" "}
-                                            Refresh
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
+                {/* Right Column: Analysis Results */}
+                <div className="lg:col-span-2 space-y-6">
+                    {completedAnalyses.length === 0 &&
+                    failedAnalyses.length === 0 ? (
+                        <Card className="flex flex-col items-center justify-center text-center p-12">
+                            <Brain className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
+                            <h3 className="text-xl font-bold">
+                                No Analysis Results
+                            </h3>
+                            <p className="text-gray-500 mb-4">
+                                This video has not been analyzed yet.
+                            </p>
+                            <Button
+                                onClick={() =>
+                                    setModal({
+                                        type: "new_analysis",
+                                        data: video,
+                                    })
+                                }
+                            >
+                                Start First Analysis
+                            </Button>
                         </Card>
+                    ) : (
+                        [...completedAnalyses, ...failedAnalyses]
+                            .sort(
+                                (a, b) =>
+                                    new Date(b.createdAt) -
+                                    new Date(a.createdAt)
+                            )
+                            .map((analysis) => (
+                                <AnalysisResultCard
+                                    key={analysis.id}
+                                    analysis={analysis}
+                                    videoId={video.id}
+                                />
+                            ))
                     )}
                 </div>
             </div>
 
             {/* Modals */}
             <EditVideoModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                video={video}
-                onUpdate={async (videoId, data) => {
-                    try {
-                        await updateMutation.mutateAsync({
-                            videoId,
-                            updateData: data,
-                        });
-                        setIsEditModalOpen(false);
-                    } catch (error) {
-                        console.error("Update failed:", error);
-                        // Toast handled by the mutation
-                    }
-                }}
+                isOpen={modal.type === "edit"}
+                onClose={() => setModal({ type: null })}
+                video={modal.data}
+                onUpdate={(videoId, data) =>
+                    updateMutation.mutateAsync({ videoId, updateData: data })
+                }
             />
             <DeleteVideoModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                video={video}
-                onDelete={async (videoId) => {
-                    try {
-                        await deleteMutation.mutateAsync(videoId);
-                        // Navigation is handled by the mutation
-                    } catch (error) {
-                        console.error("Delete failed:", error);
-                        // Toast handled by the mutation
-                    }
-                }}
+                isOpen={modal.type === "delete"}
+                onClose={() => setModal({ type: null })}
+                video={modal.data}
+                onDelete={(videoId) =>
+                    deleteMutation
+                        .mutateAsync(videoId)
+                        .then(() => navigate("/dashboard"))
+                }
             />
             <ModelSelectionModal
-                isOpen={isModelSelectionOpen}
-                onClose={() => setIsModelSelectionOpen(false)}
-                videoId={videoId}
-                onAnalysisStart={handleAnalysisStart}
+                isOpen={modal.type === "new_analysis"}
+                onClose={() => setModal({ type: null })}
+                videoId={modal.data?.id}
+                onAnalysisStart={() => {
+                    refetch();
+                }}
             />
         </div>
     );

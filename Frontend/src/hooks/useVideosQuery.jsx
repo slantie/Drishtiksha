@@ -1,11 +1,14 @@
-// src/hooks/useVideosQuery.js
+// src/hooks/useVideosQuery.jsx
 
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { videoApi } from "../services/api/video.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.js";
+import { toastManager } from "../lib/toastManager.js";
+import { ToastProgress } from "../components/ui/ToastProgress.jsx";
 
 /**
  * Hook to fetch the list of all videos for the user.
@@ -21,12 +24,13 @@ export const useVideosQuery = () => {
 /**
  * Hook to fetch a single video by its ID, including all its analyses.
  */
-export const useVideoQuery = (videoId) => {
+export const useVideoQuery = (videoId, options = {}) => {
     return useQuery({
         queryKey: queryKeys.videos.detail(videoId),
         queryFn: () => videoApi.getById(videoId),
         enabled: !!videoId,
         select: (response) => response.data,
+        ...options,
     });
 };
 
@@ -37,10 +41,15 @@ export const useUploadVideoMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: videoApi.upload,
-        onSuccess: () => {
-            showToast.success("Video uploaded successfully!");
-            showToast.info("Analysis has been queued and will start shortly.");
-            // Invalidate the video list to show the new video with its "QUEUED" status.
+        onSuccess: (response) => {
+            const newVideo = response.data;
+            showToast.success("Upload complete! Analysis has been queued.");
+
+            // The first socket event will now create the toast, but we can log here for debugging.
+            console.log(
+                `[Upload] Video ${newVideo.id} uploaded. Awaiting 'PROCESSING_STARTED' socket event to create progress toast.`
+            );
+
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.lists(),
             });
@@ -63,7 +72,6 @@ export const useUpdateVideoMutation = () => {
             videoApi.update(videoId, updateData),
         onSuccess: (_, { videoId }) => {
             showToast.success("Video details updated.");
-            // Invalidate both the list and the specific video detail to reflect changes.
             queryClient.invalidateQueries({
                 queryKey: queryKeys.videos.lists(),
             });
@@ -87,7 +95,6 @@ export const useDeleteVideoMutation = () => {
         mutationFn: videoApi.delete,
         onSuccess: (_, videoId) => {
             showToast.success("Video deleted successfully.");
-            // Remove the video from all queries to prevent stale data.
             queryClient.removeQueries({
                 queryKey: queryKeys.videos.detail(videoId),
             });
@@ -103,12 +110,30 @@ export const useDeleteVideoMutation = () => {
 };
 
 /**
+ * Hook for triggering a manual analysis run.
+ */
+export const useCreateAnalysisMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ videoId, analysisConfig }) =>
+            videoApi.createAnalysis(videoId, analysisConfig),
+        onSuccess: (data, { videoId }) => {
+            showToast.success("New analysis has been queued!");
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.videos.detail(videoId),
+            });
+        },
+        onError: (error) => {
+            showToast.error(error.message || "Failed to start new analysis.");
+        },
+    });
+};
+
+/**
  * Hook that efficiently computes video statistics from cached data.
- * This hook does not make any network requests itself.
  */
 export const useVideoStats = () => {
     const { data: videos = [], isLoading, error } = useVideosQuery();
-
     const stats = useMemo(() => {
         if (!Array.isArray(videos)) {
             return {

@@ -1,71 +1,1125 @@
 // src/pages/DetailedAnalysis.jsx
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
     Brain,
-    Clock,
-    Activity,
-    BarChart3,
-    Eye,
     CheckCircle,
-    AlertCircle,
-    Loader2,
+    AlertTriangle,
     RefreshCw,
     TrendingUp,
     Cpu,
     Monitor,
     Database,
     LineChart,
+    FileText,
+    Loader2,
+    AlertCircle,
 } from "lucide-react";
-import { useVideoQuery } from "../hooks/useVideosQuery.js";
-import { useSpecificAnalysisQuery } from "../hooks/useAnalysisQuery.js";
+import { useVideoQuery } from "../hooks/useVideosQuery.jsx";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
 import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
 import { ANALYSIS_TYPE_INFO, MODEL_INFO } from "../constants/apiEndpoints.js";
+import { showToast } from "../utils/toast.js";
+import { useVideoMetadata } from "../hooks/useVideoMetadata.js";
+import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
 
-// Helper functions
-const formatDate = (dateString) =>
-    new Date(dateString).toLocaleString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+// FrameAnalysisCards Options
+
+import {
+    ScatterChart,
+    Scatter,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    ZAxis,
+    ReferenceLine,
+    Cell,
+    ComposedChart,
+    Area,
+    AreaChart,
+    Line,
+    BarChart,
+    Bar,
+} from "recharts";
+import { LineChart as LineChartIcon } from "lucide-react";
+
+const FrameAnalysisCard1 = ({ frames }) => {
+    if (!frames || frames.length === 0) return null;
+
+    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames = frames.length - realFrames;
+    const avgConfidence =
+        (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
+        100;
+
+    const chartData = frames.map((frame) => ({
+        frame: frame.frameNumber,
+        confidence: frame.confidence * 100,
+        prediction: frame.prediction,
+    }));
+
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="p-2 bg-gray-800 text-white rounded-md shadow-lg border border-gray-700">
+                    <p className="font-bold">{`Frame: ${label}`}</p>
+                    <p
+                        style={{
+                            color:
+                                payload[0].payload.prediction === "FAKE"
+                                    ? "#ef4444"
+                                    : "#22c55e",
+                        }}
+                    >
+                        {`Confidence: ${payload[0].value.toFixed(1)}% (${
+                            payload[0].payload.prediction
+                        })`}
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame-by-Frame Confidence
+                </h3>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-muted-background rounded-lg mb-6">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                            {realFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Authentic Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">
+                            {fakeFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Deepfake Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold">
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Avg. Confidence
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ width: "100%", height: 250 }}>
+                    <ResponsiveContainer>
+                        <AreaChart
+                            data={chartData}
+                            margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                        >
+                            <defs>
+                                <linearGradient
+                                    id="colorConfidence"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="5%"
+                                        stopColor="var(--color-primary)"
+                                        stopOpacity={0.8}
+                                    />
+                                    <stop
+                                        offset="95%"
+                                        stopColor="var(--color-primary)"
+                                        stopOpacity={0}
+                                    />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-20"
+                            />
+                            <XAxis
+                                dataKey="frame"
+                                tick={{ fill: "currentColor", fontSize: 12 }}
+                            />
+                            <YAxis
+                                domain={[0, 100]}
+                                tick={{ fill: "currentColor", fontSize: 12 }}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Area
+                                type="monotone"
+                                dataKey="confidence"
+                                stroke="var(--color-primary)"
+                                fillOpacity={1}
+                                fill="url(#colorConfidence)"
+                                strokeWidth={2}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+                <style jsx global>{`
+                    :root {
+                        --color-primary: #f56565;
+                    }
+                    .dark {
+                        --color-primary: #f56565;
+                    }
+                `}</style>
+            </div>
+        </Card>
+    );
+};
+
+const FrameAnalysisCard2 = ({ frames }) => {
+    const [tooltip, setTooltip] = useState(null);
+
+    if (!frames || frames.length === 0) return null;
+
+    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames = frames.length - realFrames;
+    const avgConfidence =
+        (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
+        100;
+
+    const svgWidth = 500;
+    const svgHeight = 150;
+    const points = frames.map((frame, i) => {
+        const x = (i / (frames.length - 1)) * svgWidth;
+        const y = svgHeight - frame.confidence * svgHeight;
+        return { x, y, frame };
     });
 
-const formatProcessingTime = (timeInSeconds) => {
-    if (!timeInSeconds) return "N/A";
-    if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = (timeInSeconds % 60).toFixed(1);
-    return `${minutes}m ${seconds}s`;
+    const pathD = points.reduce((acc, point, i, arr) => {
+        if (i === 0) return `M ${point.x},${point.y}`;
+        const prevPoint = arr[i - 1];
+        const cp1 = { x: (prevPoint.x + point.x) / 2, y: prevPoint.y };
+        const cp2 = { x: (prevPoint.x + point.x) / 2, y: point.y };
+        return `${acc} C ${cp1.x},${cp1.y} ${cp2.x},${cp2.y} ${point.x},${point.y}`;
+    }, "");
+
+    const areaPathD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
+
+    const handleMouseMove = (e) => {
+        const svg = e.currentTarget;
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX;
+        const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+        const index = Math.round((svgP.x / svgWidth) * (points.length - 1));
+        if (points[index]) {
+            setTooltip(points[index]);
+        }
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame-by-Frame Confidence
+                </h3>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-muted-background rounded-lg mb-6">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                            {realFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Authentic Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">
+                            {fakeFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Deepfake Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold">
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Avg. Confidence
+                        </div>
+                    </div>
+                </div>
+
+                <div className="relative">
+                    <svg
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                        className="w-full h-48"
+                        onMouseMove={handleMouseMove}
+                        onMouseLeave={() => setTooltip(null)}
+                    >
+                        <defs>
+                            <linearGradient
+                                id="svgAreaGradient"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stopColor="#f56565"
+                                    stopOpacity="0.4"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stopColor="#f56565"
+                                    stopOpacity="0"
+                                />
+                            </linearGradient>
+                        </defs>
+                        <path d={areaPathD} fill="url(#svgAreaGradient)" />
+                        <path
+                            d={pathD}
+                            fill="none"
+                            stroke="#f56565"
+                            strokeWidth="2"
+                        />
+                        <line
+                            x1="0"
+                            y1={svgHeight / 2}
+                            x2={svgWidth}
+                            y2={svgHeight / 2}
+                            stroke="currentColor"
+                            strokeDasharray="3 3"
+                            className="text-gray-400 opacity-50"
+                        />
+                        {tooltip && (
+                            <circle
+                                cx={tooltip.x}
+                                cy={tooltip.y}
+                                r="4"
+                                fill="#f56565"
+                                className="pointer-events-none"
+                            />
+                        )}
+                    </svg>
+                    {tooltip && (
+                        <div
+                            className="absolute p-2 text-xs bg-gray-800 text-white rounded-md pointer-events-none"
+                            style={{
+                                top: tooltip.y - 60,
+                                left: tooltip.x,
+                                transform: "translateX(-50%)",
+                            }}
+                        >
+                            Frame {tooltip.frame.frameNumber}
+                            <br />
+                            Confidence:{" "}
+                            {(tooltip.frame.confidence * 100).toFixed(1)}%
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Card>
+    );
 };
 
-const getConfidenceColor = (confidence) => {
-    const percentage = confidence * 100;
-    if (percentage >= 80) return "text-green-600";
-    if (percentage >= 60) return "text-yellow-600";
-    return "text-red-600";
+const FrameAnalysisCard3 = ({ frames }) => {
+    if (!frames || frames.length === 0) return null;
+
+    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames = frames.length - realFrames;
+    const avgConfidence =
+        (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
+        100;
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame Analysis Heatmap
+                </h3>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-muted-background rounded-lg mb-6">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                            {realFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Authentic Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">
+                            {fakeFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Deepfake Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold">
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Avg. Confidence
+                        </div>
+                    </div>
+                </div>
+
+                <div className="w-full h-16 flex rounded-lg overflow-hidden border dark:border-gray-700">
+                    {frames.map((frame) => (
+                        <div
+                            key={frame.frameNumber}
+                            className="flex-1 group relative"
+                            style={{
+                                backgroundColor:
+                                    frame.prediction === "REAL"
+                                        ? "#22c55e"
+                                        : "#ef4444",
+                                opacity: 0.2 + frame.confidence * 0.8,
+                            }}
+                        >
+                            <div className="absolute bottom-full mb-2 w-max p-2 text-xs bg-gray-800 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none -translate-x-1/2 left-1/2">
+                                Frame {frame.frameNumber}:{" "}
+                                {(frame.confidence * 100).toFixed(1)}% (
+                                {frame.prediction})
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 mt-2 px-1">
+                    <span>Start of Video</span>
+                    <span>End of Video</span>
+                </div>
+            </div>
+        </Card>
+    );
 };
 
-// Main Result Display Component
+const FrameAnalysisCard4 = ({ frames }) => {
+    if (!frames || frames.length === 0) return null;
+
+    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames = frames.length - realFrames;
+    const avgConfidence =
+        (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
+        100;
+
+    const chartData = frames.map((frame) => ({
+        x: frame.frameNumber,
+        y: frame.confidence * 100,
+        prediction: frame.prediction,
+    }));
+
+    const CustomTooltip = ({ active, payload }) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className="p-2 bg-gray-800 text-white rounded-md shadow-lg border border-gray-700">
+                    <p className="font-bold">{`Frame: ${data.x}`}</p>
+                    <p
+                        style={{
+                            color:
+                                data.prediction === "FAKE"
+                                    ? "#ef4444"
+                                    : "#22c55e",
+                        }}
+                    >
+                        {`Confidence: ${data.y.toFixed(1)}% (${
+                            data.prediction
+                        })`}
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame Confidence Plot
+                </h3>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-muted-background rounded-lg mb-6">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                            {realFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Authentic Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">
+                            {fakeFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Deepfake Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold">
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Avg. Confidence
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ width: "100%", height: 250 }}>
+                    <ResponsiveContainer>
+                        <ScatterChart
+                            margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-20"
+                            />
+                            <XAxis
+                                type="number"
+                                dataKey="x"
+                                name="Frame"
+                                tick={{ fill: "currentColor", fontSize: 12 }}
+                            />
+                            <YAxis
+                                type="number"
+                                dataKey="y"
+                                name="Confidence"
+                                unit="%"
+                                domain={[0, 100]}
+                                tick={{ fill: "currentColor", fontSize: 12 }}
+                            />
+                            <ZAxis dataKey="prediction" name="prediction" />
+                            <Tooltip
+                                cursor={{ strokeDasharray: "3 3" }}
+                                content={<CustomTooltip />}
+                            />
+                            <ReferenceLine
+                                y={50}
+                                label={{
+                                    value: "50% Threshold",
+                                    position: "insideTopLeft",
+                                    fill: "currentColor",
+                                    fontSize: 10,
+                                    dy: -5,
+                                }}
+                                stroke="currentColor"
+                                strokeDasharray="4 4"
+                                className="opacity-50"
+                            />
+                            <Scatter
+                                name="Frames"
+                                data={chartData}
+                                fill="#8884d8"
+                            >
+                                {chartData.map((entry, index) => (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={
+                                            entry.prediction === "FAKE"
+                                                ? "#ef4444"
+                                                : "#22c55e"
+                                        }
+                                    />
+                                ))}
+                            </Scatter>
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+const FrameAnalysisCard5 = ({ frames }) => {
+    if (!frames || frames.length === 0) return null;
+
+    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames = frames.length - realFrames;
+    const avgConfidence =
+        (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
+        100;
+
+    const chartData = frames.map((frame) => ({
+        frame: frame.frameNumber,
+        confidence: frame.confidence * 100,
+        prediction: frame.prediction,
+    }));
+
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="p-2 bg-gray-800 text-white rounded-md shadow-lg border border-gray-700">
+                    <p className="font-bold">{`Frame: ${label}`}</p>
+                    <p
+                        style={{
+                            color:
+                                payload[0].payload.prediction === "FAKE"
+                                    ? "#ef4444"
+                                    : "#22c55e",
+                        }}
+                    >
+                        {`Confidence: ${payload[0].value.toFixed(1)}% (${
+                            payload[0].payload.prediction
+                        })`}
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame Confidence Analysis
+                </h3>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-muted-background rounded-lg mb-6">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                            {realFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Authentic Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">
+                            {fakeFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Deepfake Frames
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold">
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Avg. Confidence
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ width: "100%", height: 250 }}>
+                    <ResponsiveContainer>
+                        <ComposedChart
+                            data={chartData}
+                            margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                        >
+                            <defs>
+                                <linearGradient
+                                    id="hybridGradient"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                >
+                                    <stop
+                                        offset="5%"
+                                        stopColor="#f56565"
+                                        stopOpacity={0.4}
+                                    />
+                                    <stop
+                                        offset="95%"
+                                        stopColor="#f56565"
+                                        stopOpacity={0.1}
+                                    />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-20"
+                            />
+                            <XAxis
+                                dataKey="frame"
+                                tick={{ fill: "currentColor", fontSize: 12 }}
+                            />
+                            <YAxis
+                                domain={[0, 100]}
+                                tick={{ fill: "currentColor", fontSize: 12 }}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <ReferenceLine
+                                y={50}
+                                stroke="currentColor"
+                                strokeDasharray="4 4"
+                                className="opacity-50"
+                            />
+                            <Area
+                                type="monotone"
+                                dataKey="confidence"
+                                fill="url(#hybridGradient)"
+                                stroke="none"
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="confidence"
+                                stroke="#f56565"
+                                strokeWidth={2}
+                                dot={false}
+                            />
+                            {chartData.map((entry, index) => (
+                                <Scatter
+                                    key={`scatter-${index}`}
+                                    dataKey="confidence"
+                                    data={[{ ...entry }]}
+                                    fill={
+                                        entry.prediction === "FAKE"
+                                            ? "#ef4444"
+                                            : "#22c55e"
+                                    }
+                                    shape={<circle r={2} />}
+                                />
+                            ))}
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+const FrameAnalysisCard6 = ({ frames, videoUrl }) => {
+    const fps = useVideoMetadata(videoUrl, frames.length);
+
+    if (!frames || frames.length === 0) return null;
+
+    // const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    // const fakeFrames = frames.length - realFrames;
+
+    // Calculate rolling average for the trend line
+    const rollingWindow = 10;
+    const chartData = frames.map((frame, index) => {
+        const windowSlice = frames.slice(
+            Math.max(0, index - rollingWindow + 1),
+            index + 1
+        );
+        const average =
+            windowSlice.reduce((sum, f) => sum + f.confidence * 100, 0) /
+            windowSlice.length;
+        return {
+            frame: frame.frameNumber,
+            confidence: frame.confidence * 100,
+            average: average,
+            prediction: frame.prediction,
+            time: (frame.frameNumber / fps).toFixed(2),
+        };
+    });
+
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className="p-2 bg-gray-800 text-white rounded-md shadow-lg border border-gray-700 text-xs">
+                    <p className="font-bold">
+                        Frame {label} (~{data.time}s)
+                    </p>
+                    <p>
+                        Raw Confidence: {data.confidence.toFixed(1)}% (
+                        {data.prediction})
+                    </p>
+                    <p>
+                        Trend:{" "}
+                        {payload
+                            .find((p) => p.dataKey === "average")
+                            ?.value.toFixed(1)}
+                        %
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame Confidence Trend
+                </h3>
+                <div style={{ width: "100%", height: 250 }}>
+                    <ResponsiveContainer>
+                        <ComposedChart
+                            data={chartData}
+                            margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-10"
+                            />
+                            <XAxis
+                                dataKey="frame"
+                                tick={{ fill: "currentColor", fontSize: 10 }}
+                            />
+                            <YAxis
+                                yAxisId="left"
+                                dataKey="confidence"
+                                domain={[0, 100]}
+                                tick={{ fill: "currentColor", fontSize: 10 }}
+                            />
+                            <YAxis
+                                yAxisId="right"
+                                dataKey="average"
+                                orientation="right"
+                                domain={[0, 100]}
+                                tick={{ fill: "currentColor", fontSize: 10 }}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <ReferenceLine
+                                y={50}
+                                stroke="currentColor"
+                                strokeDasharray="4 4"
+                                className="opacity-50"
+                            />
+                            <Area
+                                yAxisId="left"
+                                type="monotone"
+                                dataKey="confidence"
+                                fill="#8884d8"
+                                stroke="#8884d8"
+                                fillOpacity={0.1}
+                            />
+                            <Line
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="average"
+                                stroke="#f56565"
+                                strokeWidth={2}
+                                dot={false}
+                            />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+const FrameAnalysisCard7 = ({ frames }) => {
+    if (!frames || frames.length === 0) return null;
+
+    const bins = Array.from({ length: 10 }, (_, i) => i * 10); // 0, 10, 20...
+    const histogramData = bins.map((binStart) => {
+        const binEnd = binStart + 10;
+        const count = frames.filter(
+            (f) => f.confidence * 100 >= binStart && f.confidence * 100 < binEnd
+        ).length;
+        return {
+            name: `${binStart}-${binEnd}%`,
+            count: count,
+        };
+    });
+
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="p-2 bg-gray-800 text-white rounded-md shadow-lg border border-gray-700 text-xs">
+                    <p className="font-bold">{`${payload[0].value} frames`}</p>
+                    <p>{`Confidence: ${label}`}</p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame Confidence Distribution
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                    This chart shows how many frames fall into each confidence
+                    score bucket.
+                </p>
+                <div style={{ width: "100%", height: 250 }}>
+                    <ResponsiveContainer>
+                        <BarChart
+                            data={histogramData}
+                            margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-10"
+                            />
+                            <XAxis
+                                dataKey="name"
+                                tick={{ fill: "currentColor", fontSize: 10 }}
+                            />
+                            <YAxis
+                                tick={{ fill: "currentColor", fontSize: 10 }}
+                                label={{
+                                    value: "# of Frames",
+                                    angle: -90,
+                                    position: "insideLeft",
+                                    fill: "currentColor",
+                                    fontSize: 12,
+                                }}
+                            />
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{ fill: "rgba(128,128,128,0.1)" }}
+                            />
+                            <Bar dataKey="count">
+                                {histogramData.map((entry, index) => (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={index < 5 ? "#22c55e" : "#ef4444"}
+                                        opacity={0.3 + index * 0.06}
+                                    />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+const FrameAnalysisCard8 = ({ frames, videoUrl }) => {
+    const fps = useVideoMetadata(videoUrl, frames.length);
+    const [hoverData, setHoverData] = useState(null);
+
+    if (!frames || frames.length === 0) return null;
+    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames = frames.length - realFrames;
+    const avgConfidence =
+        (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
+        100;
+
+    const svgWidth = 500;
+    const svgHeight = 150;
+    const points = frames.map((f, i) => [
+        (i / (frames.length - 1)) * svgWidth,
+        svgHeight - f.confidence * svgHeight,
+    ]);
+    const pathD = "M" + points.map((p) => `${p[0]},${p[1]}`).join(" L");
+
+    const handleMouseMove = (e) => {
+        const svg = e.currentTarget;
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX;
+        const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+        const index = Math.round((svgP.x / svgWidth) * (frames.length - 1));
+        const frame = frames[index];
+        if (frame) {
+            setHoverData({
+                x: points[index][0],
+                y: points[index][1],
+                frameNum: frame.frameNumber,
+                confidence: frame.confidence * 100,
+                time: (frame.frameNumber / fps).toFixed(2),
+            });
+        }
+    };
+
+    return (
+        <Card>
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <LineChartIcon className="h-5 w-5 text-primary-main" />
+                    Frame Confidence Sparkline
+                </h3>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-muted-background rounded-lg mb-6">
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                            {realFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">Authentic</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">
+                            {fakeFrames}
+                        </div>
+                        <div className="text-xs text-gray-500">Deepfake</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold">
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Avg. Confidence
+                        </div>
+                    </div>
+                </div>
+                <div className="relative">
+                    <svg
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                        className="w-full h-48"
+                        onMouseMove={handleMouseMove}
+                        onMouseLeave={() => setHoverData(null)}
+                    >
+                        <path
+                            d={pathD}
+                            fill="none"
+                            stroke="url(#lineGradient)"
+                            strokeWidth="2"
+                        />
+                        <defs>
+                            <linearGradient
+                                id="lineGradient"
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="0%"
+                            >
+                                <stop offset="0%" stopColor="#22c55e" />
+                                <stop offset="100%" stopColor="#ef4444" />
+                            </linearGradient>
+                        </defs>
+                        {hoverData && (
+                            <>
+                                <line
+                                    x1={hoverData.x}
+                                    y1="0"
+                                    x2={hoverData.x}
+                                    y2={svgHeight}
+                                    stroke="currentColor"
+                                    strokeWidth="1"
+                                    strokeDasharray="3 3"
+                                    className="text-gray-500"
+                                />
+                                <circle
+                                    cx={hoverData.x}
+                                    cy={hoverData.y}
+                                    r="4"
+                                    fill="white"
+                                    stroke="#f56565"
+                                    strokeWidth="2"
+                                />
+                            </>
+                        )}
+                    </svg>
+                    <div className="absolute top-0 right-0 p-2 bg-black/50 text-white text-xs rounded-bl-lg font-mono">
+                        {hoverData
+                            ? `Frame ${hoverData.frameNum} @ ${
+                                  hoverData.time
+                              }s: ${hoverData.confidence.toFixed(1)}%`
+                            : `Hover for details`}
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+// Page-specific sub-components for cleanliness and new features
+const ReportHeader = ({
+    modelName,
+    analysisType,
+    onRefresh,
+    isRefetching,
+    videoId,
+}) => {
+    const [isManuallyRefetching, setIsManuallyRefetching] = useState(false);
+
+    const handleRefresh = async () => {
+        setIsManuallyRefetching(true);
+        try {
+            await onRefresh();
+            showToast.success("Report data has been updated.");
+        } catch (error) {
+            showToast.error("Failed to refresh data.");
+        } finally {
+            setIsManuallyRefetching(false);
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <Link
+                    to={`/results/${videoId}`}
+                    aria-label="Back to results page"
+                >
+                    <Button variant="outline" size="sm">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Results
+                    </Button>
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold">
+                        {modelName} Forensic Report
+                    </h1>
+                    <p className="text-gray-500">
+                        Analysis Type: {analysisType}
+                    </p>
+                </div>
+            </div>
+            <Button
+                onClick={handleRefresh}
+                variant="outline"
+                size="sm"
+                disabled={isRefetching || isManuallyRefetching}
+                aria-label="Refresh analysis data"
+            >
+                {isRefetching || isManuallyRefetching ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {isRefetching || isManuallyRefetching
+                    ? "Refreshing..."
+                    : "Refresh Data"}
+            </Button>
+        </div>
+    );
+};
+
+const DetailedAnalysisSkeleton = () => (
+    <div className="space-y-6">
+        <SkeletonCard className="h-20" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+                <SkeletonCard className="h-[400px]" />
+                <SkeletonCard className="h-[250px]" />
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+                <SkeletonCard className="h-48" />
+                <SkeletonCard className="h-64" />
+                <SkeletonCard className="h-48" />
+            </div>
+        </div>
+    </div>
+);
+
+// Other helper components
 const AnalysisResultCard = ({ analysis }) => {
     if (!analysis) return null;
-
     const isReal = analysis.prediction === "REAL";
     const confidence = analysis.confidence * 100;
-
     return (
         <Card
             className={`border-2 ${
                 isReal ? "border-green-500/30" : "border-red-500/30"
             }`}
+            padding="lg"
         >
-            <div className="text-center mb-8">
+            <div className="text-center">
                 <div
                     className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
                         isReal
@@ -79,7 +1133,6 @@ const AnalysisResultCard = ({ analysis }) => {
                         <AlertCircle className="h-8 w-8 text-red-600" />
                     )}
                 </div>
-
                 <h2
                     className={`text-4xl font-bold mb-2 ${
                         isReal ? "text-green-600" : "text-red-600"
@@ -87,346 +1140,123 @@ const AnalysisResultCard = ({ analysis }) => {
                 >
                     {confidence.toFixed(1)}%
                 </h2>
-
                 <p className="text-xl font-semibold mb-1">
                     {isReal ? "Authentic Content" : "Potential Deepfake"}
                 </p>
-
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                     Confidence Score
                 </p>
             </div>
-
-            {/* Processing Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Processing Time:
-                    </span>
-                    <span className="text-sm font-medium">
-                        {formatProcessingTime(analysis.processingTime)}
-                    </span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Analyzed:
-                    </span>
-                    <span className="text-sm font-medium">
-                        {formatDate(analysis.createdAt)}
-                    </span>
-                </div>
-            </div>
         </Card>
     );
 };
-
-// Enhanced Analysis Details Component
-const AnalysisDetailsCard = ({ details }) => {
-    if (!details) return null;
-
-    return (
+const AnalysisDetailsCard = ({ details }) =>
+    !details ? null : (
         <Card>
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Analysis Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <Database className="h-5 w-5 text-primary-main" />
+                    Analysis Metrics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
                     <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Frame Count:
-                        </span>
-                        <span className="text-sm font-medium">
+                        <span>Frame Count:</span>
+                        <span className="font-medium font-mono">
                             {details.frameCount}
                         </span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Average Confidence:
-                        </span>
-                        <span className="text-sm font-medium">
+                        <span>Avg. Confidence:</span>
+                        <span className="font-medium font-mono">
                             {(details.avgConfidence * 100).toFixed(1)}%
                         </span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Confidence Std Dev:
-                        </span>
-                        <span className="text-sm font-medium">
+                        <span>Confidence Std Dev:</span>
+                        <span className="font-medium font-mono">
                             {(details.confidenceStd * 100).toFixed(1)}%
                         </span>
                     </div>
-                </div>
-                <div className="space-y-3">
                     {details.temporalConsistency && (
                         <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                Temporal Consistency:
-                            </span>
-                            <span className="text-sm font-medium">
+                            <span>Temporal Consistency:</span>
+                            <span className="font-medium font-mono">
                                 {(details.temporalConsistency * 100).toFixed(1)}
                                 %
                             </span>
                         </div>
                     )}
-                    {details.rollingAverage && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                Rolling Average:
-                            </span>
-                            <span className="text-sm font-medium">
-                                {(details.rollingAverage * 100).toFixed(1)}%
-                            </span>
-                        </div>
-                    )}
                 </div>
             </div>
         </Card>
     );
-};
-
-// Frame Analysis Component
-const FrameAnalysisCard = ({ frames }) => {
-    if (!frames || frames.length === 0) return null;
-
+const ProcessingEnvironmentCard = ({ modelInfo, systemInfo }) => {
+    if (!modelInfo && !systemInfo) return null;
     return (
         <Card>
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <LineChart className="h-5 w-5" />
-                Frame-by-Frame Analysis ({frames.length} frames)
-            </h3>
-            <div className="space-y-4">
-                {/* Summary Statistics */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">
-                            {
-                                frames.filter((f) => f.prediction === "REAL")
-                                    .length
-                            }
-                        </div>
-                        <div className="text-sm text-gray-600">Real Frames</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-red-600">
-                            {
-                                frames.filter((f) => f.prediction === "FAKE")
-                                    .length
-                            }
-                        </div>
-                        <div className="text-sm text-gray-600">Fake Frames</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">
-                            {(
-                                (frames.reduce(
-                                    (sum, f) => sum + f.confidence,
-                                    0
-                                ) /
-                                    frames.length) *
-                                100
-                            ).toFixed(1)}
-                            %
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            Avg Confidence
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sample Frame Data */}
-                <div className="max-h-64 overflow-y-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                            <tr>
-                                <th className="text-left p-2">Frame #</th>
-                                <th className="text-left p-2">Prediction</th>
-                                <th className="text-left p-2">Confidence</th>
-                                <th className="text-left p-2">Timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {frames.slice(0, 20).map((frame, index) => (
-                                <tr key={index} className="border-t">
-                                    <td className="p-2">{frame.frameNumber}</td>
-                                    <td className="p-2">
-                                        <span
-                                            className={`px-2 py-1 rounded text-xs ${
-                                                frame.prediction === "REAL"
-                                                    ? "bg-green-100 text-green-800"
-                                                    : "bg-red-100 text-red-800"
-                                            }`}
-                                        >
-                                            {frame.prediction}
-                                        </span>
-                                    </td>
-                                    <td className="p-2">
-                                        {(frame.confidence * 100).toFixed(1)}%
-                                    </td>
-                                    <td className="p-2">
-                                        {frame.timestamp
-                                            ? `${frame.timestamp.toFixed(2)}s`
-                                            : "N/A"}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {frames.length > 20 && (
-                        <p className="text-sm text-gray-500 text-center mt-2">
-                            Showing first 20 of {frames.length} frames
-                        </p>
-                    )}
-                </div>
-            </div>
-        </Card>
-    );
-};
-
-// Temporal Analysis Component
-const TemporalAnalysisCard = ({ temporal }) => {
-    if (!temporal) return null;
-
-    return (
-        <Card>
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Temporal Analysis
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Consistency Score:
-                        </span>
-                        <span className="text-sm font-medium">
-                            {(temporal.consistencyScore * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Total Frames:
-                        </span>
-                        <span className="text-sm font-medium">
-                            {temporal.totalFrames}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Real Frames:
-                        </span>
-                        <span className="text-sm font-medium text-green-600">
-                            {temporal.realFrames}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Fake Frames:
-                        </span>
-                        <span className="text-sm font-medium text-red-600">
-                            {temporal.fakeFrames}
-                        </span>
-                    </div>
-                </div>
-                <div className="space-y-4">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Average Confidence:
-                        </span>
-                        <span className="text-sm font-medium">
-                            {(temporal.avgConfidence * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    {temporal.patternDetection && (
-                        <div>
-                            <span className="text-sm text-gray-600">
-                                Pattern Detection:
-                            </span>
-                            <p className="text-sm mt-1">
-                                {temporal.patternDetection}
-                            </p>
-                        </div>
-                    )}
-                    {temporal.confidenceTrend && (
-                        <div>
-                            <span className="text-sm text-gray-600">
-                                Confidence Trend:
-                            </span>
-                            <p className="text-sm mt-1">
-                                {temporal.confidenceTrend}
-                            </p>
-                        </div>
-                    )}
-                    {temporal.anomalyFrames &&
-                        temporal.anomalyFrames.length > 0 && (
-                            <div>
-                                <span className="text-sm text-gray-600">
-                                    Anomaly Frames:
+            <div className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <Cpu className="h-5 w-5 text-primary-main" />
+                    Processing Environment
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                    {modelInfo && (
+                        <>
+                            <div className="flex justify-between">
+                                <span>Model Version:</span>
+                                <span className="font-medium font-mono">
+                                    {modelInfo.version}
                                 </span>
-                                <p className="text-sm mt-1">
-                                    {temporal.anomalyFrames.join(", ")}
-                                </p>
                             </div>
-                        )}
-                </div>
-            </div>
-        </Card>
-    );
-};
-
-// Model Info Component
-const ModelInfoCard = ({ modelInfo }) => {
-    if (!modelInfo) return null;
-
-    return (
-        <Card>
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <Cpu className="h-5 w-5" />
-                Model Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Version:</span>
-                        <span className="text-sm font-medium">
-                            {modelInfo.version}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                            Architecture:
-                        </span>
-                        <span className="text-sm font-medium">
-                            {modelInfo.architecture}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Device:</span>
-                        <span className="text-sm font-medium">
-                            {modelInfo.device}
-                        </span>
-                    </div>
-                </div>
-                <div className="space-y-3">
-                    {modelInfo.batchSize && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                Batch Size:
-                            </span>
-                            <span className="text-sm font-medium">
-                                {modelInfo.batchSize}
-                            </span>
-                        </div>
-                    )}
-                    {modelInfo.numFrames && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                Frames Processed:
-                            </span>
-                            <span className="text-sm font-medium">
-                                {modelInfo.numFrames}
-                            </span>
-                        </div>
+                            <div className="flex justify-between">
+                                <span>Architecture:</span>
+                                <span className="font-medium font-mono">
+                                    {modelInfo.architecture}
+                                </span>
+                            </div>
+                        </>
+                    )}{" "}
+                    {systemInfo && (
+                        <>
+                            <div className="flex justify-between">
+                                <span>Processing Device:</span>
+                                <span className="font-medium font-mono">
+                                    {systemInfo.processingDevice}
+                                </span>
+                            </div>
+                            {systemInfo.cudaAvailable !== undefined && (
+                                <div className="flex justify-between">
+                                    <span>CUDA Available:</span>
+                                    <span
+                                        className={`font-medium font-mono ${
+                                            systemInfo.cudaAvailable
+                                                ? "text-green-600"
+                                                : "text-red-600"
+                                        }`}
+                                    >
+                                        {systemInfo.cudaAvailable
+                                            ? "Yes"
+                                            : "No"}
+                                    </span>
+                                </div>
+                            )}
+                            {systemInfo.gpuMemoryUsed && (
+                                <div className="flex justify-between">
+                                    <span>GPU Memory:</span>
+                                    <span className="font-medium font-mono">
+                                        {systemInfo.gpuMemoryUsed}
+                                    </span>
+                                </div>
+                            )}
+                            {systemInfo.systemMemoryUsed && (
+                                <div className="flex justify-between">
+                                    <span>System Memory:</span>
+                                    <span className="font-medium font-mono">
+                                        {systemInfo.systemMemoryUsed}
+                                    </span>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -434,275 +1264,186 @@ const ModelInfoCard = ({ modelInfo }) => {
     );
 };
 
-// System Info Component
-const SystemInfoCard = ({ systemInfo }) => {
-    if (!systemInfo) return null;
-
-    return (
-        <Card>
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <Monitor className="h-5 w-5" />
-                System Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                    {systemInfo.processingDevice && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                Processing Device:
-                            </span>
-                            <span className="text-sm font-medium">
-                                {systemInfo.processingDevice}
-                            </span>
-                        </div>
-                    )}
-                    {systemInfo.cudaAvailable !== undefined && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                CUDA Available:
-                            </span>
-                            <span
-                                className={`text-sm font-medium ${
-                                    systemInfo.cudaAvailable
-                                        ? "text-green-600"
-                                        : "text-red-600"
-                                }`}
-                            >
-                                {systemInfo.cudaAvailable ? "Yes" : "No"}
-                            </span>
-                        </div>
-                    )}
-                    {systemInfo.gpuMemoryUsed && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                GPU Memory Used:
-                            </span>
-                            <span className="text-sm font-medium">
-                                {systemInfo.gpuMemoryUsed}
-                            </span>
-                        </div>
-                    )}
-                </div>
-                <div className="space-y-3">
-                    {systemInfo.systemMemoryUsed && (
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                                System Memory Used:
-                            </span>
-                            <span className="text-sm font-medium">
-                                {systemInfo.systemMemoryUsed}
-                            </span>
-                        </div>
-                    )}
-                    {systemInfo.loadBalancingInfo && (
-                        <div>
-                            <span className="text-sm text-gray-600">
-                                Load Balancing:
-                            </span>
-                            <pre className="text-xs mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded">
-                                {JSON.stringify(
-                                    systemInfo.loadBalancingInfo,
-                                    null,
-                                    2
-                                )}
-                            </pre>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </Card>
-    );
-};
-
-// Main Detailed Analysis Component
 const DetailedAnalysis = () => {
-    const { videoId, modelId } = useParams();
+    const { videoId, analysisId } = useParams();
     const navigate = useNavigate();
-
-    // Parse modelId to extract type and model (format: "QUICK-SIGLIP_LSTM_V1")
-    const [analysisType, model] = modelId?.split("-") || [];
-
     const {
         data: video,
-        isLoading: isVideoLoading,
-        error: videoError,
-        refetch: refetchVideo,
+        isLoading,
+        error,
+        refetch,
+        isRefetching,
     } = useVideoQuery(videoId);
 
-    const {
-        data: analysis,
-        isLoading: isAnalysisLoading,
-        error: analysisError,
-        refetch: refetchAnalysis,
-    } = useSpecificAnalysisQuery(videoId, analysisType, model);
+    if (isLoading) return <DetailedAnalysisSkeleton />;
 
-    const handleRefresh = () => {
-        refetchVideo();
-        refetchAnalysis();
-    };
-
-    // Loading state
-    if (isVideoLoading || isAnalysisLoading) {
-        return <PageLoader text="Loading detailed analysis..." />;
-    }
-
-    // Error state
-    if (videoError || analysisError) {
+    if (error)
         return (
-            <div className="text-center p-8 max-w-md mx-auto">
-                <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2">
-                    Error Loading Analysis
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    {videoError?.message ||
-                        analysisError?.message ||
-                        "Failed to load analysis data"}
-                </p>
-                <div className="space-x-2">
-                    <Button onClick={handleRefresh} variant="outline">
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Try Again
-                    </Button>
-                    <Button onClick={() => navigate(`/results/${videoId}`)}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Results
-                    </Button>
-                </div>
+            <div className="text-center p-8">
+                <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-2">Error Loading Data</h2>
+                <p className="mb-6">{error.message}</p>
+                <Button onClick={() => navigate(`/results/${videoId}`)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                </Button>
             </div>
         );
-    }
 
-    // No analysis found
-    if (!analysis) {
+    const analysis = video?.analyses?.find((a) => a.id === analysisId);
+    if (!video || !analysis)
         return (
-            <div className="text-center p-8 max-w-md mx-auto">
-                <Eye className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <div className="text-center p-8">
+                <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Analysis Not Found</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    The requested analysis ({analysisType} with {model}) was not
-                    found.
+                <p className="mb-6">
+                    The requested analysis could not be found.
                 </p>
                 <Button onClick={() => navigate(`/results/${videoId}`)}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Results
+                    Back
                 </Button>
             </div>
         );
-    }
 
-    const typeInfo = ANALYSIS_TYPE_INFO[analysisType];
-    const modelInfo = MODEL_INFO[model];
+    const modelInfo = MODEL_INFO[analysis.model];
+    const typeInfo = ANALYSIS_TYPE_INFO[analysis.analysisType];
 
     return (
         <div className="space-y-6 mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link to={`/results/${videoId}`}>
-                        <Button variant="outline" size="sm">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Results
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <span className="text-lg">{typeInfo?.icon}</span>
-                            {typeInfo?.label || analysisType} Analysis
-                        </h1>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            Model: {modelInfo?.label || model}
-                        </p>
-                    </div>
-                </div>
-                <Button onClick={handleRefresh} variant="outline" size="sm">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Refresh
-                </Button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Video and Basic Info */}
+            <ReportHeader
+                modelName={modelInfo?.label || analysis.model}
+                analysisType={typeInfo?.label || analysis.analysisType}
+                onRefresh={refetch}
+                isRefetching={isRefetching}
+                videoId={videoId}
+            />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1 space-y-6">
-                    {/* Video Player */}
                     <Card>
-                        <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                        <div className="p-4 border-b dark:border-gray-700">
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <FileText className="w-5 h-5" />
+                                {video.filename}
+                            </h3>
+                        </div>
+                        <div className="p-4">
                             <VideoPlayer videoUrl={video.url} />
                         </div>
-                        <div className="mt-4">
-                            <h3 className="font-semibold">{video.filename}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {video.description}
-                            </p>
-                        </div>
                     </Card>
-
-                    {/* Analysis Result */}
                     <AnalysisResultCard analysis={analysis} />
                 </div>
-
-                {/* Detailed Analysis Data */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Enhanced Analysis Data */}
-                    {analysis.analysisDetails && (
-                        <AnalysisDetailsCard
-                            details={analysis.analysisDetails}
-                        />
-                    )}
-
-                    {/* Frame Analysis Data */}
-                    {analysis.frameAnalysis &&
-                        analysis.frameAnalysis.length > 0 && (
-                            <FrameAnalysisCard
-                                frames={analysis.frameAnalysis}
-                            />
-                        )}
-
-                    {/* Temporal Analysis Data */}
-                    {analysis.temporalAnalysis && (
-                        <TemporalAnalysisCard
-                            temporal={analysis.temporalAnalysis}
-                        />
-                    )}
-
-                    {/* Model Information */}
-                    {analysis.modelInfo && (
-                        <ModelInfoCard modelInfo={analysis.modelInfo} />
-                    )}
-
-                    {/* System Information */}
-                    {analysis.systemInfo && (
-                        <SystemInfoCard systemInfo={analysis.systemInfo} />
-                    )}
-
-                    {/* Visualization (if available) */}
                     {analysis.visualizedUrl && (
                         <Card>
-                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5" />
-                                Analysis Visualization
-                            </h3>
-                            <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                            <div className="p-6">
+                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-primary-main" />
+                                    Analysis Visualization
+                                </h3>
                                 <VideoPlayer
                                     videoUrl={analysis.visualizedUrl}
                                 />
                             </div>
                         </Card>
                     )}
-
-                    {/* Error Information (if any) */}
-                    {analysis.errorMessage && (
-                        <Card className="border-red-200 dark:border-red-800">
-                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-600">
-                                <AlertCircle className="h-5 w-5" />
-                                Analysis Error
-                            </h3>
-                            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                <p className="text-sm text-red-700 dark:text-red-300">
-                                    {analysis.errorMessage}
-                                </p>
+                    {analysis.analysisDetails && (
+                        <AnalysisDetailsCard
+                            details={analysis.analysisDetails}
+                        />
+                    )}
+                    {analysis.frameAnalysis &&
+                        analysis.frameAnalysis.length > 0 && (
+                            <div className="space-y-6">
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard1
+                                            frames={analysis.frameAnalysis}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard2
+                                            frames={analysis.frameAnalysis}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard3
+                                            frames={analysis.frameAnalysis}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard4
+                                            frames={analysis.frameAnalysis}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard5
+                                            frames={analysis.frameAnalysis}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard6
+                                            frames={analysis.frameAnalysis}
+                                            videoUrl={video.url}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard7
+                                            frames={analysis.frameAnalysis}
+                                        />
+                                    )
+                                )}
+                                {isRefetching ? (
+                                    <SkeletonCard className="h-[400px]" />
+                                ) : (
+                                    analysis.frameAnalysis &&
+                                    analysis.frameAnalysis.length > 0 && (
+                                        <FrameAnalysisCard8
+                                            frames={analysis.frameAnalysis}
+                                            videoUrl={video.url}
+                                        />
+                                    )
+                                )}
                             </div>
-                        </Card>
+                        )}
+                    {(analysis.modelInfo || analysis.systemInfo) && (
+                        <ProcessingEnvironmentCard
+                            modelInfo={analysis.modelInfo}
+                            systemInfo={analysis.systemInfo}
+                        />
                     )}
                 </div>
             </div>
