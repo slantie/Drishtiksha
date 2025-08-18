@@ -8,6 +8,7 @@
 /assets/*.mp4
 /models/*.pth
 /models/*.dat
+/models/efficientnet_b7
 /src/__pycache__
 /src/app/__pycache__
 /src/app/routers/__pycache__

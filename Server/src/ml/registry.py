@@ -8,6 +8,7 @@ from src.config import Settings
 from src.ml.base import BaseModel
 from src.ml.models.siglip_lstm_detector import SiglipLSTMV1, SiglipLSTMV3, SiglipLSTMV4
 from src.ml.models.color_cues_detector import ColorCuesLSTMV1
+from src.ml.models.efficientnet_detector import EfficientNetB7Detector
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ MODEL_REGISTRY: Dict[str, Type[BaseModel]] = {
     "SIGLIP-LSTM-V3": SiglipLSTMV3,
     "SIGLIP-LSTM-V4": SiglipLSTMV4,
     "COLOR-CUES-LSTM-V1": ColorCuesLSTMV1,
+    "EFFICIENTNET-B7-V1": EfficientNetB7Detector
 }
 
 class ModelManager:

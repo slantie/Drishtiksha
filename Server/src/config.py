@@ -61,13 +61,20 @@ class ColorCuesConfig(BaseModelConfig):
     hidden_size: int
     dropout: float
 
+# Configuration model for EFFICIENTNET-B7-V1
+class EfficientNetB7Config(BaseModelConfig):
+    class_name: Literal["EFFICIENTNET-B7-V1"]
+    encoder: str
+    input_size: int
+
 # A Discriminated Union to allow only the available models to be served
 ModelConfig = Annotated[
     Union[
         SiglipLSTMv1Config,
         SiglipLSTMv3Config,
         SiglipLSTMv4Config,
-        ColorCuesConfig
+        ColorCuesConfig,
+        EfficientNetB7Config
     ],
     Field(discriminator="class_name"),
 ]

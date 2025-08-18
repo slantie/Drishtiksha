@@ -79,3 +79,11 @@ models:
     rolling_window_size: 10
     hidden_size: 64
     dropout: 0.5
+
+  EFFICIENTNET-B7-V1:
+    class_name: "EFFICIENTNET-B7-V1"
+    description: "Frame-by-frame face detector using MTCNN and EFFICIENTNET-B7-V1 classifier with confidence-based aggregation."
+    model_path: "models/efficientnet_b7"
+    encoder: "tf_efficientnet_b7_ns"
+    input_size: 380
+    device: "cuda"
