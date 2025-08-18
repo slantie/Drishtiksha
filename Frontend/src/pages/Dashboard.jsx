@@ -44,6 +44,7 @@ import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
 import showToast from "../utils/toast.js";
 import { DownloadService } from "../services/DownloadReport.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useServerStatusQuery } from "../hooks/useMonitoringQuery.js";
 
 // --- SUB-COMPONENTS (Logic Preserved, UI Refined) ---
 
@@ -74,12 +75,12 @@ const StatusBadge = ({ status }) => {
         FAILED: "bg-red-500/10 text-red-500",
     };
     const Icon = {
-        ANALYZED: CheckCircle,
-        PARTIALLY_ANALYZED: CheckCircle,
-        PROCESSING: ProcessingIcon,
-        QUEUED: Clock,
-        UPLOADED: Clock,
-        FAILED: AlertTriangle,
+        // ANALYZED: CheckCircle,
+        // PARTIALLY_ANALYZED: CheckCircle,
+        // PROCESSING: ProcessingIcon,
+        // QUEUED: Clock,
+        // UPLOADED: Clock,
+        // FAILED: AlertTriangle,
     }[status];
     return (
         <div
@@ -87,11 +88,13 @@ const StatusBadge = ({ status }) => {
                 styles[status] || styles["UPLOADED"]
             }`}
         >
-            <Icon
-                className={`w-4 h-4 ${
-                    status === "PROCESSING" ? "animate-spin" : ""
-                }`}
-            />
+            {Icon && (
+                <Icon
+                    className={`w-4 h-4 ${
+                        status === "PROCESSING" ? "animate-spin" : ""
+                    }`}
+                />
+            )}
             <span>{status.replace("_", " ").toLowerCase()}</span>
         </div>
     );
@@ -122,14 +125,16 @@ const AnalysisSummary = ({ analyses = [] }) => {
         color = "text-yellow-500";
     }
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-row">
             <div className={`flex items-center font-semibold text-sm ${color}`}>
-                <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span>{consensus}</span>
+                <Icon className="w-6 h-6 mr-2 flex-shrink-0" />
+                <div className="flex flex-col">
+                    {consensus}
+                    <span className="text-xs text-light-muted-text dark:text-dark-muted-text mt-1">
+                        {completed.length} Models Analyzed
+                    </span>
+                </div>
             </div>
-            <span className="text-xs text-light-muted-text dark:text-dark-muted-text mt-1">
-                {completed.length} / 2 Models Complete
-            </span>
         </div>
     );
 };
@@ -145,6 +150,9 @@ export const Dashboard = () => {
         isRefetching,
     } = useVideosQuery();
     const { stats } = useVideoStats();
+    const { data: serverStatus } = useServerStatusQuery();
+    const totalAvailableModels =
+        serverStatus?.modelsInfo?.filter((m) => m.loaded).length || 0;
     const uploadMutation = useUploadVideoMutation();
     const updateMutation = useUpdateVideoMutation();
     const deleteMutation = useDeleteVideoMutation();
@@ -180,19 +188,14 @@ export const Dashboard = () => {
                 key: "filename",
                 header: "File",
                 render: (item) => (
-                    <span className="font-semibold text-light-text dark:text-dark-text">
-                        {item.filename}
-                    </span>
+                    <span className="font-semibold">{item.filename}</span>
                 ),
             },
             {
                 key: "description",
                 header: "Description",
-                render: (item) => (
-                    <span className="font-sans text-light-text dark:text-dark-text">
-                        {item.description || "No description provided."}
-                    </span>
-                ),
+                render: (item) =>
+                    item.description || "No description provided.",
             },
             {
                 key: "status",
@@ -245,7 +248,7 @@ export const Dashboard = () => {
                                 setIsDownloadingPDF(true);
                                 try {
                                     await DownloadService.generateAndDownloadPDFPrint(
-                                        item, // Pass the full video object
+                                        item,
                                         user
                                     );
                                     showToast.success(
@@ -302,9 +305,8 @@ export const Dashboard = () => {
                 ),
             },
         ],
-        [navigate, user, isDownloadingPDF]
+        [navigate, user, isDownloadingPDF, totalAvailableModels] // Add dependency
     );
-
     // --- RENDER LOGIC ---
     if (isLoading && !videos.length) return <DashboardSkeleton />;
 
@@ -365,18 +367,9 @@ export const Dashboard = () => {
                 />
             </div>
 
-            {/* <VideoSearchFilter
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                videos={videos}
-            /> */}
-
             <DataTable
                 columns={columns}
                 data={filteredVideos}
-                // onRowClick={(item) => navigate(`/results/${item.id}`)}
                 loading={isRefetching}
                 title="Video Results"
                 description={"View and manage your uploaded videos."}

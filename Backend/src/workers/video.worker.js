@@ -30,12 +30,12 @@ const worker = new Worker(
     async (job) => {
         logger.info(`[Worker] Picked up job '${job.name}' (ID: ${job.id})`);
         switch (job.name) {
-            case "analysis-flow":
-                return await handleAnalysisFlow(job);
+            // --- REFACTORED: Removed 'analysis-flow' handler ---
             case "run-single-analysis":
                 return await handleSingleAnalysis(job);
             case "finalize-analysis":
                 return await handleFinalizeAnalysis(job);
+            // --- END REFACTOR ---
             default:
                 throw new Error(`Unknown job name: ${job.name}`);
         }
@@ -43,62 +43,59 @@ const worker = new Worker(
     { connection: redisConnection, concurrency: 5 }
 );
 
-async function handleAnalysisFlow(job) {
-    const { videoId } = job.data;
-    const video = await videoRepository.findById(videoId);
-    if (!video) throw new Error(`Video ${videoId} not found.`);
+// async function handleAnalysisFlow(job) {
+//     const { videoId } = job.data;
+//     const video = await videoRepository.findById(videoId);
+//     if (!video) throw new Error(`Video ${videoId} not found.`);
 
-    // CORRECTED: Added a null check to prevent the crash.
-    // REASON: getFlow returns undefined if no flow exists. This is the definitive fix for the 'cannot read properties of undefined' error.
-    const existingFlow = await videoFlowProducer.getFlow({
-        id: videoId,
-        queueName: VIDEO_PROCESSING_QUEUE_NAME,
-    });
+//     const existingFlow = await videoFlowProducer.getFlow({
+//         id: videoId,
+//         queueName: VIDEO_PROCESSING_QUEUE_NAME,
+//     });
 
-    if (existingFlow?.children?.length > 0) {
-        logger.warn(
-            `[Flow] Analysis flow for video ${videoId} already exists. Skipping creation.`
-        );
-        return;
-    }
+//     if (existingFlow?.children?.length > 0) {
+//         logger.warn(
+//             `[Flow] Analysis flow for video ${videoId} already exists. Skipping creation.`
+//         );
+//         return;
+//     }
 
-    await eventService.emitProgress({
-        videoId,
-        userId: video.userId,
-        event: "PROCESSING_STARTED",
-        message: "Your video is now being processed.",
-    });
+//     await eventService.emitProgress({
+//         videoId,
+//         userId: video.userId,
+//         event: "PROCESSING_STARTED",
+//         message: "Your video is now being processed.",
+//     });
 
-    await videoRepository.updateStatus(videoId, "PROCESSING");
-    const serverStats = await modelAnalysisService.getServerStatistics();
-    const availableModels =
-        serverStats.models_info?.filter((m) => m.loaded).map((m) => m.name) ||
-        [];
+//     await videoRepository.updateStatus(videoId, "PROCESSING");
+//     const serverStats = await modelAnalysisService.getServerStatistics();
+//     const availableModels =
+//         serverStats.models_info?.filter((m) => m.loaded).map((m) => m.name) ||
+//         [];
 
-    if (availableModels.length === 0) {
-        throw new Error("No models are available on the analysis server.");
-    }
+//     if (availableModels.length === 0) {
+//         throw new Error("No models are available on the analysis server.");
+//     }
 
-    const childJobs = availableModels.map((modelName) => ({
-        name: "run-single-analysis",
-        data: { videoId, modelName, serverStats },
-        queueName: VIDEO_PROCESSING_QUEUE_NAME,
-        opts: { jobId: `${videoId}-${modelName}` },
-    }));
+//     const childJobs = availableModels.map((modelName) => ({
+//         name: "run-single-analysis",
+//         data: { videoId, modelName, serverStats },
+//         queueName: VIDEO_PROCESSING_QUEUE_NAME,
+//         opts: { jobId: `${videoId}-${modelName}` },
+//     }));
 
-    // IMPORTANT: The parent job's ID is the videoId. This is key for the event listener.
-    await videoFlowProducer.add({
-        name: "finalize-analysis",
-        queueName: VIDEO_PROCESSING_QUEUE_NAME,
-        data: { videoId, totalAnalysesAttempted: childJobs.length },
-        opts: { jobId: `${videoId}-finalizer` },
-        children: childJobs,
-    });
+//     await videoFlowProducer.add({
+//         name: "finalize-analysis",
+//         queueName: VIDEO_PROCESSING_QUEUE_NAME,
+//         data: { videoId, totalAnalysesAttempted: childJobs.length },
+//         opts: { jobId: `${videoId}-finalizer` },
+//         children: childJobs,
+//     });
 
-    logger.info(
-        `[Flow] Created analysis flow for video ${videoId} with ${childJobs.length} child jobs.`
-    );
-}
+//     logger.info(
+//         `[Flow] Created analysis flow for video ${videoId} with ${childJobs.length} child jobs.`
+//     );
+// }
 
 async function handleSingleAnalysis(job) {
     const { videoId, modelName, serverStats } = job.data;
@@ -110,7 +107,7 @@ async function handleSingleAnalysis(job) {
         if (!video) throw new Error(`Video ${videoId} not found.`);
         userId = video.userId;
 
-        // ADDED: Emit an event when a specific model analysis starts.
+        await videoRepository.updateStatus(videoId, "PROCESSING");
         await eventService.emitProgress({
             videoId,
             userId,
@@ -128,7 +125,6 @@ async function handleSingleAnalysis(job) {
             serverStats
         );
 
-        // ADDED: Emit an event when a specific model analysis succeeds.
         await eventService.emitProgress({
             videoId,
             userId,
@@ -137,8 +133,16 @@ async function handleSingleAnalysis(job) {
             data: { modelName, success: true },
         });
     } catch (error) {
+        logger.error(
+            `[Worker/Analysis] Job for model ${modelName} on video ${videoId} failed: ${error.message}`
+        );
+        await videoRepository.createAnalysisError(
+            videoId,
+            modelName,
+            "COMPREHENSIVE",
+            error
+        );
         if (userId) {
-            // ADDED: Emit an event when a specific model analysis fails.
             await eventService.emitProgress({
                 videoId,
                 userId,
@@ -165,19 +169,29 @@ async function handleFinalizeAnalysis(job) {
     const { videoId, totalAnalysesAttempted } = job.data;
     const video = await videoRepository.findById(videoId);
     if (!video) throw new Error(`Cannot finalize, video ${videoId} not found.`);
-    const successfulAnalyses = video.analyses.filter(
+
+    // Check both completed and failed analyses to get a true count of attempts
+    const completedAnalyses = video.analyses.filter(
         (a) => a.status === "COMPLETED"
     ).length;
+    const failedAnalyses = video.analyses.filter(
+        (a) => a.status === "FAILED"
+    ).length;
+    const totalProcessed = completedAnalyses + failedAnalyses;
+
     let finalStatus = "FAILED";
     if (
-        successfulAnalyses === totalAnalysesAttempted &&
+        completedAnalyses === totalAnalysesAttempted &&
         totalAnalysesAttempted > 0
-    )
+    ) {
         finalStatus = "ANALYZED";
-    else if (successfulAnalyses > 0) finalStatus = "PARTIALLY_ANALYZED";
+    } else if (completedAnalyses > 0) {
+        finalStatus = "PARTIALLY_ANALYZED";
+    }
+
     await videoRepository.updateStatus(videoId, finalStatus);
     logger.info(
-        `[Finalizer] Finalized video ${videoId} with status: ${finalStatus} [${successfulAnalyses}/${totalAnalysesAttempted} successful]`
+        `[Finalizer] Finalized video ${videoId} with status: ${finalStatus} [${completedAnalyses}/${totalAnalysesAttempted} successful]`
     );
 }
 
@@ -188,66 +202,49 @@ async function runAndSaveComprehensiveAnalysis(
     modelName,
     serverStats
 ) {
-    try {
-        // MERGED FIX: Pass the userId to the analysis service.
-        const response = await modelAnalysisService.analyzeVideoComprehensive(
-            videoPath,
-            modelName,
+    const response = await modelAnalysisService.analyzeVideoComprehensive(
+        videoPath,
+        modelName,
+        videoId,
+        userId
+    );
+
+    const analysisData = toCamelCase(response.data);
+    const modelUsed = response.model_used;
+
+    const { modelInfo, systemInfo } =
+        modelAnalysisService.mapServerStatsToDbSchema(serverStats, modelName);
+
+    const resultToSave = {
+        prediction: analysisData.prediction,
+        confidence: analysisData.confidence,
+        processingTime: analysisData.processingTime,
+        metrics: analysisData.metrics,
+        framePredictions: analysisData.framesAnalysis?.framePredictions,
+        temporalAnalysis: analysisData.framesAnalysis?.temporalAnalysis,
+        model: modelName,
+        modelVersion: modelUsed,
+        analysisType: "COMPREHENSIVE",
+        modelInfo,
+        systemInfo,
+    };
+
+    const analysisRecord = await videoRepository.createAnalysisResult(
+        videoId,
+        resultToSave
+    );
+
+    if (
+        analysisData.visualizationGenerated &&
+        analysisData.visualizationFilename
+    ) {
+        await handleVisualizationUpload(
+            analysisRecord.id,
+            analysisData.visualizationFilename,
             videoId,
-            userId
+            userId,
+            modelName
         );
-
-        const analysisData = toCamelCase(response.data);
-        const modelUsed = response.model_used;
-
-        const { modelInfo, systemInfo } =
-            modelAnalysisService.mapServerStatsToDbSchema(
-                serverStats,
-                modelName
-            );
-
-        const resultToSave = {
-            prediction: analysisData.prediction,
-            confidence: analysisData.confidence,
-            processingTime: analysisData.processingTime,
-            metrics: analysisData.metrics,
-            framePredictions: analysisData.framesAnalysis?.framePredictions,
-            temporalAnalysis: analysisData.framesAnalysis?.temporalAnalysis,
-            model: modelName,
-            modelVersion: modelUsed,
-            analysisType: "COMPREHENSIVE",
-            modelInfo,
-            systemInfo,
-        };
-
-        const analysisRecord = await videoRepository.createAnalysisResult(
-            videoId,
-            resultToSave
-        );
-
-        if (
-            analysisData.visualizationGenerated &&
-            analysisData.visualizationFilename
-        ) {
-            await handleVisualizationUpload(
-                analysisRecord.id,
-                analysisData.visualizationFilename,
-                videoId,
-                userId,
-                modelName
-            );
-        }
-    } catch (error) {
-        logger.error(
-            `[Worker/Analysis] ${modelName} failed for ${videoId}: ${error.message}`
-        );
-        await videoRepository.createAnalysisError(
-            videoId,
-            modelName,
-            "COMPREHENSIVE",
-            error
-        );
-        throw error;
     }
 }
 

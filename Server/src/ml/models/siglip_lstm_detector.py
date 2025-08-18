@@ -64,6 +64,10 @@ class SiglipLSTMV1(BaseModel):
             "processing_time": processing_time,
         }
 class SiglipLSTMV3(SiglipLSTMV1):
+    """
+    Enhanced SIGLIP-LSTM V3 model. Inherits from V1 but overrides all prediction
+    methods to provide advanced, detailed analysis capabilities.
+    """
     config: SiglipLSTMv3Config
 
     def __init__(self, config: SiglipLSTMv3Config):
@@ -80,45 +84,60 @@ class SiglipLSTMV3(SiglipLSTMV1):
         if not cap.isOpened():
             raise IOError(f"Could not open video file for processing: {video_path}")
 
-        frame_scores = []
         all_frames_pil = []
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
         try:
-            for i in tqdm(range(total_frames), desc=f"Analyzing frames for {self.config.class_name}"):
+            while True:
                 ret, frame = cap.read()
-                if not ret:
-                    break
-                frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                all_frames_pil.append(frame_pil)
-                
-                inputs = self.processor(images=[frame_pil], return_tensors="pt")
-                pixel_values = inputs['pixel_values'].to(self.device)
-                with torch.no_grad():
-                    logits = self.model(pixel_values, num_frames_per_video=1)
-                    prob_fake = torch.sigmoid(logits.squeeze()).item()
-                frame_scores.append(prob_fake)
-
-                if (i + 1) % 10 == 0 and video_id and user_id:
-                    publish_progress(
-                        {
-                            "videoId": video_id,
-                            "userId": user_id,
-                            "event": "FRAME_ANALYSIS_PROGRESS",
-                            "message": f"Processed frame {i + 1}/{total_frames}",
-                            "data": {
-                                "modelName": self.config.class_name,
-                                "progress": i + 1,
-                                "total": total_frames,
-                            },
-                        }
-                    )
+                if not ret: break
+                all_frames_pil.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         finally:
             cap.release()
+            
+        if not all_frames_pil:
+            return [], []
+
+        # --- REFACTORED: Use 50 fixed windows instead of per-frame analysis ---
+        num_windows = 50
+        total_frames = len(all_frames_pil)
+        frame_scores = []
+        seq_len = self.config.num_frames
+
+        # Generate 50 evenly spaced anchor points to end our windows
+        end_frame_indices = np.linspace(0, total_frames - 1, num_windows, dtype=int)
+
+        for i, end_index in enumerate(tqdm(end_frame_indices, desc=f"Analyzing {num_windows} windows for {self.config.class_name}")):
+            start_index = max(0, end_index - seq_len + 1)
+            frame_window = all_frames_pil[start_index : end_index + 1]
+
+            if len(frame_window) < seq_len:
+                padding = [frame_window[0]] * (seq_len - len(frame_window))
+                frame_window = padding + frame_window
+
+            inputs = self.processor(images=frame_window, return_tensors="pt")
+            pixel_values = inputs['pixel_values'].to(self.device)
+
+            with torch.no_grad():
+                logits = self.model(pixel_values, num_frames_per_video=seq_len)
+                prob_fake = torch.sigmoid(logits.squeeze()).item()
+            
+            frame_scores.append(prob_fake)
+            
+            if video_id and user_id:
+                publish_progress({
+                    "videoId": video_id, "userId": user_id, "event": "FRAME_ANALYSIS_PROGRESS",
+                    "message": f"Processed window {i + 1}/{num_windows}",
+                    "data": {"modelName": self.config.class_name, "progress": i + 1, "total": num_windows},
+                })
+        # --- END REFACTOR ---
 
         return frame_scores, all_frames_pil
 
     def _get_or_run_detailed_analysis(self, video_path: str, **kwargs) -> Dict[str, Any]:
+        """
+        Runs a two-stage analysis: first, a detailed per-frame analysis, and second,
+        a final authoritative prediction based on a representative sequence of frames.
+        Caches the result to avoid re-computation for the same video.
+        """
         if self._last_video_path == video_path and self._last_detailed_result:
             logger.info(f"✅ Using cached detailed analysis for {os.path.basename(video_path)}")
             return self._last_detailed_result
@@ -127,8 +146,6 @@ class SiglipLSTMV3(SiglipLSTMV1):
         user_id = kwargs.get("user_id")
         start_time = time.time()
 
-        # --- STAGE 1: THE "FRAME INSPECTOR" ---
-        # Collect per-frame scores and all PIL frames for later use
         frame_scores, all_frames_pil = self._analyze_video_frames(
             video_path, video_id=video_id, user_id=user_id
         )
@@ -136,11 +153,8 @@ class SiglipLSTMV3(SiglipLSTMV1):
         if not frame_scores or not all_frames_pil:
             raise ValueError("Frame analysis returned no scores or frames.")
 
-        # --- STAGE 2: THE "TEMPORAL DETECTIVE" ---
-        # Subsample frames and perform the authoritative video-level prediction
         frame_indices = np.linspace(0, len(all_frames_pil) - 1, self.config.num_frames, dtype=int)
         final_frames_for_pred = [all_frames_pil[i] for i in frame_indices]
-
         video_inputs = self.processor(images=final_frames_for_pred, return_tensors="pt")
         pixel_values = video_inputs['pixel_values'].to(self.device)
         
@@ -154,21 +168,12 @@ class SiglipLSTMV3(SiglipLSTMV1):
         authoritative_prediction = label_map[predicted_class_id]
 
         if video_id and user_id:
-            publish_progress(
-                {
-                    "videoId": video_id,
-                    "userId": user_id,
-                    "event": "FRAME_ANALYSIS_PROGRESS",
-                    "message": f"Completed frame analysis for {self.config.class_name}",
-                    "data": {
-                        "modelName": self.config.class_name,
-                        "progress": len(frame_scores),
-                        "total": len(frame_scores),
-                    },
-                }
-            )
+            publish_progress({
+                "videoId": video_id, "userId": user_id, "event": "FRAME_ANALYSIS_PROGRESS",
+                "message": f"Completed frame analysis for {self.config.class_name}",
+                "data": {"modelName": self.config.class_name, "progress": len(frame_scores), "total": len(frame_scores)},
+            })
         
-        # Calculate rolling average for metrics
         rolling_avg_scores = []
         rolling_window = deque(maxlen=self.config.rolling_window_size)
         for score in frame_scores:
@@ -202,11 +207,7 @@ class SiglipLSTMV3(SiglipLSTMV1):
         detailed_result = self._get_or_run_detailed_analysis(video_path, **kwargs)
         metrics = detailed_result["metrics"]
         frame_predictions = [
-            {
-                "frame_index": i,
-                "score": score,
-                "prediction": "FAKE" if score > 0.5 else "REAL",
-            }
+            {"frame_index": i, "score": score, "prediction": "FAKE" if score > 0.5 else "REAL"}
             for i, score in enumerate(metrics["per_frame_scores"])
         ]
         return {
@@ -237,41 +238,31 @@ class SiglipLSTMV3(SiglipLSTMV1):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
-        # Read all frames into memory once to avoid re-reading the video
         cap_frames = []
         while True:
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret: break
             cap_frames.append(frame)
         cap.release()
 
-        # --- RESTORED: Matplotlib Graph Setup ---
         plt.style.use("dark_background")
         fig, ax = plt.subplots(figsize=(6, 2.5))
-        # --- END OF RESTORED LOGIC ---
 
         try:
             for i, score in enumerate(tqdm(frame_scores, desc="Generating visualization")):
-                if i >= len(cap_frames):
-                    break
+                if i >= len(cap_frames): break
                 frame = cap_frames[i].copy()
 
-                # --- RESTORED: Graph Generation Logic ---
+                # Generate and overlay graph
                 ax.clear()
                 ax.fill_between(range(i + 1), frame_scores[: i + 1], color="#FF4136", alpha=0.4)
                 ax.plot(range(i + 1), frame_scores[: i + 1], color="#FF851B", linewidth=2)
                 ax.axhline(y=0.5, color="white", linestyle="--", alpha=0.7)
-                ax.set_ylim(-0.05, 1.05)
-                ax.set_xlim(0, len(frame_scores))
-                ax.set_title("Suspicion Analysis", fontsize=10)
-                fig.tight_layout(pad=1.5)
-
+                ax.set_ylim(-0.05, 1.05); ax.set_xlim(0, len(frame_scores))
+                ax.set_title("Suspicion Analysis", fontsize=10); fig.tight_layout(pad=1.5)
                 fig.canvas.draw()
                 buf = fig.canvas.buffer_rgba()
-                plot_img_rgba = np.frombuffer(buf, dtype=np.uint8).reshape(
-                    fig.canvas.get_width_height()[::-1] + (4,)
-                )
+                plot_img_rgba = np.frombuffer(buf, dtype=np.uint8).reshape(fig.canvas.get_width_height()[::-1] + (4,))
                 plot_img_bgr = cv2.cvtColor(plot_img_rgba, cv2.COLOR_RGBA2BGR)
                 
                 plot_h, plot_w, _ = plot_img_bgr.shape
@@ -279,45 +270,27 @@ class SiglipLSTMV3(SiglipLSTMV1):
                 new_plot_w = int(new_plot_h * (plot_w / plot_h))
                 resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
                 
-                # Overlay graph in the top-right corner
                 y_offset, x_offset = 10, frame_width - new_plot_w - 10
                 frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
-                # --- END OF RESTORED LOGIC ---
 
-
-                # --- Gradient Color Bar Logic ---
-                green = np.array([0, 255, 0])
-                yellow = np.array([0, 255, 255])
-                red = np.array([0, 0, 255])
-                
-                if score < 0.5:
-                    interp = score * 2
-                    color_np = green * (1 - interp) + yellow * interp
-                else:
-                    interp = (score - 0.5) * 2
-                    color_np = yellow * (1 - interp) + red * interp
-                
+                # Generate gradient color bar
+                green, yellow, red = np.array([0, 255, 0]), np.array([0, 255, 255]), np.array([0, 0, 255])
+                interp = score * 2 if score < 0.5 else (score - 0.5) * 2
+                color_np = green * (1 - interp) + yellow * interp if score < 0.5 else yellow * (1 - interp) + red * interp
                 color = tuple(map(int, color_np))
-
-                bar_height = 40
-                bar_y = frame_height - bar_height
-                cv2.rectangle(frame, (0, bar_y), (frame_width, frame_height), color, -1)
                 
-                score_text = f"Live Frame Suspicion: {score:.2f}"
-                # Add a black stroke for better text visibility
-                cv2.putText(frame, score_text, (15, frame_height - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+                bar_height = 40
+                cv2.rectangle(frame, (0, frame_height - bar_height), (frame_width, frame_height), color, -1)
+                cv2.putText(frame, f"Live Frame Suspicion: {score:.2f}", (15, frame_height - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
                 
                 out.write(frame)
         finally:
             out.release()
-            plt.close(fig) # Clean up the matplotlib figure
+            plt.close(fig)
 
-        # Clear the cache after visualization.
         self._last_detailed_result = None
         self._last_video_path = None
-
         return output_path
-
 class SiglipLSTMV4(SiglipLSTMV3):
     """
     Represents the V4 version of the Siglip-LSTM model, which incorporates

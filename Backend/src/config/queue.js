@@ -34,6 +34,16 @@ export const addVideoToQueue = async (videoId) => {
     logger.info(`Video ${videoId} 'analysis-flow' job added to the queue.`);
 };
 
+export const addAnalysisFlowToQueue = async (videoId, childJobs) => {
+    await videoFlowProducer.add({
+        name: "finalize-analysis",
+        queueName: VIDEO_PROCESSING_QUEUE_NAME,
+        data: { videoId, totalAnalysesAttempted: childJobs.length },
+        opts: { jobId: `${videoId}-finalizer` },
+        children: childJobs,
+    });
+};
+
 export const getQueueStatus = async () => {
     return {
         pendingJobs: await videoQueue.getWaitingCount(),

@@ -44,9 +44,6 @@ queueEvents.on("completed", async ({ jobId }) => {
         const video = await videoRepository.findById(videoId);
         if (video) {
             io.to(video.userId).emit("video_update", video);
-            logger.info(
-                `[SocketIO] Emitted final 'video_update' for video ${videoId} to user ${video.userId}.`
-            );
         }
     }
 });
@@ -78,9 +75,6 @@ queueEvents.on("failed", async ({ jobId, failedReason }) => {
 eventService.listenForProgress((progressData) => {
     if (progressData.userId) {
         io.to(progressData.userId).emit("progress_update", progressData);
-        logger.info(
-            `[SocketIO] Emitted 'progress_update' (${progressData.event}) for video ${progressData.videoId} to user ${progressData.userId}.`
-        );
     }
 });
 

@@ -30,7 +30,7 @@ const Modal = ({ isOpen, onClose, title, description, children, footer }) => {
                         animate={{ scale: 1, y: 0 }}
                         exit={{ scale: 0.95, y: 20, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="relative w-full max-w-lg"
+                        className="relative w-full max-w-5xl"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <Card>

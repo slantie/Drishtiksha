@@ -47,24 +47,42 @@ import { MODEL_INFO } from "../constants/apiEndpoints.js";
 import { formatProcessingTime, formatBytes } from "../utils/formatters.js";
 import { showToast } from "../utils/toast.js";
 import { PageHeader } from "../components/layout/PageHeader.jsx";
+import { useServerStatusQuery } from "../hooks/useMonitoringQuery";
+
 import {
     Alert,
     AlertTitle,
     AlertDescription,
 } from "../components/ui/Alert.jsx";
 import { EmptyState } from "../components/ui/EmptyState.jsx";
+import { useMemo } from "react";
 
 // REFACTOR: The result card is now cleaner and uses Card sub-components for better structure.
-const AnalysisResultCard = ({ analysis, videoId }) => {
-    const isReal = analysis.prediction === "REAL";
-    const confidence = analysis.confidence * 100;
-    const modelInfo = MODEL_INFO[analysis.model];
+const AnalysisResultCard = ({ analysis, videoId, serverModels }) => {
+    // 1. Find the full model information from the server status data
+    //    by matching the model name from the analysis record.
+    const modelInfo = useMemo(() => {
+        return serverModels?.find(
+            (m) => m.name.toLowerCase() === analysis.model.toLowerCase()
+        );
+    }, [serverModels, analysis.model]);
 
+    // 2. Create fallback data for the UI in case the model is no longer active
+    const displayName = modelInfo?.name || analysis.model;
+    const displayDescription =
+        modelInfo?.description || "Detailed analysis results.";
+
+    console.log("Models:", serverModels);
+    console.log("Model Info:", modelInfo);
+    console.log("Analysis Data:", analysis.model);
+
+    // 3. Handle the display for a FAILED analysis
     if (analysis.status === "FAILED") {
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>{modelInfo?.label || analysis.model}</CardTitle>
+                    <CardTitle>{displayName}</CardTitle>
+                    <CardDescription>{displayDescription}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Alert variant="destructive">
@@ -80,6 +98,10 @@ const AnalysisResultCard = ({ analysis, videoId }) => {
         );
     }
 
+    // 4. Render the successful analysis card
+    const isReal = analysis.prediction === "REAL";
+    const confidence = analysis.confidence * 100;
+
     return (
         <Card
             className={`transition-all hover:shadow-lg ${
@@ -88,8 +110,8 @@ const AnalysisResultCard = ({ analysis, videoId }) => {
         >
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
-                    <CardTitle>{modelInfo?.label || analysis.model}</CardTitle>
-                    <CardDescription>{modelInfo?.description}</CardDescription>
+                    <CardTitle>{displayName}</CardTitle>
+                    <CardDescription>{displayDescription}</CardDescription>
                 </div>
                 {isReal ? (
                     <ShieldCheck className="w-8 h-8 text-green-500" />
@@ -143,7 +165,10 @@ const AnalysisResultCard = ({ analysis, videoId }) => {
             </CardContent>
             <CardFooter>
                 <Button asChild variant="outline" className="w-full">
-                    <Link to={`/results/${videoId}/${analysis.id}`} className="flex items-center justify-center gap-2">
+                    <Link
+                        to={`/results/${videoId}/${analysis.id}`}
+                        className="flex items-center justify-center gap-2"
+                    >
                         <ChartNetwork className="h-5 w-5 text-purple-500" />
                         View Detailed Report
                     </Link>
@@ -155,6 +180,9 @@ const AnalysisResultCard = ({ analysis, videoId }) => {
 
 const Results = () => {
     // --- STATE AND LOGIC (PRESERVED) ---
+
+    const { data: serverStatus } = useServerStatusQuery();
+    const serverModels = serverStatus?.modelsInfo || [];
     const { videoId } = useParams();
     const navigate = useNavigate();
     const { user } = useContext(AuthContext);
@@ -201,14 +229,39 @@ const Results = () => {
                 <Button asChild>
                     <Link to="/dashboard">
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Dashboard
+                        Go Back
                     </Link>
                 </Button>
             </div>
         );
-    if (!video) return <div>Video not found.</div>;
-    if (["QUEUED", "PROCESSING"].includes(video.status))
-        return <AnalysisInProgress video={video} />;
+
+    const renderContent = () => {
+        if (isLoading) return <ResultsSkeleton />;
+        if (error) {
+            return (
+                <div className="text-center py-20">
+                    <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold mb-2">Error</h2>
+                    <p className="text-lg text-light-muted-text dark:text-dark-muted-text mb-6">
+                        {error.message}
+                    </p>
+                    <Button onClick={() => navigate("/dashboard")}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                    </Button>
+                </div>
+            );
+        }
+
+        if (!video) return <div>Video not found.</div>;
+
+        // --- REFACTORED: Conditional rendering based on the video's real-time status ---
+        const isProcessing = ["QUEUED", "PROCESSING"].includes(video.status);
+        if (isProcessing) {
+            return <AnalysisInProgress video={video} />;
+        }
+
+        return <AnalysisComplete video={video} />;
+    };
 
     const completedAnalyses =
         video.analyses?.filter((a) => a.status === "COMPLETED") || [];
@@ -226,8 +279,7 @@ const Results = () => {
                 actions={
                     <Button asChild variant="outline">
                         <Link to="/dashboard">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to
-                            Dashboard
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
                         </Link>
                     </Button>
                 }
@@ -385,6 +437,7 @@ const Results = () => {
                                 key={analysis.id}
                                 analysis={analysis}
                                 videoId={video.id}
+                                serverModels={serverModels}
                             />
                         ))
                     )}

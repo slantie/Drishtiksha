@@ -7,12 +7,10 @@ import {
     CheckCircle,
     AlertTriangle,
     RefreshCw,
-    TrendingUp,
-    Cpu,
-    Database,
-    FileText,
-    LineChart as LineChartIcon,
-    Video,
+    Cpu, // Used for Processing Environment
+    Database, // Used for Analysis Metrics
+    LineChart as LineChartIcon, // Used for Frame-by-Frame Analysis
+    Video, // Used for the video player
     AlertCircle,
 } from "lucide-react";
 import { useVideoQuery } from "../hooks/useVideosQuery.jsx";
@@ -42,8 +40,6 @@ import {
     Area,
     BarChart,
     Bar,
-    ScatterChart,
-    Scatter,
     ComposedChart,
     Line,
     CartesianGrid,
@@ -51,7 +47,6 @@ import {
     XAxis,
     YAxis,
     Cell,
-    ReferenceLine,
 } from "recharts";
 import showToast from "../utils/toast.js";
 
@@ -66,7 +61,7 @@ const CustomTooltip = ({ active, payload, label }) => {
                 <p
                     style={{
                         color:
-                            data.prediction === "FAKE" ? "#ef4444" : "#22c55e",
+                            data.prediction === "FAKE" ? "#ef4444" : "#22c56e",
                     }}
                 >
                     Confidence: {data.confidence.toFixed(1)}% ({data.prediction}
@@ -79,7 +74,6 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-// REFACTOR: This single component now handles multiple Recharts visualizations.
 const FrameAnalysisChart = ({ frames, type }) => {
     if (!frames || frames.length === 0) return null;
     const chartData = frames.map((frame, index) => {
@@ -115,7 +109,13 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
                         <defs>
-                            <linearGradient id="a" x1="0" y1="0" x2="0" y2="1">
+                            <linearGradient
+                                id="colorConfidence"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
                                 <stop
                                     offset="5%"
                                     stopColor="#f56565"
@@ -128,10 +128,10 @@ const FrameAnalysisChart = ({ frames, type }) => {
                                 />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid 
-                                                        strokeDasharray="3 3"
-                                stroke="currentColor"
-                                className="opacity-15"
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="currentColor"
+                            className="opacity-15"
                         />
                         <XAxis dataKey="frame" tick={{ fontSize: 10 }} />
                         <YAxis
@@ -144,7 +144,7 @@ const FrameAnalysisChart = ({ frames, type }) => {
                             type="monotone"
                             dataKey="confidence"
                             stroke="#f56565"
-                            fill="url(#a)"
+                            fill="url(#colorConfidence)"
                         />
                     </AreaChart>
                 );
@@ -154,10 +154,10 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         data={chartData}
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
-                        <CartesianGrid 
-                                                        strokeDasharray="3 3"
-                                stroke="currentColor"
-                                className="opacity-15"
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="currentColor"
+                            className="opacity-15"
                         />
                         <XAxis dataKey="frame" tick={{ fontSize: 10 }} />
                         <YAxis
@@ -176,7 +176,7 @@ const FrameAnalysisChart = ({ frames, type }) => {
                                     fill={
                                         e.prediction === "FAKE"
                                             ? "#ef4444"
-                                            : "#22c55e"
+                                            : "#22c56e"
                                     }
                                 />
                             ))}
@@ -189,10 +189,10 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         data={chartData}
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
-                        <CartesianGrid 
-                                                        strokeDasharray="3 3"
-                                stroke="currentColor"
-                                className="opacity-15"
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="currentColor"
+                            className="opacity-15"
                         />
                         <XAxis dataKey="frame" tick={{ fontSize: 10 }} />
                         <YAxis
@@ -223,10 +223,10 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         data={histogramData}
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
-                        <CartesianGrid 
-                                                        strokeDasharray="3 3"
-                                stroke="currentColor"
-                                className="opacity-15"
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="currentColor"
+                            className="opacity-15"
                         />
                         <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                         <YAxis
@@ -244,7 +244,7 @@ const FrameAnalysisChart = ({ frames, type }) => {
                             {histogramData.map((e, i) => (
                                 <Cell
                                     key={i}
-                                    fill={i < 5 ? "#22c55e" : "#ef4444"}
+                                    fill={i < 5 ? "#22c56e" : "#ef4444"}
                                     opacity={0.4 + i * 0.06}
                                 />
                             ))}
@@ -256,13 +256,12 @@ const FrameAnalysisChart = ({ frames, type }) => {
         }
     };
     return (
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={490}>
             {renderChart()}
         </ResponsiveContainer>
     );
 };
 
-// Other helper components
 const AnalysisResultCard = ({ analysis }) => {
     if (!analysis) return null;
     const isReal = analysis.prediction === "REAL";
@@ -274,7 +273,7 @@ const AnalysisResultCard = ({ analysis }) => {
             }`}
             padding="lg"
         >
-            <div className="text-center">
+            <div className="text-center items-center justify-center">
                 <div
                     className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
                         isReal
@@ -298,53 +297,22 @@ const AnalysisResultCard = ({ analysis }) => {
                 <p className="text-xl font-semibold mb-1">
                     {isReal ? "Authentic Content" : "Potential Deepfake"}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Confidence Score
-                </p>
-            </div>
-        </Card>
-    );
-};
-const AnalysisDetailsCard = ({ details }) =>
-    !details ? null : (
-        <Card>
-            <div className="p-6">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <Database className="h-5 w-5 text-primary-main" />
-                    Analysis Metrics
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
-                    <div className="flex justify-between">
-                        <span>Frame Count:</span>
-                        <span className="font-medium font-mono">
-                            {details.frameCount}
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Avg. Confidence:</span>
-                        <span className="font-medium font-mono">
-                            {(details.avgConfidence * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Confidence Std Dev:</span>
-                        <span className="font-medium font-mono">
-                            {(details.confidenceStd * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    {details.temporalConsistency && (
-                        <div className="flex justify-between">
-                            <span>Temporal Consistency:</span>
-                            <span className="font-medium font-mono">
-                                {(details.temporalConsistency * 100).toFixed(1)}
-                                %
-                            </span>
-                        </div>
-                    )}
+                <div className="w-full mt-3 h-10 flex items-center justify-center">
+                    <p className="w-full max-w-md text-center">
+                        {/* Explain the confidence score */}
+                        The above confidence score represents how strongly the
+                        model thinks it is a{" "}
+                        <span className="inline font-bold text-lg">
+                            {isReal ? "real" : "deepfake"}
+                        </span>{" "}
+                        video.
+                    </p>
                 </div>
             </div>
         </Card>
     );
+};
+
 const ProcessingEnvironmentCard = ({ modelInfo, systemInfo }) => {
     if (!modelInfo && !systemInfo) return null;
     return (
@@ -354,28 +322,48 @@ const ProcessingEnvironmentCard = ({ modelInfo, systemInfo }) => {
                     <Cpu className="h-5 w-5 text-primary-main" />
                     Processing Environment
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                <div className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm">
                     {modelInfo && (
                         <>
                             <div className="flex justify-between">
+                                <span>Model Name:</span>
+                                <span className="font-medium font-sans">
+                                    {modelInfo.modelName}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
                                 <span>Model Version:</span>
-                                <span className="font-medium font-mono">
+                                <span className="font-medium font-sans">
                                     {modelInfo.version}
                                 </span>
                             </div>
                             <div className="flex justify-between">
                                 <span>Architecture:</span>
-                                <span className="font-medium font-mono">
+                                <span className="font-medium font-sans">
                                     {modelInfo.architecture}
                                 </span>
                             </div>
+                            <div className="flex justify-between">
+                                <span>Device:</span>
+                                <span className="font-medium font-sans">
+                                    {modelInfo.device}
+                                </span>
+                            </div>
+                            {modelInfo.memoryUsage && (
+                                <div className="flex justify-between">
+                                    <span>Model Memory Usage:</span>
+                                    <span className="font-medium font-sans">
+                                        {modelInfo.memoryUsage}
+                                    </span>
+                                </div>
+                            )}
                         </>
                     )}{" "}
                     {systemInfo && (
                         <>
                             <div className="flex justify-between">
                                 <span>Processing Device:</span>
-                                <span className="font-medium font-mono">
+                                <span className="font-medium font-sans">
                                     {systemInfo.processingDevice}
                                 </span>
                             </div>
@@ -383,7 +371,7 @@ const ProcessingEnvironmentCard = ({ modelInfo, systemInfo }) => {
                                 <div className="flex justify-between">
                                     <span>CUDA Available:</span>
                                     <span
-                                        className={`font-medium font-mono ${
+                                        className={`font-medium font-sans ${
                                             systemInfo.cudaAvailable
                                                 ? "text-green-600"
                                                 : "text-red-600"
@@ -397,17 +385,49 @@ const ProcessingEnvironmentCard = ({ modelInfo, systemInfo }) => {
                             )}
                             {systemInfo.gpuMemoryUsed && (
                                 <div className="flex justify-between">
-                                    <span>GPU Memory:</span>
-                                    <span className="font-medium font-mono">
+                                    <span>GPU Memory Used:</span>
+                                    <span className="font-medium font-sans">
                                         {systemInfo.gpuMemoryUsed}
+                                    </span>
+                                </div>
+                            )}
+                            {systemInfo.gpuMemoryTotal && (
+                                <div className="flex justify-between">
+                                    <span>GPU Memory Total:</span>
+                                    <span className="font-medium font-sans">
+                                        {systemInfo.gpuMemoryTotal}
                                     </span>
                                 </div>
                             )}
                             {systemInfo.systemMemoryUsed && (
                                 <div className="flex justify-between">
-                                    <span>System Memory:</span>
-                                    <span className="font-medium font-mono">
+                                    <span>System Memory Used:</span>
+                                    <span className="font-medium font-sans">
                                         {systemInfo.systemMemoryUsed}
+                                    </span>
+                                </div>
+                            )}
+                            {systemInfo.systemMemoryTotal && (
+                                <div className="flex justify-between">
+                                    <span>System Memory Total:</span>
+                                    <span className="font-medium font-sans">
+                                        {systemInfo.systemMemoryTotal}
+                                    </span>
+                                </div>
+                            )}
+                            {systemInfo.pythonVersion && (
+                                <div className="flex justify-between">
+                                    <span>Python Version:</span>
+                                    <span className="font-medium font-sans">
+                                        {systemInfo.pythonVersion}
+                                    </span>
+                                </div>
+                            )}
+                            {systemInfo.torchVersion && (
+                                <div className="flex justify-between">
+                                    <span>Torch Version:</span>
+                                    <span className="font-medium font-sans">
+                                        {systemInfo.torchVersion}
                                     </span>
                                 </div>
                             )}
@@ -429,7 +449,7 @@ const FrameAnalysisHeatmap = ({ frames }) => {
                     className="flex-1 group relative"
                     style={{
                         backgroundColor:
-                            frame.prediction === "REAL" ? "#22c55e" : "#ef4444",
+                            frame.prediction === "REAL" ? "#22c56e" : "#ef4444",
                         opacity: 0.2 + frame.confidence * 0.8,
                     }}
                 >
@@ -460,15 +480,20 @@ const DetailedAnalysisSkeleton = () => (
     </div>
 );
 
-// REFACTOR: This new component encapsulates the summary stats and the tabs for a cleaner main component.
 const FrameAnalysisTabs = ({ analysis }) => {
     if (!analysis?.frameAnalysis?.length) return null;
     const { frameAnalysis: frames } = analysis;
-    const realFrames = frames.filter((f) => f.prediction === "REAL").length;
-    const fakeFrames = frames.length - realFrames;
+    // Prefer pre-calculated stats from temporalAnalysis if available, otherwise calculate from frames
+    const realFrames =
+        analysis.temporalAnalysis?.realFrames ||
+        frames.filter((f) => f.prediction === "REAL").length;
+    const fakeFrames =
+        analysis.temporalAnalysis?.fakeFrames ||
+        frames.filter((f) => f.prediction === "FAKE").length;
     const avgConfidence =
+        analysis.analysisDetails?.avgConfidence * 100 ||
         (frames.reduce((sum, f) => sum + f.confidence, 0) / frames.length) *
-        100;
+            100;
 
     return (
         <Card>
@@ -478,18 +503,18 @@ const FrameAnalysisTabs = ({ analysis }) => {
                     Frame-by-Frame Analysis
                 </CardTitle>
                 <CardDescription>
-                    Explore frame-level confidence scores using different
-                    visualizations.
+                    Explore frame-level probability scores of fake content using
+                    different visualizations.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-3 gap-4 p-4 bg-light-muted-background dark:bg-dark-secondary rounded-lg mb-6 text-center">
+                <div className="grid grid-cols-4 gap-4 p-4 bg-light-muted-background dark:bg-dark-secondary rounded-lg mb-6 text-center">
                     <div>
                         <div className="text-2xl font-bold text-green-600">
                             {realFrames}
                         </div>
                         <div className="text-xs text-light-muted-text dark:text-dark-muted-text">
-                            Authentic Frames
+                            Real Content Frames
                         </div>
                     </div>
                     <div>
@@ -497,15 +522,29 @@ const FrameAnalysisTabs = ({ analysis }) => {
                             {fakeFrames}
                         </div>
                         <div className="text-xs text-light-muted-text dark:text-dark-muted-text">
-                            Deepfake Frames
+                            Fake Content Frames
                         </div>
                     </div>
                     <div>
-                        <div className="text-2xl font-bold">
-                            {avgConfidence.toFixed(1)}%
+                        <div className="text-2xl font-bold text-light-text dark:text-dark-text">
+                            {realFrames + fakeFrames}
                         </div>
                         <div className="text-xs text-light-muted-text dark:text-dark-muted-text">
-                            Avg. Confidence
+                            Total Frames
+                        </div>
+                    </div>
+                    <div>
+                        <div
+                            className={`text-2xl font-bold ${
+                                avgConfidence > 50
+                                    ? "text-red-500"
+                                    : "text-green-500"
+                            }`}
+                        >
+                            {avgConfidence.toFixed(1)}%
+                        </div>
+                        <div className={`text-xs`}>
+                            Fake Content Probability
                         </div>
                     </div>
                 </div>
@@ -585,90 +624,66 @@ const Analysis = () => {
             </div>
         );
 
-    const modelInfo = MODEL_INFO[analysis.model];
+    const modelLabel = MODEL_INFO[analysis.model]?.label || analysis.model;
 
     return (
         <div className="space-y-4">
             {/* <Breadcrumbs items={breadcrumbItems} /> */}
             <PageHeader
-                title={`${modelInfo?.label || analysis.model} Report`}
+                title={`${modelLabel} Report`}
                 description={`Forensic analysis details for ${video.filename}`}
                 actions={
-                    <Button
-                        onClick={() => {
-                            refetch();
-                            showToast.success("Data refreshed successfully!");
-                        }}
-                        isLoading={isRefetching}
-                        variant="outline"
-                    >
-                        <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
-                    </Button>
+                    <>
+                        <Button
+                            onClick={() => {
+                                refetch();
+                                showToast.success(
+                                    "Data refreshed successfully!"
+                                );
+                            }}
+                            isLoading={isRefetching}
+                            variant="outline"
+                        >
+                            <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                navigate(-1);
+                            }}
+                            isLoading={isRefetching}
+                            variant="outline"
+                        >
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                        </Button>
+                    </>
                 }
             />
 
+            {/* Original Video Display - Moved to top for prominence */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Video className="h-5 w-5 text-primary-main" /> Original
+                        Video
+                    </CardTitle>
+                    <CardDescription>
+                        Full view of the original video file.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <VideoPlayer videoUrl={video.url} />
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 <div className="lg:col-span-1 space-y-4 sticky top-24">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Video className="h-5 w-5 text-primary-main" />{" "}
-                                Original Video
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <VideoPlayer videoUrl={video.url} />
-                        </CardContent>
-                    </Card>
                     <AnalysisResultCard analysis={analysis} />
-                    {analysis.analysisDetails && (
-                        <ProcessingEnvironmentCard
-                            title="Analysis Metrics"
-                            icon={Database}
-                            data={[
-                                {
-                                    label: "Frame Count",
-                                    value: analysis.analysisDetails.frameCount,
-                                },
-                                {
-                                    label: "Avg. Confidence",
-                                    value: `${(
-                                        analysis.analysisDetails.avgConfidence *
-                                        100
-                                    ).toFixed(1)}%`,
-                                },
-                            ]}
-                        />
-                    )}
-                    {analysis.systemInfo && (
-                        <ProcessingEnvironmentCard
-                            title="Processing Environment"
-                            icon={Cpu}
-                            data={[
-                                {
-                                    label: "Device",
-                                    value: analysis.systemInfo.processingDevice,
-                                },
-                            ]}
-                        />
-                    )}
+                    <ProcessingEnvironmentCard
+                        modelInfo={analysis.modelInfo}
+                        systemInfo={analysis.systemInfo}
+                    />
                 </div>
                 <div className="lg:col-span-2 space-y-4">
-                    {analysis.visualizedUrl && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-primary-main" />{" "}
-                                    Analysis Visualization
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <VideoPlayer
-                                    videoUrl={analysis.visualizedUrl}
-                                />
-                            </CardContent>
-                        </Card>
-                    )}
                     <FrameAnalysisTabs analysis={analysis} />
                 </div>
             </div>

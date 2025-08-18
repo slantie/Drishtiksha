@@ -47,8 +47,36 @@ export const VideoPlayer = ({ videoUrl }) => {
         videoRef.current.volume = newVolume;
         setVolume(newVolume);
     };
-    const toggleFullscreen = () => {
-        /* ... preserved */
+    const toggleFullscreen = async () => {
+        const container = videoRef.current?.parentElement;
+        if (!container) return;
+
+        const doc = document;
+        const isFullscreen =
+            !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
+
+        try {
+            if (!isFullscreen) {
+                if (container.requestFullscreen) {
+                    await container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+            } else {
+                if (doc.exitFullscreen) {
+                    await doc.exitFullscreen();
+                } else if (doc.webkitExitFullscreen) {
+                    doc.webkitExitFullscreen();
+                } else if (doc.msExitFullscreen) {
+                    doc.msExitFullscreen();
+                }
+            }
+        } catch (err) {
+            // Optional: handle or log error
+            console.error("Failed to toggle fullscreen", err);
+        }
     };
 
     useEffect(() => {
@@ -96,7 +124,6 @@ export const VideoPlayer = ({ videoUrl }) => {
                 </div>
             )}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {/* REFACTOR: Seek bar is now taller and more prominent. */}
                 <div
                     className="relative h-1.5 w-full cursor-pointer"
                     onClick={handleSeek}

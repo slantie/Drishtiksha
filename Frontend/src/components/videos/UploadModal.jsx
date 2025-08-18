@@ -4,15 +4,16 @@ import React, { useState, useRef, useCallback } from "react";
 import { Upload, CheckCircle, FileVideo } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { Modal } from "../ui/Modal"; // REFACTOR: Using the new base Modal component.
+import { Modal } from "../ui/Modal";
 import { showToast } from "../../utils/toast";
+import { useUploadVideoMutation } from "../../hooks/useVideosQuery.jsx";
 
-export const UploadModal = ({ isOpen, onClose, onUpload }) => {
+export const UploadModal = ({ isOpen, onClose }) => {
     const [videoFile, setVideoFile] = useState(null);
     const [description, setDescription] = useState("");
-    const [isUploading, setIsUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef(null);
+    const uploadMutation = useUploadVideoMutation();
 
     const clearForm = useCallback(() => {
         setVideoFile(null);
@@ -33,31 +34,26 @@ export const UploadModal = ({ isOpen, onClose, onUpload }) => {
         e.preventDefault();
         if (!videoFile) return showToast.warning("Please select a video file.");
 
-        setIsUploading(true);
         const formData = new FormData();
         formData.append("video", videoFile);
         formData.append("description", description);
-        try {
-            await onUpload(formData);
-            clearForm();
-            onClose();
-        } catch (error) {
-            console.error("Upload failed:", error);
-        } finally {
-            setIsUploading(false);
-        }
+
+        // REFACTORED: The mutation now handles navigation and toast messages.
+        await uploadMutation.mutateAsync(formData);
+
+        clearForm();
+        onClose();
     };
 
-    // REFACTOR: The footer actions are now defined separately for clarity.
     const modalFooter = (
         <Button
             onClick={handleSubmit}
-            isLoading={isUploading}
+            isLoading={uploadMutation.isPending}
             disabled={!videoFile}
             className="w-full"
             size="lg"
         >
-            {!isUploading && <Upload className="mr-2 h-4 w-4" />}
+            {!uploadMutation.isPending && <Upload className="mr-2 h-4 w-4" />}
             Upload & Analyze
         </Button>
     );

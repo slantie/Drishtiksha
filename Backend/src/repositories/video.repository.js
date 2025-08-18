@@ -165,8 +165,11 @@ export const videoRepository = {
                     data: {
                         analysisId: analysis.id,
                         frameCount:
-                            metrics.frameCount || metrics.sequenceCount || 0,
-                        avgConfidence: metrics.finalAverageScore || 0,
+                            metrics.frameCount || 
+                            metrics.sequenceCount || 
+                            metrics.totalFacesDetected ||
+                            0,
+                        avgConfidence: metrics.finalAverageScore || metrics.averageFaceScore || 0,
                         confidenceStd: metrics.scoreVariance || 0,
                         temporalConsistency:
                             temporalAnalysis?.consistencyScore || null,

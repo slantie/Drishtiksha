@@ -50,10 +50,10 @@ class SocketService {
                 case "PROCESSING_STARTED":
                     toastOrchestrator.startVideoProcessing(videoId, message);
                     break;
-
-                // This case now handles both starting the toast and updating its progress
                 case "ANALYSIS_STARTED":
-                case "FRAME_ANALYSIS_PROGRESS": // <<<<< THE CRITICAL FIX IS HERE
+                case "FRAME_ANALYSIS_PROGRESS":
+                case "VISUALIZATION_UPLOADING":
+                case "VISUALIZATION_COMPLETED":
                     if (data?.modelName) {
                         toastOrchestrator.updateModelProgress(
                             videoId,
@@ -64,7 +64,6 @@ class SocketService {
                         );
                     }
                     break;
-
                 case "ANALYSIS_COMPLETED":
                     if (data?.modelName) {
                         toastOrchestrator.resolveModelProgress(

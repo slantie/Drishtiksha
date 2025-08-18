@@ -1,7 +1,8 @@
 // src/services/video.service.js
 
 import { videoRepository } from "../repositories/video.repository.js";
-import { addVideoToQueue } from "../config/queue.js";
+import { addAnalysisFlowToQueue } from "../config/queue.js";
+import { modelAnalysisService } from "./modelAnalysis.service.js";
 import {
     uploadOnCloudinary,
     deleteFromCloudinary,
@@ -11,7 +12,7 @@ import logger from "../utils/logger.js";
 
 class VideoService {
     // REMOVED: 'io' parameter is no longer needed.
-    async createVideoAndQueueForAnalysis(file, user, description) {
+        async createVideoAndQueueForAnalysis(file, user, description) {
         if (!file) throw new ApiError(400, "A video file is required.");
 
         const cloudinaryResponse = await uploadOnCloudinary(file.path);
@@ -29,9 +30,39 @@ class VideoService {
             userId: user.id,
         });
 
-        await addVideoToQueue(newVideo.id);
+        // --- REFACTORED: Orchestration logic now lives here ---
+        try {
+            logger.info(`[VideoService] Creating analysis flow for video ${newVideo.id}`);
+            const serverStats = await modelAnalysisService.getServerStatistics();
+            const availableModels =
+                serverStats.models_info?.filter((m) => m.loaded).map((m) => m.name) || [];
 
-        // REMOVED: Socket emission logic is now handled by the event listener in server.js
+            if (availableModels.length === 0) {
+                await videoRepository.updateStatus(newVideo.id, "FAILED");
+                throw new ApiError(503, "No models are available for analysis.");
+            }
+
+            // Create a job for each available model
+            const childJobs = availableModels.map((modelName) => ({
+                name: "run-single-analysis",
+                data: { videoId: newVideo.id, modelName, serverStats },
+                queueName: "video-processing",
+                opts: { jobId: `${newVideo.id}-${modelName}` },
+            }));
+
+            // Create the flow and add it to the queue
+            await addAnalysisFlowToQueue(newVideo.id, childJobs);
+            
+            logger.info(`[VideoService] Successfully queued analysis flow for video ${newVideo.id} with ${childJobs.length} models.`);
+
+        } catch (error) {
+            logger.error(`[VideoService] Failed to create analysis flow for video ${newVideo.id}: ${error.message}`);
+            // If flow creation fails, mark the video as failed
+            await videoRepository.updateStatus(newVideo.id, "FAILED");
+            throw new ApiError(500, "Could not queue video for analysis.", error.stack);
+        }
+        // --- END REFACTOR ---
+
         return newVideo;
     }
 
