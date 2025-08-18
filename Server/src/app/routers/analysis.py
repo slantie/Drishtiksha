@@ -177,8 +177,8 @@ async def analyze_visual(
 async def analyze_comprehensive(
     model_manager: ModelManager = Depends(get_model_manager),
     proc_data: tuple = VideoProcessingDeps,
-    include_frames: bool = True,
-    include_visualization: bool = True,
+    include_frames: bool = Form(True),
+    include_visualization: bool = Form(True),
     video_id: str = Form(None),
     user_id: str = Form(None),
 ):
@@ -211,13 +211,15 @@ async def analyze_comprehensive(
     # 1. Basic comprehensive analysis (detailed if available)
     analysis_start = time.time()
     try:
+        # Attempt to call the full-featured detailed method first
         basic_result = await asyncio.to_thread(model.predict_detailed, video_path, video_id=video_id, user_id=user_id)
         analysis_type = "COMPREHENSIVE"
-    except NotImplementedError:
+    except (NotImplementedError, TypeError):
+        logger.warning(f"Model '{model_name}' does not support full detailed analysis. Falling back to basic prediction.")
         basic_result = await asyncio.to_thread(model.predict, video_path)
-        analysis_type = "QUICK"
+        analysis_type = "QUICK (Fallback)"
     processing_breakdown["basic_analysis"] = time.time() - analysis_start
-    
+
     # 2. Frame-by-frame analysis (if requested)
     frames_result = None
     if include_frames:

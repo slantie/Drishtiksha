@@ -1,27 +1,32 @@
 # src/ml/models/efficientnet_detector.py
 
 import os
+import cv2
 import time
 import torch
 import logging
+import warnings
+import matplotlib
 import numpy as np
-import cv2
 from PIL import Image
-from facenet_pytorch.models.mtcnn import MTCNN
-from torchvision.transforms import Normalize
-from typing import Any, Dict, List, Optional, Tuple
 from tqdm import tqdm
 from collections import deque
+import matplotlib.pyplot as plt
+from torchvision.transforms import Normalize
+from facenet_pytorch.models.mtcnn import MTCNN
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.ml.base import BaseModel
 from src.config import EfficientNetB7Config
 from src.ml.architectures.efficientnet import create_efficientnet_model
+# --- NEW: Import the event publisher ---
+from src.ml.event_publisher import publish_progress
+# --- END NEW ---
 
-# Add matplotlib imports for visualization
-import matplotlib
+# Update Matplotlib backend
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
+# Initialize logger
 logger = logging.getLogger(__name__)
 
 # Pre-define normalization for image tensors
@@ -31,7 +36,7 @@ normalize_transform = Normalize(mean, std)
 
 class EfficientNetB7Detector(BaseModel):
     """
-    DeepFake detector using an MTCNN for face extraction and an EFFICIENTNET-B7-V1
+    DeepFake detector using an MTCNN for face extraction and an EfficientNet-B7
     classifier for frame-by-frame, face-by-face analysis.
     """
     config: EfficientNetB7Config
@@ -39,31 +44,42 @@ class EfficientNetB7Detector(BaseModel):
     def __init__(self, config: EfficientNetB7Config):
         super().__init__(config)
         self.face_detector: Optional[MTCNN] = None
-        # --- NEW: Caching variables for detailed results ---
         self._last_detailed_result: Optional[Dict[str, Any]] = None
         self._last_video_path: Optional[str] = None
 
     def load(self) -> None:
         """Loads the EfficientNet model and the MTCNN face detector."""
         start_time = time.time()
+        timm_logger = logging.getLogger('timm')
+        original_level = timm_logger.level
         try:
             self.face_detector = MTCNN(
                 margin=0,
                 thresholds=[0.7, 0.8, 0.8],
                 device=self.device
             )
-            self.model = create_efficientnet_model(encoder=self.config.encoder)
+
+            timm_logger.setLevel(logging.WARNING)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                self.model = create_efficientnet_model(encoder=self.config.encoder)
+
+            timm_logger.setLevel(original_level)
+
             checkpoint = torch.load(self.config.model_path, map_location="cpu", weights_only=False)
             state_dict = checkpoint.get("state_dict", checkpoint)
             state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
             self.model.load_state_dict(state_dict, strict=True)
             self.model = self.model.to(self.device)
             self.model.eval()
+
             load_time = time.time() - start_time
             logger.info(
                 f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f}s."
             )
         except Exception as e:
+            # Ensure logger level is restored on failure
+            timm_logger.setLevel(original_level)
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
             raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
 
@@ -138,11 +154,15 @@ class EfficientNetB7Detector(BaseModel):
             "processing_time": result["processing_time"],
         }
 
-    # --- NEW: Central, cache-aware analysis method ---
     def _get_or_run_detailed_analysis(self, video_path: str, **kwargs) -> Dict[str, Any]:
         if self._last_video_path == video_path and self._last_detailed_result:
             logger.info(f"✅ Using cached detailed analysis for {os.path.basename(video_path)}")
             return self._last_detailed_result
+
+        # --- NEW: Extract context for progress reporting ---
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
+        # --- END NEW ---
 
         start_time = time.time()
         cap = cv2.VideoCapture(video_path)
@@ -153,21 +173,51 @@ class EfficientNetB7Detector(BaseModel):
         per_frame_scores = []
 
         try:
-            for _ in tqdm(range(total_frames), desc=f"Analyzing faces for {self.config.class_name}"):
+            for i in tqdm(range(total_frames), desc=f"Analyzing faces for {self.config.class_name}"):
                 ret, frame = cap.read()
                 if not ret: break
                 
                 faces = self._extract_faces(frame)
                 
                 if not faces:
-                    per_frame_scores.append(0.0) # No face detected, score as real
+                    per_frame_scores.append(0.0)
                     continue
 
                 face_preds = self._predict_on_faces(faces)
                 all_face_predictions.extend(face_preds)
                 per_frame_scores.append(max(face_preds) if face_preds else 0.0)
+
+                # --- NEW: Emit progress to Redis ---
+                if (i + 1) % 10 == 0 and video_id and user_id:
+                    publish_progress({
+                        "videoId": video_id,
+                        "userId": user_id,
+                        "event": "FRAME_ANALYSIS_PROGRESS",
+                        "message": f"Processed frame {i + 1}/{total_frames}",
+                        "data": {
+                            "modelName": self.config.class_name,
+                            "progress": i + 1,
+                            "total": total_frames,
+                        },
+                    })
+                # --- END NEW ---
         finally:
             cap.release()
+
+        # --- NEW: Emit final progress event ---
+        if video_id and user_id:
+            publish_progress({
+                "videoId": video_id,
+                "userId": user_id,
+                "event": "FRAME_ANALYSIS_PROGRESS",
+                "message": f"Completed frame analysis for {self.config.class_name}",
+                "data": {
+                    "modelName": self.config.class_name,
+                    "progress": total_frames,
+                    "total": total_frames,
+                },
+            })
+        # --- END NEW ---
 
         final_prob_fake = self._confident_strategy(all_face_predictions)
         prediction = "FAKE" if final_prob_fake > 0.5 else "REAL"
@@ -192,11 +242,9 @@ class EfficientNetB7Detector(BaseModel):
         self._last_detailed_result = result
         return result
 
-    # --- REFACTORED: Now uses the central analysis method ---
     def predict_detailed(self, video_path: str, **kwargs) -> Dict[str, Any]:
         return self._get_or_run_detailed_analysis(video_path, **kwargs)
 
-    # --- NEW: Full implementation of predict_frames ---
     def predict_frames(self, video_path: str, **kwargs) -> Dict[str, Any]:
         detailed_result = self._get_or_run_detailed_analysis(video_path, **kwargs)
         metrics = detailed_result["metrics"]
@@ -212,7 +260,6 @@ class EfficientNetB7Detector(BaseModel):
             "temporal_analysis": {}, # EfficientNet is frame-based, no temporal data
         }
 
-    # --- NEW: Full implementation of predict_visual ---
     def predict_visual(self, video_path: str, **kwargs) -> str:
         detailed_result = self._get_or_run_detailed_analysis(video_path, **kwargs)
         frame_scores = detailed_result["metrics"]["per_frame_scores"]
@@ -243,7 +290,6 @@ class EfficientNetB7Detector(BaseModel):
                 if i >= len(cap_frames): break
                 frame = cap_frames[i].copy()
 
-                # Generate and overlay graph
                 ax.clear()
                 ax.fill_between(range(i + 1), frame_scores[: i + 1], color="#FF4136", alpha=0.4)
                 ax.plot(range(i + 1), frame_scores[: i + 1], color="#FF851B", linewidth=2)
@@ -263,7 +309,6 @@ class EfficientNetB7Detector(BaseModel):
                 y_offset, x_offset = 10, frame_width - new_plot_w - 10
                 frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
 
-                # Generate gradient color bar
                 green, yellow, red = np.array([0, 255, 0]), np.array([0, 255, 255]), np.array([0, 0, 255])
                 interp = score * 2 if score < 0.5 else (score - 0.5) * 2
                 color_np = green * (1 - interp) + yellow * interp if score < 0.5 else yellow * (1 - interp) + red * interp

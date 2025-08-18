@@ -4,23 +4,23 @@ import os
 import time
 import torch
 import logging
+import matplotlib
 import numpy as np
 from PIL import Image
-from collections import deque
-from typing import Any, Dict, Tuple, Optional, List
-from transformers import AutoProcessor
 from tqdm import tqdm
+from collections import deque
+import matplotlib.pyplot as plt
 from src.ml.base import BaseModel
+from transformers import AutoProcessor
 from src.ml.utils import extract_frames
+from typing import Any, Dict, Tuple, Optional, List
 from src.ml.event_publisher import publish_progress
+from src.ml.architectures.siglip_lstm_legacy import create_legacy_lstm_model
+from src.ml.architectures.siglip_lstm import create_lstm_model as create_v4_model
 from src.config import SiglipLSTMv1Config, SiglipLSTMv3Config, SiglipLSTMv4Config
-from src.ml.architectures.siglip_lstm import create_lstm_model
 
 # Add matplotlib import here for the visualization method
-import matplotlib
-matplotlib.use("Agg")  # Use a non-interactive backend
-import matplotlib.pyplot as plt
-
+matplotlib.use("Agg")
 
 logger = logging.getLogger(__name__)
 class SiglipLSTMV1(BaseModel):
@@ -30,7 +30,7 @@ class SiglipLSTMV1(BaseModel):
         start_time = time.time()
         try:
             model_architecture_config = self.config.model_definition.model_dump()
-            self.model = create_lstm_model(model_architecture_config)
+            self.model = create_legacy_lstm_model(model_architecture_config)
             state_dict = torch.load(self.config.model_path, map_location=self.device)
             self.model.load_state_dict(state_dict)
             self.model.to(self.device)
@@ -327,7 +327,25 @@ class SiglipLSTMV4(SiglipLSTMV3):
     config: SiglipLSTMv4Config
 
     def __init__(self, config: SiglipLSTMv4Config):
-        # We call BaseModel's init directly, not SiglipLSTMV3's, to ensure the correct config type is set.
-        super(SiglipLSTMV1, self).__init__(config) # Calls the BaseModel.__init__
+        super(SiglipLSTMV1, self).__init__(config)
         self._last_detailed_result: Optional[Dict[str, Any]] = None
         self._last_video_path: Optional[str] = None
+        
+    # Overload the load method for V4 to use the new architecture
+    def load(self) -> None:
+        start_time = time.time()
+        try:
+            model_architecture_config = self.config.model_definition.model_dump()
+            self.model = create_v4_model(model_architecture_config)
+            state_dict = torch.load(self.config.model_path, map_location=self.device)
+            self.model.load_state_dict(state_dict)
+            self.model.to(self.device)
+            self.model.eval()
+            self.processor = AutoProcessor.from_pretrained(self.config.processor_path, use_fast=True)
+            load_time = time.time() - start_time
+            logger.info(
+                f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f} seconds."
+            )
+        except Exception as e:
+            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e

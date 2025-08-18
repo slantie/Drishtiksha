@@ -70,10 +70,10 @@ class EfficientNetB7Config(BaseModelConfig):
 # A Discriminated Union to allow only the available models to be served
 ModelConfig = Annotated[
     Union[
+        ColorCuesConfig,
         SiglipLSTMv1Config,
         SiglipLSTMv3Config,
         SiglipLSTMv4Config,
-        ColorCuesConfig,
         EfficientNetB7Config
     ],
     Field(discriminator="class_name"),

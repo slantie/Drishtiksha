@@ -9,9 +9,9 @@ from torch.nn.modules.pooling import AdaptiveAvgPool2d
 
 # Define a mapping for available encoders to simplify model creation
 encoder_params = {
-    "tf_efficientnet_b7_ns": {
+    "tf_efficientnet_b7.ns_jft_in1k": {
         "features": 2560,
-        "init_op": partial(timm.create_model, "tf_efficientnet_b7_ns", pretrained=True)
+        "init_op": partial(timm.create_model, "tf_efficientnet_b7.ns_jft_in1k", pretrained=True)
     },
 }
 

@@ -22,7 +22,7 @@ models:
   SIGLIP-LSTM-V1:
     class_name: "SIGLIP-LSTM-V1"
     description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
-    model_path: "models/siglip_lstm_best.pth"
+    model_path: "models/SigLip-LSTM-v1.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     device: "cuda"  # Overridden by DEVICE environment variable
@@ -36,7 +36,7 @@ models:
   SIGLIP-LSTM-V3:
     class_name: "SIGLIP-LSTM-V3"
     description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
-    model_path: "models/siglip_lstm_best_epoch_1.pth"
+    model_path: "models/SigLip-LSTM-v3.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     rolling_window_size: 10
@@ -51,7 +51,7 @@ models:
   SIGLIP-LSTM-V4:
     class_name: "SIGLIP-LSTM-V4"
     description: "V4 SigLIP-LSTM with deeper classifier heads and dropout for improved regularization."
-    model_path: "models/siglip_lstm_deepfake_detector_best.pth"
+    model_path: "models/SigLip-LSTM-v4.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     rolling_window_size: 10
@@ -67,9 +67,9 @@ models:
   COLOR-CUES-LSTM-V1:
     class_name: "COLOR-CUES-LSTM-V1"
     description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
-    model_path: "models/best_color_cues_lstm_model.pth"
-    dlib_model_path: "models/shape_predictor_68_face_landmarks.dat"
-    device: "cuda"  # Overridden by DEVICE environment variable
+    model_path: "models/ColorCues-LSTM-v1.pth"
+    dlib_model_path: "models/Face-Landmarks.dat"
+    device: "cuda"
 
     # Parameters specific to the ColorCues model architecture
     sequence_length: 32
@@ -83,7 +83,7 @@ models:
   EFFICIENTNET-B7-V1:
     class_name: "EFFICIENTNET-B7-V1"
     description: "Frame-by-frame face detector using MTCNN and EFFICIENTNET-B7-V1 classifier with confidence-based aggregation."
-    model_path: "models/efficientnet_b7"
-    encoder: "tf_efficientnet_b7_ns"
+    model_path: "models/EfficientNet-B7-v1"
+    encoder: "tf_efficientnet_b7.ns_jft_in1k"
     input_size: 380
     device: "cuda"
