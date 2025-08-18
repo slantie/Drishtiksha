@@ -13,7 +13,7 @@ from tqdm import tqdm
 from src.ml.base import BaseModel
 from src.ml.utils import extract_frames
 from src.ml.event_publisher import publish_progress
-from src.config import SiglipLSTMv1Config, SiglipLSTMv3Config
+from src.config import SiglipLSTMv1Config, SiglipLSTMv3Config, SiglipLSTMv4Config
 from src.ml.architectures.siglip_lstm import create_lstm_model
 
 logger = logging.getLogger(__name__)
@@ -257,3 +257,17 @@ class SiglipLSTMV3(SiglipLSTMV1):
         self._last_video_path = None
 
         return output_path
+
+class SiglipLSTMV4(SiglipLSTMV3):
+    """
+    Represents the V4 version of the Siglip-LSTM model, which incorporates
+    a deeper classifier head with dropout for enhanced regularization.
+    Inherits most of its prediction logic from V3.
+    """
+    config: SiglipLSTMv4Config
+
+    def __init__(self, config: SiglipLSTMv4Config):
+        # We call BaseModel's init directly, not SiglipLSTMV3's, to ensure the correct config type is set.
+        super(SiglipLSTMV1, self).__init__(config) # Calls the BaseModel.__init__
+        self._last_detailed_result: Optional[Dict[str, Any]] = None
+        self._last_video_path: Optional[str] = None

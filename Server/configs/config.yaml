@@ -36,7 +36,7 @@ models:
   SIGLIP-LSTM-V3:
     class_name: "SIGLIP-LSTM-V3"
     description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
-    model_path: "models/siglip_lstm_best.pth"
+    model_path: "models/siglip_lstm_best_epoch_1.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     rolling_window_size: 10
@@ -47,6 +47,22 @@ models:
       lstm_hidden_size: 512
       lstm_num_layers: 2
       num_classes: 1
+
+  SIGLIP-LSTM-V4:
+    class_name: "SIGLIP-LSTM-V4"
+    description: "V4 SigLIP-LSTM with deeper classifier heads and dropout for improved regularization."
+    model_path: "models/siglip_lstm_deepfake_detector_best.pth"
+    processor_path: "google/siglip-base-patch16-224"
+    num_frames: 120
+    rolling_window_size: 10
+    device: "cuda"  # Overridden by DEVICE environment variable
+    
+    model_definition:
+      base_model_path: "google/siglip-base-patch16-224"
+      lstm_hidden_size: 512
+      lstm_num_layers: 2
+      num_classes: 1
+      dropout_rate: 0.5
 
   COLOR-CUES-LSTM-V1:
     class_name: "COLOR-CUES-LSTM-V1"

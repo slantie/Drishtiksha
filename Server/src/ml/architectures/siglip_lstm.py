@@ -19,23 +19,38 @@ class SiglipLSTMClassifier(nn.Module):
         self.siglip_backbone = AutoModel.from_pretrained(config['base_model_path']).vision_model
             
         backbone_hidden_size = self.siglip_backbone.config.hidden_size
-        
+        lstm_hidden_size = config['lstm_hidden_size']
+        # Get dropout rate from config, default to 0.5 if not present for older models
+        dropout_rate = config.get('dropout_rate', 0.5)
+
         # LSTM layer for processing temporal sequences of features
         self.lstm = nn.LSTM(
             input_size=backbone_hidden_size,
-            hidden_size=config['lstm_hidden_size'],
+            hidden_size=lstm_hidden_size,
             num_layers=config['lstm_num_layers'],
             batch_first=True,
-            bidirectional=True
+            bidirectional=True,
+            # Add dropout to LSTM itself if more than one layer
+            dropout=dropout_rate if config['lstm_num_layers'] > 1 else 0
         )
         
         num_classes = config.get('num_classes', 1)
         
         # A classifier head for video-level predictions (sequences of frames)
-        self.video_classifier = nn.Linear(config['lstm_hidden_size'] * 2, num_classes) # *2 for bidirectional
+        self.video_classifier = nn.Sequential(
+            nn.Linear(lstm_hidden_size * 2, lstm_hidden_size), # *2 for bidirectional
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(lstm_hidden_size, num_classes)
+        )
         
         # A separate classifier head for single-image predictions
-        self.image_classifier = nn.Linear(backbone_hidden_size, num_classes)
+        self.image_classifier = nn.Sequential(
+            nn.Linear(backbone_hidden_size, 512),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(512, num_classes)
+        )
 
     def forward(self, pixel_values: torch.Tensor, num_frames_per_video: int = 1) -> torch.Tensor:
         """
@@ -49,7 +64,7 @@ class SiglipLSTMClassifier(nn.Module):
             # Video mode: reshape features and pass through LSTM
             batch_size = pixel_values.shape[0] // num_frames_per_video
             features = features.view(batch_size, num_frames_per_video, -1)
-            lstm_out, (hidden, _) = self.lstm(features)
+            lstm_out, (hidden, cell) = self.lstm(features)
             # Concatenate the final forward and backward hidden states
             final_hidden_state = torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim=1)
             logits = self.video_classifier(final_hidden_state)

@@ -15,6 +15,10 @@ class SiglipArchitectureConfig(BaseModel):
     lstm_num_layers: int
     num_classes: int
 
+# New architecture config for V4 to include dropout
+class SiglipArchitectureV4Config(SiglipArchitectureConfig):
+    dropout_rate: float = 0.5
+
 # Base model for shared configuration fields
 class BaseModelConfig(BaseModel):
     class_name: str
@@ -37,6 +41,14 @@ class SiglipLSTMv3Config(BaseModelConfig):
     rolling_window_size: int
     model_definition: SiglipArchitectureConfig
 
+# New configuration model for SIGLIP-LSTM-V4
+class SiglipLSTMv4Config(BaseModelConfig):
+    class_name: Literal["SIGLIP-LSTM-V4"]
+    processor_path: str
+    num_frames: int
+    rolling_window_size: int
+    model_definition: SiglipArchitectureV4Config
+
 # Specific configuration model for COLOR-CUES-LSTM-V1
 class ColorCuesConfig(BaseModelConfig):
     class_name: Literal["COLOR-CUES-LSTM-V1"]
@@ -54,6 +66,7 @@ ModelConfig = Annotated[
     Union[
         SiglipLSTMv1Config,
         SiglipLSTMv3Config,
+        SiglipLSTMv4Config,
         ColorCuesConfig
     ],
     Field(discriminator="class_name"),
