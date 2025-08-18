@@ -28,4 +28,5 @@ dependencies = [
     "tqdm>=4.67.1",
     "transformers>=4.55.1",
     "uvicorn[standard]>=0.35.0",
+    "rich>=14.1.0",
 ]

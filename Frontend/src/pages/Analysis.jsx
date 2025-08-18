@@ -28,6 +28,7 @@ import { PageLoader } from "../components/ui/LoadingSpinner";
 import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
 import { MODEL_INFO } from "../constants/apiEndpoints.js";
 import { PageHeader } from "../components/layout/PageHeader.jsx";
+import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
 // import { Breadcrumbs } from "../components/ui/Breadcrumbs.jsx";
 import {
     Tabs,
@@ -127,7 +128,11 @@ const FrameAnalysisChart = ({ frames, type }) => {
                                 />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid />
+                        <CartesianGrid 
+                                                        strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-15"
+                        />
                         <XAxis dataKey="frame" tick={{ fontSize: 10 }} />
                         <YAxis
                             unit="%"
@@ -149,7 +154,11 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         data={chartData}
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
-                        <CartesianGrid />
+                        <CartesianGrid 
+                                                        strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-15"
+                        />
                         <XAxis dataKey="frame" tick={{ fontSize: 10 }} />
                         <YAxis
                             unit="%"
@@ -180,7 +189,11 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         data={chartData}
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
-                        <CartesianGrid />
+                        <CartesianGrid 
+                                                        strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-15"
+                        />
                         <XAxis dataKey="frame" tick={{ fontSize: 10 }} />
                         <YAxis
                             unit="%"
@@ -210,7 +223,11 @@ const FrameAnalysisChart = ({ frames, type }) => {
                         data={histogramData}
                         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                     >
-                        <CartesianGrid />
+                        <CartesianGrid 
+                                                        strokeDasharray="3 3"
+                                stroke="currentColor"
+                                className="opacity-15"
+                        />
                         <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                         <YAxis
                             label={{
@@ -425,6 +442,23 @@ const FrameAnalysisHeatmap = ({ frames }) => {
         </div>
     );
 };
+
+const DetailedAnalysisSkeleton = () => (
+    <div className="space-y-6">
+        <SkeletonCard className="h-20" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+                <SkeletonCard className="h-[400px]" />
+                <SkeletonCard className="h-[250px]" />
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+                <SkeletonCard className="h-48" />
+                <SkeletonCard className="h-64" />
+                <SkeletonCard className="h-48" />
+            </div>
+        </div>
+    </div>
+);
 
 // REFACTOR: This new component encapsulates the summary stats and the tabs for a cleaner main component.
 const FrameAnalysisTabs = ({ analysis }) => {
