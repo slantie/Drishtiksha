@@ -5,11 +5,6 @@
 // This schema supports the comprehensive multi-model deepfake detection system
 // with integration to the enhanced FastAPI ML Server featuring:
 //
-// 🤖 SUPPORTED MODELS:
-// - SIGLIP-LSTM V1: Fast, balanced performance for real-time applications  
-// - SIGLIP-LSTM V3: Enhanced accuracy with advanced temporal features
-// - ColorCues LSTM: Specialized color-based deepfake detection
-//
 // 📋 ANALYSIS ENDPOINTS:
 // - QUICK: /analyze - Fast prediction with basic confidence score
 // - DETAILED: /analyze/detailed - Comprehensive analysis with detailed metrics
