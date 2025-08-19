@@ -33,10 +33,22 @@ const ModelCard = ({ model, isSelected, onSelect }) => (
                     <Brain className="w-6 h-6 text-primary-main" />
                 </div>
                 <div className="flex-1">
-                    <h4 className="font-semibold">{model.name}</h4>
+                    <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold">{model.name}</h4>
+                        {model.isDetailed && (
+                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+                                Detailed Analysis
+                            </span>
+                        )}
+                    </div>
                     <p className="text-sm text-light-muted-text dark:text-dark-muted-text">
                         {model.description}
                     </p>
+                    {model.isDetailed && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Supports frame-by-frame analysis and visualizations
+                        </p>
+                    )}
                 </div>
                 {isSelected && (
                     <CheckCircle2 className="h-6 w-6 text-primary-main flex-shrink-0" />

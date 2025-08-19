@@ -209,6 +209,7 @@ def get_model_info(manager) -> list[ModelInfo]:
             loaded=is_loaded,
             device=config.device,
             model_path=config.model_path,
+            isDetailed=config.isDetailed,  # Include detailed analysis capability
             memory_usage_mb=round(memory_usage_mb, 2) if memory_usage_mb else None,
             load_time=None,  # TODO: Track this in model loading
             inference_count=0  # TODO: Track this in model inference

@@ -360,6 +360,20 @@ const Monitoring = () => {
                 ),
         },
         {
+            key: "isDetailed",
+            header: "Detailed Analysis",
+            render: (item) =>
+                item.isDetailed ? (
+                    <span className="flex items-center gap-2 text-blue-600">
+                        <CheckCircle className="w-4 h-4" /> Supported
+                    </span>
+                ) : (
+                    <span className="flex items-center gap-2 text-gray-500">
+                        <AlertTriangle className="w-4 h-4" /> Not Supported
+                    </span>
+                ),
+        },
+        {
             key: "device",
             header: "Device",
             render: (item) => <span className=" uppercase">{item.device}</span>,

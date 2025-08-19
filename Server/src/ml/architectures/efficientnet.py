@@ -1,19 +1,12 @@
 # src/ml/architectures/efficientnet.py
 
 from functools import partial
+from typing import Any, Dict
 import timm
 from torch import nn
 from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.linear import Linear
 from torch.nn.modules.pooling import AdaptiveAvgPool2d
-
-# Define a mapping for available encoders to simplify model creation
-encoder_params = {
-    "tf_efficientnet_b7.ns_jft_in1k": {
-        "features": 2560,
-        "init_op": partial(timm.create_model, "tf_efficientnet_b7.ns_jft_in1k", pretrained=True)
-    },
-}
 
 class DeepFakeClassifier(nn.Module):
     """
@@ -21,8 +14,22 @@ class DeepFakeClassifier(nn.Module):
     This model takes image features from the encoder and passes them through
     a linear layer to produce a final prediction.
     """
-    def __init__(self, encoder, dropout_rate=0.0):
+    
+    def __init__(self, config: Dict[str, Any], dropout_rate=0.0):
+        self.config = config
         super().__init__()
+        
+        # Get encoder from config
+        encoder = config['encoder']
+        
+        # Define a mapping for available encoders to simplify model creation
+        encoder_params = {
+            encoder: {
+                "features": 2560,
+                "init_op": partial(timm.create_model, encoder, pretrained=True)
+            },
+        }
+
         if encoder not in encoder_params:
             raise ValueError(f"Encoder '{encoder}' is not supported.")
             
@@ -42,7 +49,7 @@ class DeepFakeClassifier(nn.Module):
         x = self.fc(x)
         return x
 
-def create_efficientnet_model(encoder: str) -> DeepFakeClassifier:
+def create_efficientnet_model(config: Dict[str, Any]) -> DeepFakeClassifier:
     """Factory function to create an instance of the DeepFakeClassifier."""
-    model = DeepFakeClassifier(encoder=encoder)
+    model = DeepFakeClassifier(config=config)
     return model

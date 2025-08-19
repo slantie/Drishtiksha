@@ -152,9 +152,9 @@ export function DataTable({
                             </CardDescription>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="flex items-center gap-2 w-[400px]">
                         {showSearch && (
-                            <div className="w-full md:w-64">
+                            <div className="w-full">
                                 <Input
                                     leftIcon={<Search />}
                                     type="text"
@@ -265,6 +265,40 @@ export function DataTable({
                         >
                             <ChevronLeft className="h-4 w-4 mr-1" /> Previous
                         </Button>
+
+                        {/* Page number buttons: show current page plus one on each side (when available) */}
+                        {(() => {
+                            const pages = [];
+                            const start = Math.max(1, currentPage - 1);
+                            const end = Math.min(totalPages, currentPage + 1);
+                            for (let p = start; p <= end; p++) pages.push(p);
+                            // If at the start and we have space, ensure up to 3 buttons when possible
+                            if (start === 1 && end < Math.min(3, totalPages)) {
+                                const extraEnd = Math.min(3, totalPages);
+                                for (let p = end + 1; p <= extraEnd; p++) pages.push(p);
+                            }
+                            // If at the end and we have space, ensure up to 3 buttons when possible
+                            if (end === totalPages && start > Math.max(1, totalPages - 2)) {
+                                const extraStart = Math.max(1, totalPages - 2);
+                                for (let p = extraStart; p < start; p++) pages.unshift(p);
+                            }
+                            return pages.map((p) => (
+                                <Button
+                                    key={p}
+                                    variant={p === currentPage ? "default" : "outline"}
+                                    size="sm"
+                                    className={cn(
+                                        "rounded-full h-8 w-8 p-0 flex items-center justify-center",
+                                        p === currentPage && "pointer-events-none"
+                                    )}
+                                    onClick={() => setCurrentPage(p)}
+                                    aria-current={p === currentPage ? "page" : undefined}
+                                >
+                                    {p}
+                                </Button>
+                            ));
+                        })()}
+
                         <Button
                             variant="outline"
                             size="sm"

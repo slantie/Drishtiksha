@@ -6,7 +6,7 @@ export default {
         extend: {
             colors: {
                 primary: {
-                    main: "#f56565",
+                    main: "#8155c6",
                     light: "#ff7070",
                     lighter: "#fc6f6f",
                     // REMOVED: Empty dark and darker keys
@@ -15,7 +15,7 @@ export default {
                 dark: {
                     text: "#DFDFD6",
                     background: "#1B1B1F", // For the main page background in dark mode
-                    highlight: "#fc6f6f",
+                    highlight: "#8155c6",
                     muted: {
                         text: "#FFFFFF",
                         background: "#202127", // For component backgrounds (cards, tables) in dark mode
@@ -32,7 +32,7 @@ export default {
                 light: {
                     text: "#3C3C43",
                     background: "#FFFFFF", // CORRECTED: For component backgrounds (cards, tables) in light mode
-                    highlight: "#F56565",
+                    highlight: "#8155c6",
                     muted: {
                         text: "#67676C",
                         background: "#F6F6F7", // For the main page background in light mode

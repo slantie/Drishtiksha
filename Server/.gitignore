@@ -8,6 +8,7 @@
 /assets/*.mp4
 /models/*.pth
 /models/*.dat
+/models/*.keras
 /models/EfficientNet-B7-v1
 /src/__pycache__
 /src/app/__pycache__

@@ -62,7 +62,7 @@ class EfficientNetB7Detector(BaseModel):
             timm_logger.setLevel(logging.WARNING)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                self.model = create_efficientnet_model(encoder=self.config.encoder)
+                self.model = create_efficientnet_model(config=self.config.model_dump())
 
             timm_logger.setLevel(original_level)
 

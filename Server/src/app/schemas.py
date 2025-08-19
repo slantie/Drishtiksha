@@ -63,6 +63,7 @@ class ModelInfo(BaseModel):
     loaded: bool
     device: str
     model_path: str
+    isDetailed: bool
     memory_usage_mb: Optional[float] = None
     load_time: Optional[float] = None
     inference_count: Optional[int] = 0

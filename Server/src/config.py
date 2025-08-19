@@ -1,10 +1,10 @@
 # src/config.py
 
-import logging
 import yaml
-from pydantic import BaseModel, Field, SecretStr, ValidationError
+import logging
+from typing import Dict, Tuple, Union, Annotated, Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict, Union, Annotated, Literal
+from pydantic import BaseModel, Field, SecretStr, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,12 @@ class SiglipArchitectureConfig(BaseModel):
     lstm_hidden_size: int
     lstm_num_layers: int
     num_classes: int
+
+class EyeblinkArchitectureConfig(BaseModel):
+    base_model_name: str
+    lstm_hidden_size: int
+    dropout_rate: float
+    img_size: Tuple[int, int]
 
 # New architecture config for V4 to include dropout
 class SiglipArchitectureV4Config(SiglipArchitectureConfig):
@@ -25,6 +31,7 @@ class BaseModelConfig(BaseModel):
     description: str
     model_path: str
     device: str = "cuda"  # Default value, will be overridden by environment variable
+    isDetailed: bool = False  # Whether this model supports detailed analysis
 
 # Specific configuration model for SIGLIP-LSTM-V1 - Legacy Model
 class SiglipLSTMv1Config(BaseModelConfig):
@@ -66,6 +73,14 @@ class EfficientNetB7Config(BaseModelConfig):
     class_name: Literal["EFFICIENTNET-B7-V1"]
     encoder: str
     input_size: int
+    
+class EyeblinkModelConfig(BaseModelConfig):
+    class_name: Literal["EYEBLINK-CNN-LSTM-V1"]
+    dlib_model_path: str
+    sequence_length: int
+    blink_threshold: float
+    consecutive_frames: int
+    model_definition: EyeblinkArchitectureConfig
 
 # A Discriminated Union to allow only the available models to be served
 ModelConfig = Annotated[
@@ -74,7 +89,8 @@ ModelConfig = Annotated[
         SiglipLSTMv1Config,
         SiglipLSTMv3Config,
         SiglipLSTMv4Config,
-        EfficientNetB7Config
+        EfficientNetB7Config,
+        EyeblinkModelConfig
     ],
     Field(discriminator="class_name"),
 ]

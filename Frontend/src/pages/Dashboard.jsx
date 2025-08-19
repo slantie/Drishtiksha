@@ -74,17 +74,10 @@ const StatusBadge = ({ status }) => {
         UPLOADED: "bg-gray-500/10 text-gray-500",
         FAILED: "bg-red-500/10 text-red-500",
     };
-    const Icon = {
-        // ANALYZED: CheckCircle,
-        // PARTIALLY_ANALYZED: CheckCircle,
-        // PROCESSING: ProcessingIcon,
-        // QUEUED: Clock,
-        // UPLOADED: Clock,
-        // FAILED: AlertTriangle,
-    }[status];
+    const Icon = null;
     return (
         <div
-            className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full capitalize ${
+            className={`inline-flex items-center gap-2 text-xs font-semibold p-2 px-3 rounded-full capitalize ${
                 styles[status] || styles["UPLOADED"]
             }`}
         >
@@ -305,7 +298,7 @@ export const Dashboard = () => {
                 ),
             },
         ],
-        [navigate, user, isDownloadingPDF, totalAvailableModels] // Add dependency
+        [navigate, user, isDownloadingPDF]
     );
     // --- RENDER LOGIC ---
     if (isLoading && !videos.length) return <DashboardSkeleton />;
@@ -343,13 +336,15 @@ export const Dashboard = () => {
                     icon={Play}
                     isLoading={isLoading}
                     onClick={() => console.log("Total Videos Clicked")}
+                    cardColor="blue"
                 />
                 <StatCard
                     title="Total Analyses"
                     value={stats.totalAnalyses}
-                    icon={Activity}
+                    icon={ChartNetwork}
                     isLoading={isLoading}
                     onClick={() => console.log("Total Analyses Clicked")}
+                    cardColor="purple"
                 />
                 <StatCard
                     title="Authentic Results"
@@ -357,6 +352,7 @@ export const Dashboard = () => {
                     icon={ShieldCheck}
                     isLoading={isLoading}
                     onClick={() => console.log("Authentic Results Clicked")}
+                    cardColor="green"
                 />
                 <StatCard
                     title="Deepfake Results"
@@ -364,6 +360,7 @@ export const Dashboard = () => {
                     icon={ShieldX}
                     isLoading={isLoading}
                     onClick={() => console.log("Deepfake Results Clicked")}
+                    cardColor="red"
                 />
             </div>
 
@@ -372,6 +369,7 @@ export const Dashboard = () => {
                 data={filteredVideos}
                 loading={isRefetching}
                 title="Video Results"
+                searchPlaceholder="Search for a video..."
                 description={"View and manage your uploaded videos."}
                 emptyState={{
                     icon: FileVideo,
