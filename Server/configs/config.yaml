@@ -77,7 +77,7 @@ models:
 
     # Parameters specific to the ColorCues model architecture
     sequence_length: 32
-    frames_per_video: 150
+    frames_per_video: 50
     histogram_bins: 32
     landmark_margin: 20
     rolling_window_size: 10
@@ -98,7 +98,7 @@ models:
     description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
     model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
     dlib_model_path: "models/Face-Landmarks.dat"
-    sequence_length: 5
+    sequence_length: 10
     blink_threshold: 0.45
     consecutive_frames: 2
     device: "cuda"

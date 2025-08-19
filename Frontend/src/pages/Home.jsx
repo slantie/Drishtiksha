@@ -140,7 +140,7 @@ const models = [
 const team = [
     {
         name: "Kandarp Gajjar",
-        role: "AI/ML & Full-Stack",
+        role: "AI/ML & Full-Stack Developer",
         avatarUrl:
             "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_1_erlley.jpg",
         socials: {
@@ -419,7 +419,7 @@ const Home = () => {
                             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
                                 Meet The Team
                             </h2>
-                            <p className="text-lg sm:text-xl text-light-muted-text dark:text-dark-muted-text max-w-3xl mx-auto px-2">
+                            <p className="text-lg sm:text-xl text-light-muted-text dark:text-dark-muted-text max-w-6xl mx-auto px-2">
                                 Passionate experts dedicated to building the
                                 future of digital media authenticity.
                             </p>
