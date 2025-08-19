@@ -82,6 +82,12 @@ class EyeblinkModelConfig(BaseModelConfig):
     consecutive_frames: int
     model_definition: EyeblinkArchitectureConfig
 
+class ScatteringWaveV1Config(BaseModelConfig):
+    class_name: Literal["SCATTERING-WAVE-V1"]
+    sampling_rate: int
+    duration_seconds: float
+    image_size: Tuple[int, int]
+
 # A Discriminated Union to allow only the available models to be served
 ModelConfig = Annotated[
     Union[
@@ -90,7 +96,8 @@ ModelConfig = Annotated[
         SiglipLSTMv3Config,
         SiglipLSTMv4Config,
         EfficientNetB7Config,
-        EyeblinkModelConfig
+        EyeblinkModelConfig,
+        ScatteringWaveV1Config
     ],
     Field(discriminator="class_name"),
 ]

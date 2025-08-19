@@ -59,6 +59,7 @@ models:
     rolling_window_size: 10
     device: "cuda"  # Overridden by DEVICE environment variable
     isDetailed: true  # Supports detailed analysis
+    isAudio: false
     
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
@@ -74,6 +75,7 @@ models:
     dlib_model_path: "models/Face-Landmarks.dat"
     device: "cuda"
     isDetailed: true  # Supports detailed analysis
+    isAudio: false
 
     # Parameters specific to the ColorCues model architecture
     sequence_length: 32
@@ -92,6 +94,7 @@ models:
     input_size: 380
     device: "cuda"
     isDetailed: true
+    isAudio: false
 
   EYEBLINK-CNN-LSTM-V1:
     class_name: "EYEBLINK-CNN-LSTM-V1"
@@ -102,9 +105,22 @@ models:
     blink_threshold: 0.45
     consecutive_frames: 2
     device: "cuda"
-    isDetailed: false
+    isDetailed: true
+    isAudio: false
     model_definition:
       base_model_name: "legacy_xception"
       lstm_hidden_size: 128
       dropout_rate: 0.3
       img_size: [160, 160]
+
+  SCATTERING-WAVE-V1:
+    class_name: "SCATTERING-WAVE-V1"
+    description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
+    model_path: "models/Scattering-Wave-v1.pth"
+    device: "cuda"
+    isDetailed: true
+    isAudio: true
+    # Parameters specific to the audio model
+    sampling_rate: 16000
+    duration_seconds: 2.0
+    image_size: [256, 256]

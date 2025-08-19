@@ -32,4 +32,5 @@ dependencies = [
     "facenet-pytorch>=2.5.3",
     "timm>=1.0.19",
     "imutils>=0.5.4",
+    "tensorflow>=2.20.0",
 ]

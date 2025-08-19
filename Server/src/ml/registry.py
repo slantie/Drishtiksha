@@ -6,20 +6,23 @@ from typing import Dict, Type
 
 from src.config import Settings
 from src.ml.base import BaseModel
-from src.ml.models.siglip_lstm_detector import SiglipLSTMV1, SiglipLSTMV3, SiglipLSTMV4
 from src.ml.models.color_cues_detector import ColorCuesLSTMV1
-from src.ml.models.efficientnet_detector import EfficientNetB7Detector
 from src.ml.models.eyeblink_detector import EyeblinkDetectorV1
+from src.ml.models.efficientnet_detector import EfficientNetB7Detector
+from Server.src.ml.models.scattering_wave_detector import ScatteringWaveV1
+
+from src.ml.models.siglip_lstm_detector import SiglipLSTMV1, SiglipLSTMV3, SiglipLSTMV4
 
 logger = logging.getLogger(__name__)
 
 MODEL_REGISTRY: Dict[str, Type[BaseModel]] = {
-    "SIGLIP-LSTM-V1": SiglipLSTMV1,
-    "SIGLIP-LSTM-V3": SiglipLSTMV3,
-    "SIGLIP-LSTM-V4": SiglipLSTMV4,
-    "COLOR-CUES-LSTM-V1": ColorCuesLSTMV1,
     "EFFICIENTNET-B7-V1": EfficientNetB7Detector,
-    "EYEBLINK-CNN-LSTM-V1": EyeblinkDetectorV1
+    "EYEBLINK-CNN-LSTM-V1": EyeblinkDetectorV1,
+    "SIGLIP-LSTM-V4": SiglipLSTMV4,
+    "SCATTERING-WAVE-V1": ScatteringWaveV1,
+    "SIGLIP-LSTM-V3": SiglipLSTMV3,
+    "SIGLIP-LSTM-V1": SiglipLSTMV1,
+    "COLOR-CUES-LSTM-V1": ColorCuesLSTMV1
 }
 
 class ModelManager:
@@ -67,17 +70,6 @@ class ModelManager:
                 raise ValueError(
                     f"Model class '{model_config.class_name}' for model '{name}' not found in MODEL_REGISTRY."
                 )
-
-            # Print model loading info to terminal
-            print("=" * 80)
-            print("🚀 LOADING MODEL")
-            print("=" * 80)
-            print(f"🤖 Model Name: {name}")
-            print(f"🏷️  Model Class: {model_config.class_name}")
-            print(f"🖥️  Device: {model_config.device}")
-            print(f"📁 Model Path: {model_config.model_path}")
-            print("⏳ Loading...")
-            print("=" * 80)
 
             instance = model_class(model_config)
             instance.load()

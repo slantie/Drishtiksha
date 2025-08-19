@@ -62,7 +62,10 @@ async def analyze_quick(
         avg_score = metrics.get('final_average_score', 'N/A')
         max_score = metrics.get('max_score', 'N/A')
         min_score = metrics.get('min_score', 'N/A')
-        suspicious_count = metrics.get('suspicious_frames_count') or metrics.get('suspicious_sequences_count', 'N/A')
+        
+        suspicious_count = metrics.get('suspicious_frames_count')
+        if suspicious_count is None:
+            suspicious_count = metrics.get('suspicious_sequences_count', 'N/A')
         
         print(f"📈 Analysis Units: {frame_count}")
         print(f"📊 Average Score: {avg_score:.3f}" if isinstance(avg_score, (int, float)) else f"📊 Average Score: {avg_score}")
