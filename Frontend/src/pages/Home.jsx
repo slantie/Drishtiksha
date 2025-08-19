@@ -141,7 +141,8 @@ const team = [
     {
         name: "Kandarp Gajjar",
         role: "AI/ML & Full-Stack",
-        avatarUrl: "https://avatars.githubusercontent.com/u/128211660?v=4",
+        avatarUrl:
+            "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_1_erlley.jpg",
         socials: {
             github: "https://github.com/slantie",
             linkedin: "https://www.linkedin.com/in/kandarpgajjar/",
@@ -150,13 +151,15 @@ const team = [
     {
         name: "Oum Gadani",
         role: "AI/ML Developer",
-        avatarUrl: "https://avatars.githubusercontent.com/u/128615348?v=4",
+        avatarUrl:
+            "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_2_mnpfhh.jpg",
         socials: { linkedin: "https://www.linkedin.com/in/oumgadani/" },
     },
     {
         name: "Raj Mathuria",
         role: "AI/ML Developer",
-        avatarUrl: "https://avatars.githubusercontent.com/u/128615348?v=4",
+        avatarUrl:
+            "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_3_yzqouc.jpg",
         socials: {
             linkedin: "https://www.linkedin.com/in/raj-mathuria-98a710283/",
         },
@@ -164,7 +167,8 @@ const team = [
     {
         name: "Vishwajit Sarnobat",
         role: "AI/ML Developer",
-        avatarUrl: "https://avatars.githubusercontent.com/u/128615348?v=4",
+        avatarUrl:
+            "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573129/Member_4_tntyts.jpg",
         socials: {
             github: "https://github.com/vishwajitsarnobat",
             linkedin: "https://www.linkedin.com/in/vishwajitsarnobat/",
