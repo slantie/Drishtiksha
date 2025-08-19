@@ -21,7 +21,7 @@ device: "cuda"  # Default fallback, overridden by DEVICE environment variable
 models:
   SIGLIP-LSTM-V1:
     class_name: "SIGLIP-LSTM-V1"
-    description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis. Visual & Detailed Analysis Not Supported."
+    description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
     model_path: "models/SigLip-LSTM-v1.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
@@ -95,7 +95,7 @@ models:
 
   EYEBLINK-CNN-LSTM-V1:
     class_name: "EYEBLINK-CNN-LSTM-V1"
-    description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture. Visual & Detailed Analysis Not Supported."
+    description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
     model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
     dlib_model_path: "models/Face-Landmarks.dat"
     sequence_length: 5

@@ -10,7 +10,9 @@ import { Button } from "../ui/Button";
 
 const projectName = import.meta.env.VITE_PROJECT_NAME || "Drishtiksha";
 
-const navItems = [{ path: "/", label: "Home" }];
+const navItems = [
+    
+];
 
 const authenticatedNavItems = [
     { path: "/dashboard", label: "Dashboard" },
