@@ -1,7 +1,7 @@
 # src/app/schemas.py
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, TypeVar, Generic
 from datetime import datetime
 
 # --- Standard Error and Response Wrappers ---
@@ -12,12 +12,15 @@ class APIError(BaseModel):
     message: str
     details: Optional[Union[str, Dict[str, Any]]] = None
 
-class APIResponse(BaseModel):
+DataType = TypeVar('DataType')
+
+# --- REFACTORED: Make APIResponse a Generic class ---
+class APIResponse(BaseModel, Generic[DataType]):
     """Standard wrapper for all successful API responses."""
     success: bool = True
     model_used: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    data: Any # The actual response data will go here
+    data: DataType
 
 # --- Health and Status Schemas ---
 
@@ -133,3 +136,37 @@ class ComprehensiveAnalysisData(BaseModel):
     
     # Processing breakdown
     processing_breakdown: Dict[str, float] = {}
+
+class PitchAnalysis(BaseModel):
+    mean_pitch_hz: Optional[float] = Field(None, description="Average fundamental frequency (pitch) of the audio in Hertz.")
+    pitch_stability_score: Optional[float] = Field(None, description="A score from 0.0 to 1.0 indicating how stable the pitch is. Unnaturally flat or erratic pitch results in a lower score.")
+
+class EnergyAnalysis(BaseModel):
+    rms_energy: float = Field(..., description="Root Mean Square energy, indicating the audio's loudness.")
+    silence_ratio: float = Field(..., description="The proportion of the audio clip that is considered silent (below a threshold).")
+
+class SpectralAnalysis(BaseModel):
+    spectral_centroid: float = Field(..., description="The 'center of mass' of the spectrum, indicating brightness.")
+    spectral_contrast: float = Field(..., description="The difference between spectral peaks and valleys. Can indicate clarity.")
+
+class AudioProperties(BaseModel):
+    duration_seconds: float
+    sample_rate: int
+    channels: int
+
+class AudioVisualization(BaseModel):
+    spectrogram_url: str = Field(..., description="A temporary URL to download the generated Mel Spectrogram image.")
+    spectrogram_data: List[List[float]] = Field(..., description="The raw Mel Spectrogram data (dB-scaled). Format: [frequency_bins][time_steps]. Ready for charting.")
+
+class AudioAnalysisData(BaseModel):
+    """Data model for a comprehensive audio analysis response."""
+    prediction: str
+    confidence: float
+    processing_time: float
+    note: Optional[str] = None
+    
+    properties: AudioProperties
+    pitch: PitchAnalysis
+    energy: EnergyAnalysis
+    spectral: SpectralAnalysis
+    visualization: AudioVisualization

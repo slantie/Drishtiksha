@@ -10,7 +10,7 @@ from starlette.background import BackgroundTask
 
 from src.app.dependencies import get_model_manager, process_video_request
 from src.app.schemas import (
-    APIResponse, AnalysisData, QuickAnalysisData, DetailedAnalysisData, FramesAnalysisData, ComprehensiveAnalysisData
+    APIResponse, AnalysisData, QuickAnalysisData, DetailedAnalysisData, FramesAnalysisData, ComprehensiveAnalysisData, AudioAnalysisData
 )
 from src.app.security import get_api_key
 from src.ml.registry import ModelManager
@@ -73,13 +73,9 @@ async def analyze_quick(
         print(f"📉 Min Score: {min_score:.3f}" if isinstance(min_score, (int, float)) else f"📉 Min Score: {min_score}")
         print(f"🔍 Suspicious Units: {suspicious_count}")
     
-    # Show note if available
-    if result.get('note'):
-        print(f"💡 Note: {result.get('note')}")
-    
+    if result.get('note'): print(f"💡 Note: {result.get('note')}")
     print("=" * 80)
     
-    # Return unified response
     return APIResponse(model_used=model_name, data=AnalysisData(**result))
 
 @router.post("/frames", response_model=APIResponse)
@@ -351,3 +347,33 @@ async def download_visualization(filename: str):
         media_type="video/mp4",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.post("/audio", response_model=APIResponse[AudioAnalysisData], tags=["Analysis"])
+async def analyze_audio(
+    model_manager: ModelManager = Depends(get_model_manager),
+    proc_data: tuple = VideoProcessingDeps,
+):
+    """
+    Performs a comprehensive deepfake analysis on the audio track of a video,
+    returning detailed acoustic and spectral metrics.
+    """
+    
+    model_name, video_path = proc_data
+    if model_name != "SCATTERING-WAVE-V1":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The /analyze/audio endpoint only supports the 'SCATTERING-WAVE-V1' model. You requested '{model_name}'.",
+        )
+    model = model_manager.get_model(model_name)
+    result = await asyncio.to_thread(model.predict_detailed, video_path)
+
+    print("=" * 80); print("🎵 AUDIO ANALYSIS RESPONSE"); print("=" * 80)
+    print(f"📁 Video: {os.path.basename(video_path)}")
+    print(f"🤖 Model: {model_name}")
+    print(f"🎯 Prediction: {result.get('prediction', 'N/A')}")
+    print(f"📊 Confidence: {result.get('confidence', 0.0):.3f}")
+    if result.get('pitch', {}).get('mean_pitch_hz'):
+        print(f"🎤 Mean Pitch: {result['pitch']['mean_pitch_hz']:.2f} Hz")
+    print("=" * 80)
+
+    return APIResponse(model_used=model_name, data=result)

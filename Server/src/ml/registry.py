@@ -9,7 +9,7 @@ from src.ml.base import BaseModel
 from src.ml.models.color_cues_detector import ColorCuesLSTMV1
 from src.ml.models.eyeblink_detector import EyeblinkDetectorV1
 from src.ml.models.efficientnet_detector import EfficientNetB7Detector
-from Server.src.ml.models.scattering_wave_detector import ScatteringWaveV1
+from src.ml.models.scattering_wave_detector import ScatteringWaveV1
 
 from src.ml.models.siglip_lstm_detector import SiglipLSTMV1, SiglipLSTMV3, SiglipLSTMV4
 
