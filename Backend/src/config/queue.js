@@ -1,18 +1,39 @@
-// src/config/queue.js
+// src/config/queue.js (Corrected Version)
 
 import { Queue, FlowProducer } from "bullmq";
 import { VIDEO_PROCESSING_QUEUE_NAME } from "./constants.js";
 import logger from "../utils/logger.js";
 
-const redisConnection = {
-    host: process.env.REDIS_URL
-        ? new URL(process.env.REDIS_URL).hostname
-        : "localhost",
-    port: process.env.REDIS_URL
-        ? parseInt(new URL(process.env.REDIS_URL).port)
-        : 6379,
-};
+const redisUrl = process.env.REDIS_URL;
+let redisConnection;
 
+// Check if a REDIS_URL is provided in the environment
+if (redisUrl) {
+    const redisUri = new URL(redisUrl);
+
+    // Construct the connection object correctly for a secure Upstash connection
+    redisConnection = {
+        host: redisUri.hostname,
+        port: parseInt(redisUri.port, 10),
+        password: redisUri.password,
+        // This is the crucial part for enabling TLS/SSL encryption
+        tls: {
+            rejectUnauthorized: false, // Necessary for many cloud providers
+        },
+    };
+    logger.info(
+        `BullMQ is configured to connect to Redis at ${redisUri.hostname}`
+    );
+} else {
+    // Fallback for local development without a REDIS_URL
+    redisConnection = {
+        host: "localhost",
+        port: 6379,
+    };
+    logger.warn(`REDIS_URL not found. BullMQ is connecting to local Redis.`);
+}
+
+// Now, create your queue and producer instances with the correct connection object
 export const videoQueue = new Queue(VIDEO_PROCESSING_QUEUE_NAME, {
     connection: redisConnection,
     defaultJobOptions: {
@@ -29,6 +50,7 @@ videoQueue.on("error", (err) => {
     logger.error(`BullMQ Queue Error: ${err.message}`);
 });
 
+// The rest of your functions remain the same
 export const addVideoToQueue = async (videoId) => {
     await videoQueue.add("analysis-flow", { videoId }, { jobId: videoId });
     logger.info(`Video ${videoId} 'analysis-flow' job added to the queue.`);

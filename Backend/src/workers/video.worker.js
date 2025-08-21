@@ -16,14 +16,34 @@ import { toCamelCase } from "../utils/formatKeys.js";
 
 dotenv.config({ path: "./.env" });
 
-const redisConnection = {
-    host: process.env.REDIS_URL
-        ? new URL(process.env.REDIS_URL).hostname
-        : "localhost",
-    port: process.env.REDIS_URL
-        ? parseInt(new URL(process.env.REDIS_URL).port)
-        : 6379,
-};
+const redisUrl = process.env.REDIS_URL;
+let redisConnection;
+
+// Check if a REDIS_URL is provided in the environment
+if (redisUrl) {
+    const redisUri = new URL(redisUrl);
+
+    // Construct the connection object correctly for a secure Upstash connection
+    redisConnection = {
+        host: redisUri.hostname,
+        port: parseInt(redisUri.port, 10),
+        password: redisUri.password,
+        // This is the crucial part for enabling TLS/SSL encryption
+        tls: {
+            rejectUnauthorized: false, // Necessary for many cloud providers
+        },
+    };
+    logger.info(
+        `BullMQ is configured to connect to Redis at ${redisUri.hostname}`
+    );
+} else {
+    // Fallback for local development without a REDIS_URL
+    redisConnection = {
+        host: "localhost",
+        port: 6379,
+    };
+    logger.warn(`REDIS_URL not found. BullMQ is connecting to local Redis.`);
+}
 
 const worker = new Worker(
     VIDEO_PROCESSING_QUEUE_NAME,

@@ -1,28 +1,6 @@
 // =============================================================================
 // Drishtiksha: Deepfake Detection Service - Database Schema
-// =============================================================================
-//
-// This schema supports the comprehensive multi-model deepfake detection system
-// with integration to the enhanced FastAPI ML Server featuring:
-//
-// 📋 ANALYSIS ENDPOINTS:
-// - QUICK: /analyze - Fast prediction with basic confidence score
-// - DETAILED: /analyze/detailed - Comprehensive analysis with detailed metrics
-// - FRAMES: /analyze/frames - Frame-by-frame analysis with temporal patterns  
-// - VISUALIZE: /analyze/visualize - Visual analysis with overlays
-//
-// 🏗️ SCHEMA STRUCTURE:
-// - DeepfakeAnalysis: Core analysis record with relationships to detailed data
-// - AnalysisDetails: Comprehensive metrics (avg confidence, temporal consistency)
-// - FrameAnalysis: Per-frame detection results for timeline analysis
-// - TemporalAnalysis: Pattern detection and anomaly identification
-// - ModelInfo: Model version, architecture, and device information
-// - SystemInfo: GPU memory, processing device, load balancing metrics
-// - AnalysisError: Comprehensive error tracking with troubleshooting suggestions
-//
-// 🔗 INTEGRATION GUIDE:
-// Refer to Server/README.md for complete Backend-Server integration patterns
-// =============================================================================
+// =============================================================================`
 
 generator client {
   provider = "prisma-client-js"
