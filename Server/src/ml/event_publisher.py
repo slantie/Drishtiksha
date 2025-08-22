@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 # Get Redis URL from environment variables
 redis_url = os.getenv("REDIS_URL")
 
-if "redis:" in  redis_url:
-    logger.warning("Detected 'redis:' in REDIS_URL, converting to 'rediss:' for secure connection.")
-    redis_url = redis_url.replace("redis:", "rediss:")
+# if "redis:" in  redis_url:
+    # logger.warning("Detected 'redis:' in REDIS_URL, converting to 'rediss:' for secure connection.")
+    # redis_url = redis_url.replace("redis:", "rediss:")
 
 VIDEO_PROGRESS_CHANNEL = "video-progress-events"
 redis_client = None

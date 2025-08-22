@@ -7,6 +7,7 @@ import {
     uploadOnCloudinary,
     deleteFromCloudinary,
 } from "../utils/cloudinary.js";
+import storageManager from "../storage/storage.manager.js";
 import { ApiError } from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 
@@ -15,15 +16,17 @@ class VideoService {
         async createVideoAndQueueForAnalysis(file, user, description) {
         if (!file) throw new ApiError(400, "A video file is required.");
 
-        const cloudinaryResponse = await uploadOnCloudinary(file.path);
-        if (!cloudinaryResponse)
+        const uploadResponse = await storageManager.uploadFile(file.path);
+        if (!uploadResponse) {
             throw new ApiError(500, "Failed to upload video.");
+        }
 
         const newVideo = await videoRepository.create({
             filename: file.originalname,
             description,
-            url: cloudinaryResponse.secure_url,
-            publicId: cloudinaryResponse.public_id,
+            // Use the URL and publicId from the agnostic response
+            url: uploadResponse.url,
+            publicId: uploadResponse.publicId,
             mimetype: file.mimetype,
             size: file.size,
             status: "QUEUED",
@@ -101,26 +104,31 @@ class VideoService {
 
     async deleteVideoById(videoId, userId) {
         const video = await this.getVideoWithAnalyses(videoId, userId);
-        if (video.publicId) await deleteFromCloudinary(video.publicId, "video");
-
-        for (const analysis of video.analyses) {
-            if (analysis.visualizedUrl) {
-                try {
-                    const publicId = analysis.visualizedUrl
-                        .split("/")
-                        .pop()
-                        .split(".")[0];
-                    await deleteFromCloudinary(
-                        `deepfake-visualizations/${publicId}`,
-                        "video"
-                    );
-                } catch (e) {
-                    logger.warn(
-                        `Could not delete visualization from Cloudinary: ${e.message}`
-                    );
-                }
-            }
+        if (video.publicId) {
+            await storageManager.deleteFile(video.publicId, "video");
         }
+
+
+        // TO BE CHANGED -- RIGHT NOW THE VISUALIZATION STAY INTACT
+        //
+        // for (const analysis of video.analyses) {
+        //     if (analysis.visualizedUrl) {
+        //         try {
+        //             const publicId = analysis.visualizedUrl
+        //                 .split("/")
+        //                 .pop()
+        //                 .split(".")[0];
+        //             await deleteFromCloudinary(
+        //                 `deepfake-visualizations/${publicId}`,
+        //                 "video"
+        //             );
+        //         } catch (e) {
+        //             logger.warn(
+        //                 `Could not delete visualization from Cloudinary: ${e.message}`
+        //             );
+        //         }
+        //     }
+        // }
 
         await videoRepository.deleteById(videoId);
     }

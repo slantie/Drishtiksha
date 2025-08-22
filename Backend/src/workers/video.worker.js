@@ -7,43 +7,43 @@ import axios from "axios";
 import dotenv from "dotenv";
 import { videoRepository } from "../repositories/video.repository.js";
 import { modelAnalysisService } from "../services/modelAnalysis.service.js";
-import { eventService } from "../services/event.service.js";
+import { redisConnection } from "../config/queue.js";
 import { VIDEO_PROCESSING_QUEUE_NAME } from "../config/constants.js";
-import { videoFlowProducer } from "../config/queue.js";
 import logger from "../utils/logger.js";
-import { uploadStreamToCloudinary } from "../utils/cloudinary.js";
+import { eventService } from "../services/event.service.js";
+import storageManager from "../storage/storage.manager.js";
 import { toCamelCase } from "../utils/formatKeys.js";
 
 dotenv.config({ path: "./.env" });
 
-const redisUrl = process.env.REDIS_URL;
-let redisConnection;
+// const redisUrl = process.env.REDIS_URL;
+// let redisConnection;
 
-// Check if a REDIS_URL is provided in the environment
-if (redisUrl) {
-    const redisUri = new URL(redisUrl);
+// // Check if a REDIS_URL is provided in the environment
+// if (redisUrl) {
+//     const redisUri = new URL(redisUrl);
 
-    // Construct the connection object correctly for a secure Upstash connection
-    redisConnection = {
-        host: redisUri.hostname,
-        port: parseInt(redisUri.port, 10),
-        password: redisUri.password,
-        // This is the crucial part for enabling TLS/SSL encryption
-        tls: {
-            rejectUnauthorized: false, // Necessary for many cloud providers
-        },
-    };
-    logger.info(
-        `BullMQ is configured to connect to Redis at ${redisUri.hostname}`
-    );
-} else {
-    // Fallback for local development without a REDIS_URL
-    redisConnection = {
-        host: "localhost",
-        port: 6379,
-    };
-    logger.warn(`REDIS_URL not found. BullMQ is connecting to local Redis.`);
-}
+//     // Construct the connection object correctly for a secure Upstash connection
+//     redisConnection = {
+//         host: redisUri.hostname,
+//         port: parseInt(redisUri.port, 10),
+//         password: redisUri.password,
+//         // This is the crucial part for enabling TLS/SSL encryption
+//         tls: {
+//             rejectUnauthorized: false, // Necessary for many cloud providers
+//         },
+//     };
+//     logger.info(
+//         `BullMQ is configured to connect to Redis at ${redisUri.hostname}`
+//     );
+// } else {
+//     // Fallback for local development without a REDIS_URL
+//     redisConnection = {
+//         host: "localhost",
+//         port: 6379,
+//     };
+//     logger.warn(`REDIS_URL not found. BullMQ is connecting to local Redis.`);
+// }
 
 const worker = new Worker(
     VIDEO_PROCESSING_QUEUE_NAME,
@@ -62,60 +62,6 @@ const worker = new Worker(
     },
     { connection: redisConnection, concurrency: 5 }
 );
-
-// async function handleAnalysisFlow(job) {
-//     const { videoId } = job.data;
-//     const video = await videoRepository.findById(videoId);
-//     if (!video) throw new Error(`Video ${videoId} not found.`);
-
-//     const existingFlow = await videoFlowProducer.getFlow({
-//         id: videoId,
-//         queueName: VIDEO_PROCESSING_QUEUE_NAME,
-//     });
-
-//     if (existingFlow?.children?.length > 0) {
-//         logger.warn(
-//             `[Flow] Analysis flow for video ${videoId} already exists. Skipping creation.`
-//         );
-//         return;
-//     }
-
-//     await eventService.emitProgress({
-//         videoId,
-//         userId: video.userId,
-//         event: "PROCESSING_STARTED",
-//         message: "Your video is now being processed.",
-//     });
-
-//     await videoRepository.updateStatus(videoId, "PROCESSING");
-//     const serverStats = await modelAnalysisService.getServerStatistics();
-//     const availableModels =
-//         serverStats.models_info?.filter((m) => m.loaded).map((m) => m.name) ||
-//         [];
-
-//     if (availableModels.length === 0) {
-//         throw new Error("No models are available on the analysis server.");
-//     }
-
-//     const childJobs = availableModels.map((modelName) => ({
-//         name: "run-single-analysis",
-//         data: { videoId, modelName, serverStats },
-//         queueName: VIDEO_PROCESSING_QUEUE_NAME,
-//         opts: { jobId: `${videoId}-${modelName}` },
-//     }));
-
-//     await videoFlowProducer.add({
-//         name: "finalize-analysis",
-//         queueName: VIDEO_PROCESSING_QUEUE_NAME,
-//         data: { videoId, totalAnalysesAttempted: childJobs.length },
-//         opts: { jobId: `${videoId}-finalizer` },
-//         children: childJobs,
-//     });
-
-//     logger.info(
-//         `[Flow] Created analysis flow for video ${videoId} with ${childJobs.length} child jobs.`
-//     );
-// }
 
 async function handleSingleAnalysis(job) {
     const { videoId, modelName, serverStats } = job.data;
@@ -136,7 +82,22 @@ async function handleSingleAnalysis(job) {
             data: { modelName },
         });
 
-        localVideoPath = await downloadVideo(video.url, videoId, modelName);
+        // --- MODIFIED: Get video path based on the storage provider ---
+        if (process.env.STORAGE_PROVIDER === "local") {
+            // For local storage, construct the absolute path from the relative path stored in publicId
+            const localStoragePath = process.env.LOCAL_STORAGE_PATH || "public/media";
+            localVideoPath = path.resolve(localStoragePath, video.publicId);
+            logger.info(`[Worker] Using local file for analysis: ${localVideoPath}`);
+            if (!fs.existsSync(localVideoPath)) {
+                throw new Error(`Local video file not found at: ${localVideoPath}`);
+            }
+        } else {
+            // For Cloudinary, download the video to a temporary file
+            localVideoPath = await downloadVideo(video.url, videoId, modelName);
+            isTempFile = true; // Mark this file for cleanup
+            logger.info(`[Worker] Downloaded Cloudinary video to temp path: ${localVideoPath}`);
+        }
+
         await runAndSaveComprehensiveAnalysis(
             videoId,
             userId,
@@ -173,12 +134,12 @@ async function handleSingleAnalysis(job) {
         }
         throw error;
     } finally {
-        if (localVideoPath) {
+        if (localVideoPath && isTempFile) {
             await fsPromises
                 .unlink(localVideoPath)
                 .catch((err) =>
                     logger.error(
-                        `[Worker] Cleanup failed for ${localVideoPath}: ${err.message}`
+                        `[Worker] Cleanup failed for temp file ${localVideoPath}: ${err.message}`
                     )
                 );
         }
@@ -287,13 +248,16 @@ async function handleVisualizationUpload(
         const videoStream = await modelAnalysisService.downloadVisualization(
             filename
         );
-        const cloudinaryResponse = await uploadStreamToCloudinary(videoStream, {
-            folder: "deepfake-visualizations",
-            resource_type: "video",
+
+        // --- MODIFIED: Use the agnostic storage manager to upload the stream ---
+        const uploadResponse = await storageManager.uploadStream(videoStream, {
+            folder: "deepfake-visualizations", // Used by both providers
+            resource_type: "video", // Used by Cloudinary, ignored by local
         });
-        if (cloudinaryResponse?.secure_url) {
+        
+        if (uploadResponse?.url) {
             await videoRepository.updateAnalysis(analysisId, {
-                visualizedUrl: cloudinaryResponse.secure_url,
+                visualizedUrl: uploadResponse.url,
             });
             await eventService.emitProgress({
                 videoId,
@@ -303,11 +267,11 @@ async function handleVisualizationUpload(
                 data: {
                     modelName,
                     success: true,
-                    url: cloudinaryResponse.secure_url,
+                    url: uploadResponse.url,
                 },
             });
         } else {
-            throw new Error("Cloudinary upload did not return a secure URL.");
+            throw new Error("Storage manager did not return a URL for the visualization.");
         }
     } catch (error) {
         await eventService.emitProgress({

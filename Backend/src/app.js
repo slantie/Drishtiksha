@@ -28,10 +28,33 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+// Storage Setup
+if (process.env.STORAGE_PROVIDER === "local") {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    
+    // Get the configured path, e.g., "public/media"
+    const localStoragePath = process.env.LOCAL_STORAGE_PATH || "public/media";
+    
+    // This creates the URL segment, e.g., "/media"
+    const staticUrlPath = localStoragePath.replace("public/", "");
+
+    // This creates the absolute filesystem path to the directory
+    const staticDirPath = path.resolve(__dirname, '..', localStoragePath);
+
+    // Serve files from the local storage directory at the specified URL
+    app.use(`/${staticUrlPath}`, express.static(staticDirPath));
+    
+    logger.info(`🚀 Serving static files for local storage from URL '/${staticUrlPath}' mapped to directory '${staticDirPath}'`);
+}
+
 // --- Route Imports ---
 import authRoutes from "./api/auth/auth.routes.js";
 import videoRoutes from "./api/videos/video.routes.js";
 import monitoringRoutes from "./api/monitoring/monitoring.routes.js";
+import { fileURLToPath } from "url";
+import path from "path";
+import logger from "./utils/logger.js";
 // REMOVED: import healthRoutes from "./api/health/health.routes.js";
 
 // --- API Routes ---

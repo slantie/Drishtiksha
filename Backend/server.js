@@ -8,7 +8,7 @@ import { initializeSocketIO } from "./src/config/socket.js";
 import { QueueEvents } from "bullmq";
 import { VIDEO_PROCESSING_QUEUE_NAME } from "./src/config/constants.js";
 import { videoRepository } from "./src/repositories/video.repository.js";
-import { eventService } from "./src/services/event.service.js";
+import {eventService} from "./src/services/event.service.js";
 import logger from "./src/utils/logger.js";
 
 dotenv.config({ path: "./.env" });
