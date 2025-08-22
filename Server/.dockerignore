@@ -1,0 +1,23 @@
+ml-server/.dockerignore 
+
+* Ignore Python virtual environments
+.venv/
+venv/
+env/
+
+* Ignore Python cache files
+pycache/
+*.pyc
+*.pyo
+*.pyd
+
+* Ignore local environment files
+.env*
+* Ignore test files
+/tests/
+
+* Ignore git history and editor configs
+.git
+.gitignore
+.vscode
+.idea
