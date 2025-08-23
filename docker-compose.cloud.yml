@@ -1,0 +1,26 @@
+# Docker Compose Override for Cloud Database
+# Use this when connecting to external/cloud databases
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.cloud.yml up
+
+services:
+    # Override backend to remove postgres dependency
+    backend:
+        depends_on:
+            - redis
+        environment:
+            # Cloud database URL should be set in .env file
+            DATABASE_URL: ${DATABASE_URL}
+
+    # Override Prisma Studio to remove postgres dependency
+    prisma-studio:
+        depends_on: []
+        environment:
+            DATABASE_URL: ${DATABASE_URL}
+
+# Remove postgres service entirely
+volumes:
+    # Keep only non-postgres volumes
+    redis_data:
+        driver: local
+    storage_data:
+        driver: local

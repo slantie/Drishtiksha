@@ -16,35 +16,6 @@ import { toCamelCase } from "../utils/formatKeys.js";
 
 dotenv.config({ path: "./.env" });
 
-// const redisUrl = process.env.REDIS_URL;
-// let redisConnection;
-
-// // Check if a REDIS_URL is provided in the environment
-// if (redisUrl) {
-//     const redisUri = new URL(redisUrl);
-
-//     // Construct the connection object correctly for a secure Upstash connection
-//     redisConnection = {
-//         host: redisUri.hostname,
-//         port: parseInt(redisUri.port, 10),
-//         password: redisUri.password,
-//         // This is the crucial part for enabling TLS/SSL encryption
-//         tls: {
-//             rejectUnauthorized: false, // Necessary for many cloud providers
-//         },
-//     };
-//     logger.info(
-//         `BullMQ is configured to connect to Redis at ${redisUri.hostname}`
-//     );
-// } else {
-//     // Fallback for local development without a REDIS_URL
-//     redisConnection = {
-//         host: "localhost",
-//         port: 6379,
-//     };
-//     logger.warn(`REDIS_URL not found. BullMQ is connecting to local Redis.`);
-// }
-
 const worker = new Worker(
     VIDEO_PROCESSING_QUEUE_NAME,
     async (job) => {
@@ -67,6 +38,7 @@ async function handleSingleAnalysis(job) {
     const { videoId, modelName, serverStats } = job.data;
     let localVideoPath;
     let userId;
+    let isTempFile = false;
 
     try {
         const video = await videoRepository.findById(videoId);
@@ -85,17 +57,24 @@ async function handleSingleAnalysis(job) {
         // --- MODIFIED: Get video path based on the storage provider ---
         if (process.env.STORAGE_PROVIDER === "local") {
             // For local storage, construct the absolute path from the relative path stored in publicId
-            const localStoragePath = process.env.LOCAL_STORAGE_PATH || "public/media";
+            const localStoragePath =
+                process.env.LOCAL_STORAGE_PATH || "public/media";
             localVideoPath = path.resolve(localStoragePath, video.publicId);
-            logger.info(`[Worker] Using local file for analysis: ${localVideoPath}`);
+            logger.info(
+                `[Worker] Using local file for analysis: ${localVideoPath}`
+            );
             if (!fs.existsSync(localVideoPath)) {
-                throw new Error(`Local video file not found at: ${localVideoPath}`);
+                throw new Error(
+                    `Local video file not found at: ${localVideoPath}`
+                );
             }
         } else {
             // For Cloudinary, download the video to a temporary file
             localVideoPath = await downloadVideo(video.url, videoId, modelName);
             isTempFile = true; // Mark this file for cleanup
-            logger.info(`[Worker] Downloaded Cloudinary video to temp path: ${localVideoPath}`);
+            logger.info(
+                `[Worker] Downloaded Cloudinary video to temp path: ${localVideoPath}`
+            );
         }
 
         await runAndSaveComprehensiveAnalysis(
@@ -254,7 +233,7 @@ async function handleVisualizationUpload(
             folder: "deepfake-visualizations", // Used by both providers
             resource_type: "video", // Used by Cloudinary, ignored by local
         });
-        
+
         if (uploadResponse?.url) {
             await videoRepository.updateAnalysis(analysisId, {
                 visualizedUrl: uploadResponse.url,
@@ -271,7 +250,9 @@ async function handleVisualizationUpload(
                 },
             });
         } else {
-            throw new Error("Storage manager did not return a URL for the visualization.");
+            throw new Error(
+                "Storage manager did not return a URL for the visualization."
+            );
         }
     } catch (error) {
         await eventService.emitProgress({

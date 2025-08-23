@@ -1,48 +1,75 @@
-# --- STAGE 1: Build dependencies and generate Prisma client ---
-FROM node:18-alpine AS builder
+# Dockerfile for VidVigilante Backend & Worker
 
-# Set the working directory
+# --- STAGE 1: Builder Stage ---
+FROM node:22-alpine AS builder
+
 WORKDIR /app
 
-# Install dependencies needed for 'psql' command if you use PostgreSQL seeding/scripts
-# If you only use SQLite or don't need the command-line tool, you can remove this line.
-# RUN apk add --no-cache postgresql-client
+RUN apk add --no-cache python3 make g++
 
-# Copy package files
 COPY package*.json ./
-
-# Install all dependencies, including devDependencies for Prisma
 RUN npm install
 
-# Copy the Prisma schema and migrations
 COPY prisma ./prisma/
-
-# Generate the Prisma client. This is crucial for the app to connect to the database.
-# The client is generated based on the schema and the target database provider.
 RUN npx prisma generate
 
-# --- STAGE 2: Create the final production image ---
-FROM node:18-alpine
 
-# Set the working directory
+# --- STAGE 2: Create the final, lean production image ---
+FROM node:22-alpine
+
+RUN apk add --no-cache \
+    postgresql-client \
+    curl \
+    bash \
+    dumb-init
+
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Set the working directory and change ownership to appuser
 WORKDIR /app
+RUN chown appuser:appgroup /app
 
-# Copy package files again to install only production dependencies
-COPY package*.json ./
+# Switch to the non-root user
+USER appuser
 
-# Install only production dependencies and clean the npm cache
+# --- NEW FIX: Use the --chown flag on all COPY commands after USER is set ---
+# This ensures the copied files are owned by the correct user from the start.
+COPY --chown=appuser:appgroup package*.json ./
+
+# Install only production dependencies and clean cache
+# This will now succeed because package-lock.json is owned by appuser
 RUN npm install --omit=dev && npm cache clean --force
 
-# Copy the built node_modules and the generated Prisma client from the builder stage
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma/
+# Copy the pre-built node_modules and generated Prisma client from the builder stage
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/prisma ./prisma/
 
-# Copy the application source code
-COPY . .
+# Copy the rest of the application source code
+COPY --chown=appuser:appgroup . .
 
-# Expose the port the application will run on (default is 3000)
+# Make the entrypoint script executable
+USER root
+RUN chmod +x /app/scripts/docker-entrypoint.sh
+USER appuser
+
+# Create necessary directories with proper permissions
+USER root
+RUN mkdir -p /app/storage/media/videos /app/storage/media/visualizations \
+    /app/uploads/videos /app/uploads/visualizations \
+    /app/temp /app/logs && \
+    chown -R appuser:appgroup /app/storage /app/uploads /app/temp /app/logs
+USER appuser
+
+# Expose the application port
 EXPOSE 3000
 
-# The command to run the application in production
-# This runs "node server.js" as defined in your package.json 'start' script.
-CMD ["npm", "start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
+# Use the custom entrypoint script that handles database setup
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+
+# Default command to start the application
+CMD ["dumb-init", "--", "npm", "run", "start:full"]

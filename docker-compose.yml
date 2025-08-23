@@ -1,0 +1,141 @@
+# Full Stack Docker Compose - Frontend + Backend
+# Base configuration - use with override files for different scenarios
+
+services:
+    # Redis Service
+    redis:
+        image: redis:7-alpine
+        container_name: vidvigilante-redis
+        ports:
+            - "${REDIS_PORT:-6379}:6379"
+        volumes:
+            - redis_data:/data
+            - ./Backend/redis.conf:/usr/local/etc/redis/redis.conf:ro
+        networks:
+            - vidvigilante-network
+        restart: unless-stopped
+        command: redis-server /usr/local/etc/redis/redis.conf
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Backend Application Service (Combined with Worker)
+    backend:
+        build:
+            context: ./Backend
+            dockerfile: Dockerfile
+        container_name: vidvigilante-backend
+        environment:
+            # Node Environment
+            NODE_ENV: ${NODE_ENV:-production}
+            PORT: ${BACKEND_PORT:-3000}
+
+            # Database Configuration
+            DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-VidVigilante}?schema=public}
+
+            # Redis Configuration
+            REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+
+            # Storage Configuration
+            STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+            LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/storage/media}
+            BASE_URL: ${BACKEND_BASE_URL:-http://localhost:3000}
+
+            # CORS Configuration
+            FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
+            # Authentication
+            JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-here}
+            JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-jwt-refresh-secret-here}
+            JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+            JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+            BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+
+            # Rate Limiting
+            RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+            RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+
+            # ML Server Configuration
+            SERVER_URL: ${SERVER_URL:-http://host.docker.internal:8000}
+            SERVER_API_KEY: ${SERVER_API_KEY:-your-server-api-key}
+
+            # Cloudinary (Optional)
+            CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+            CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+            CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+        ports:
+            - "${BACKEND_PORT:-3000}:3000"
+            - "${PRISMA_STUDIO_PORT:-5555}:5555"
+        volumes:
+            - storage_data:/app/storage
+            - ./Backend/uploads:/app/uploads
+            - ./Backend/temp:/app/temp
+            - ./Backend/logs:/app/logs
+        networks:
+            - vidvigilante-network
+        depends_on:
+            - redis
+        restart: unless-stopped
+        command: npm run start:full
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+
+    # Prisma Studio Service (Development/Admin Tool)
+    prisma-studio:
+        build:
+            context: ./Backend
+            dockerfile: Dockerfile
+        container_name: vidvigilante-prisma-studio
+        environment:
+            DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-VidVigilante}?schema=public}
+        ports:
+            - "${PRISMA_STUDIO_PORT:-5555}:5555"
+        networks:
+            - vidvigilante-network
+        depends_on: []
+        restart: unless-stopped
+        command: npx prisma studio --hostname 0.0.0.0 --port 5555
+        profiles:
+            - studio
+
+    # Frontend Application Service
+    frontend:
+        build:
+            context: ./Frontend
+            dockerfile: Dockerfile
+            args:
+                VITE_PROJECT_NAME: ${VITE_PROJECT_NAME:-Drishtiksha}
+                VITE_PROJECT_DESC: ${VITE_PROJECT_DESC:-Deepfake Detection}
+                VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:3000}
+                NODE_ENV: ${NODE_ENV:-production}
+        container_name: vidvigilante-frontend
+        ports:
+            - "${FRONTEND_PORT:-5173}:80"
+        environment:
+            - NODE_ENV=${NODE_ENV:-production}
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:80/"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - vidvigilante-network
+        depends_on:
+            backend:
+                condition: service_healthy
+
+networks:
+    vidvigilante-network:
+        driver: bridge
+
+volumes:
+    redis_data:
+        driver: local
+    storage_data:
+        driver: local

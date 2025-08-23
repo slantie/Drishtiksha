@@ -1,0 +1,172 @@
+services:
+    # PostgreSQL Database Service
+    postgres:
+        image: postgres:15-alpine
+        container_name: vidvigilante-postgres
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB:-VidVigilante}
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+            POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+        ports:
+            - "${POSTGRES_PORT:-5432}:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+        networks:
+            - vidvigilante-network
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-VidVigilante}",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Redis Service
+    redis:
+        image: redis:7-alpine
+        container_name: vidvigilante-redis
+        ports:
+            - "${REDIS_PORT:-6379}:6379"
+        volumes:
+            - redis_data:/data
+            - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+        networks:
+            - vidvigilante-network
+        restart: unless-stopped
+        command: redis-server /usr/local/etc/redis/redis.conf
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Backend Application Service
+    backend:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: vidvigilante-backend
+        environment:
+            # Node Environment
+            NODE_ENV: ${NODE_ENV:-production}
+            PORT: ${BACKEND_PORT:-3000}
+
+            # Database Configuration
+            DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-VidVigilante}?schema=public}
+
+            # Redis Configuration
+            REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+
+            # Storage Configuration
+            STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+            LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/storage/media}
+            BASE_URL: ${BASE_URL:-http://localhost:3000}
+
+            # CORS Configuration
+            FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
+            # Authentication
+            JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-here}
+            JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-jwt-refresh-secret-here}
+            JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+            JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+            BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+
+            # Rate Limiting
+            RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+            RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+
+            # ML Server Configuration
+            SERVER_URL: ${SERVER_URL:-http://host.docker.internal:8000}
+            SERVER_API_KEY: ${SERVER_API_KEY:-your-server-api-key}
+
+            # Cloudinary (Optional)
+            CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+            CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+            CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+        ports:
+            - "${BACKEND_PORT:-3000}:3000"
+        volumes:
+            - storage_data:/app/storage
+            - ./uploads:/app/uploads
+            - ./temp:/app/temp
+            - ./logs:/app/logs
+        networks:
+            - vidvigilante-network
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 20s
+        command: >
+            sh -c "
+              echo 'Waiting for database to be ready...' &&
+              npx prisma db push --accept-data-loss &&
+              echo 'Database schema updated successfully' &&
+              npm start
+            "
+
+    # Worker Service for Video Processing
+    worker:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: vidvigilante-worker
+        environment:
+            # Inherit all environment variables from backend service
+            NODE_ENV: ${NODE_ENV:-production}
+            DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-VidVigilante}?schema=public}
+            REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+            STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+            LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/storage/media}
+            BASE_URL: ${BASE_URL:-http://localhost:3000}
+            SERVER_URL: ${SERVER_URL:-http://host.docker.internal:8000}
+            SERVER_API_KEY: ${SERVER_API_KEY:-your-server-api-key}
+            JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-here}
+            JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-jwt-refresh-secret-here}
+            CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+            CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+            CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+        volumes:
+            - storage_data:/app/storage
+            - ./uploads:/app/uploads
+            - ./temp:/app/temp
+            - ./logs:/app/logs
+        networks:
+            - vidvigilante-network
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            backend:
+                condition: service_healthy
+        restart: unless-stopped
+        command: npm run worker
+
+networks:
+    vidvigilante-network:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 172.20.0.0/16
+
+volumes:
+    postgres_data:
+        driver: local
+    redis_data:
+        driver: local
+    storage_data:
+        driver: local

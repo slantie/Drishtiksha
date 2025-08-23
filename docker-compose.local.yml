@@ -1,0 +1,53 @@
+# Docker Compose Override for Local Development
+# Includes PostgreSQL container and additional development tools
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.local.yml up
+
+services:
+    # PostgreSQL Database Service (Local Development)
+    postgres:
+        image: postgres:15-alpine
+        container_name: vidvigilante-postgres
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB:-VidVigilante}
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+            POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+        ports:
+            - "${POSTGRES_PORT:-5432}:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./Backend/scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+        networks:
+            - vidvigilante-network
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-VidVigilante}",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Backend with PostgreSQL dependency
+    backend:
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    # Prisma Studio with PostgreSQL dependency
+    prisma-studio:
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+volumes:
+    postgres_data:
+        driver: local
+    redis_data:
+        driver: local
+    storage_data:
+        driver: local

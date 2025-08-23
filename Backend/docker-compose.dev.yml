@@ -1,0 +1,41 @@
+# Development override for Docker Compose
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+    backend:
+        environment:
+            NODE_ENV: development
+        volumes:
+            # Mount source code for development
+            - ./src:/app/src:ro
+            - ./server.js:/app/server.js:ro
+        command: npm run dev
+
+    worker:
+        environment:
+            NODE_ENV: development
+        volumes:
+            # Mount source code for development
+            - ./src:/app/src:ro
+        command: npm run worker
+
+    # Add pgAdmin for database management in development
+    pgadmin:
+        image: dpage/pgadmin4:latest
+        container_name: vidvigilante-pgadmin
+        environment:
+            PGADMIN_DEFAULT_EMAIL: admin@vidvigilante.com
+            PGADMIN_DEFAULT_PASSWORD: admin
+            PGADMIN_CONFIG_SERVER_MODE: "False"
+        ports:
+            - "8080:80"
+        volumes:
+            - pgadmin_data:/var/lib/pgadmin
+        networks:
+            - vidvigilante-network
+        depends_on:
+            - postgres
+
+volumes:
+    pgadmin_data:
+        driver: local

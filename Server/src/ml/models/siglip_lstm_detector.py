@@ -268,10 +268,27 @@ class SiglipLSTMV3(SiglipLSTMV1):
                 plot_h, plot_w, _ = plot_img_bgr.shape
                 new_plot_h = int(frame_height * 0.3)
                 new_plot_w = int(new_plot_h * (plot_w / plot_h))
+                # Ensure overlay fits within frame
+                if new_plot_w > frame_width:
+                    new_plot_w = frame_width - 20 if frame_width > 20 else frame_width
+                    new_plot_h = int(new_plot_w * (plot_h / plot_w))
+                if new_plot_h > frame_height:
+                    new_plot_h = frame_height - 20 if frame_height > 20 else frame_height
+                    new_plot_w = int(new_plot_h * (plot_w / plot_h))
                 resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
-                
-                y_offset, x_offset = 10, frame_width - new_plot_w - 10
-                frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
+                y_offset = 10
+                x_offset = frame_width - new_plot_w - 10
+                # Ensure offsets are valid
+                if x_offset < 0:
+                    x_offset = 0
+                if y_offset + new_plot_h > frame_height:
+                    y_offset = frame_height - new_plot_h
+                # Only overlay if it fits
+                if (y_offset >= 0 and x_offset >= 0 and
+                    y_offset + new_plot_h <= frame_height and
+                    x_offset + new_plot_w <= frame_width):
+                    frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
+                # else: skip overlay if it doesn't fit
 
                 # Generate gradient color bar
                 green, yellow, red = np.array([0, 255, 0]), np.array([0, 255, 255]), np.array([0, 0, 255])

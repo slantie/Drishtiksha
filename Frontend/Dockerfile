@@ -18,10 +18,17 @@ RUN npm install
 COPY . .
 
 # IMPORTANT: Handle Build-Time Environment Variables
-# Use ARG to allow passing the backend URL during the Docker build process.
-# We will set this in our docker-compose.yml file later.
+# Use ARG to allow passing environment variables during the Docker build process.
+ARG VITE_PROJECT_NAME
+ARG VITE_PROJECT_DESC
 ARG VITE_BACKEND_URL
+ARG NODE_ENV
+
+# Set environment variables for the build process
+ENV VITE_PROJECT_NAME=${VITE_PROJECT_NAME}
+ENV VITE_PROJECT_DESC=${VITE_PROJECT_DESC}
 ENV VITE_BACKEND_URL=${VITE_BACKEND_URL}
+ENV NODE_ENV=${NODE_ENV}
 
 # Build the application for production
 # This command runs "vite build" as defined in your package.json
@@ -30,6 +37,9 @@ RUN npm run build
 # --- STAGE 2: Serve the application using Nginx ---
 # Use a lightweight, official Nginx image
 FROM nginx:stable-alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 # Copy the custom Nginx configuration file
 # We will create this file next. It's crucial for React Router.

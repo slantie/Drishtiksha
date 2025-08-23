@@ -1,6 +1,6 @@
 // src/storage/local.provider.js
 
-import { promises as fs } from "fs";
+import { promises as fs, createWriteStream } from "fs";
 import path from "path";
 import logger from "../utils/logger.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -16,7 +16,10 @@ const ensureDirectoryExists = async (dirPath) => {
     try {
         await fs.mkdir(dirPath, { recursive: true });
     } catch (error) {
-        throw new ApiError(500, `Could not create storage directory: ${error.message}`);
+        throw new ApiError(
+            500,
+            `Could not create storage directory: ${error.message}`
+        );
     }
 };
 
@@ -42,13 +45,23 @@ const localProvider = {
             await fs.rename(localFilePath, destinationPath);
         } catch (error) {
             // If rename fails (e.g., across devices), fall back to copy and unlink.
-            logger.warn(`fs.rename failed: ${error.message}. Falling back to copy/unlink.`);
+            logger.warn(
+                `fs.rename failed: ${error.message}. Falling back to copy/unlink.`
+            );
             await fs.copyFile(localFilePath, destinationPath);
             await fs.unlink(localFilePath);
         }
 
         const relativePath = path.join(subfolder, uniqueFilename);
-        const publicUrl = `${BASE_URL}/${path.join(STORAGE_ROOT.replace('public/',''), relativePath).replace(/\\/g, '/')}`;
+        // For local storage, we need to construct the URL that matches the static serving configuration
+        // The static serving removes "public/" from LOCAL_STORAGE_PATH, so we do the same
+        const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
+            /\\/g,
+            "/"
+        );
+        const publicUrl = `${BASE_URL}/${urlPath}/${relativePath}`
+            .replace(/\/+/g, "/")
+            .replace(":/", "://");
 
         return {
             url: publicUrl,
@@ -71,15 +84,27 @@ const localProvider = {
         const destinationPath = path.join(permanentStorageDir, uniqueFilename);
 
         return new Promise((resolve, reject) => {
-            const writeStream = fs.createWriteStream(destinationPath);
+            const writeStream = createWriteStream(destinationPath);
             stream.pipe(writeStream);
             writeStream.on("finish", () => {
                 const relativePath = path.join(subfolder, uniqueFilename);
-                const publicUrl = `${BASE_URL}/${path.join(STORAGE_ROOT.replace('public/',''), relativePath).replace(/\\/g, '/')}`;
+                // For local storage, we need to construct the URL that matches the static serving configuration
+                const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
+                    /\\/g,
+                    "/"
+                );
+                const publicUrl = `${BASE_URL}/${urlPath}/${relativePath}`
+                    .replace(/\/+/g, "/")
+                    .replace(":/", "://");
                 resolve({ url: publicUrl, publicId: relativePath });
             });
             writeStream.on("error", (error) => {
-                reject(new ApiError(500, `Failed to save stream to local storage: ${error.message}`));
+                reject(
+                    new ApiError(
+                        500,
+                        `Failed to save stream to local storage: ${error.message}`
+                    )
+                );
             });
         });
     },
@@ -96,9 +121,13 @@ const localProvider = {
             logger.info(`Successfully deleted local file: ${fullPath}`);
         } catch (error) {
             if (error.code === "ENOENT") {
-                logger.warn(`Attempted to delete a non-existent file: ${fullPath}`);
+                logger.warn(
+                    `Attempted to delete a non-existent file: ${fullPath}`
+                );
             } else {
-                logger.error(`Failed to delete local file ${fullPath}: ${error.message}`);
+                logger.error(
+                    `Failed to delete local file ${fullPath}: ${error.message}`
+                );
             }
         }
     },
