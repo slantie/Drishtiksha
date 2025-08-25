@@ -1,53 +1,54 @@
-# Docker Compose Override for Local Development
-# Includes PostgreSQL container and additional development tools
+# ===================================================================
+# LOCAL Environment Override
+# ===================================================================
+# This file adds the local PostgreSQL database container.
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.local.yml up
+# -------------------------------------------------------------------
+
+version: "3.8"
 
 services:
-    # PostgreSQL Database Service (Local Development)
+    # --- LOCAL POSTGRESQL DATABASE ---
     postgres:
         image: postgres:15-alpine
-        container_name: vidvigilante-postgres
+        container_name: drishtiksha-postgres
         environment:
-            POSTGRES_DB: ${POSTGRES_DB:-VidVigilante}
-            POSTGRES_USER: ${POSTGRES_USER:-postgres}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-            POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         ports:
             - "${POSTGRES_PORT:-5432}:5432"
         volumes:
-            - postgres_data:/var/lib/postgresql/data
-            - ./Backend/scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+            - postgres_volume:/var/lib/postgresql/data
         networks:
-            - vidvigilante-network
+            - drishtiksha-net
         restart: unless-stopped
         healthcheck:
             test:
                 [
                     "CMD-SHELL",
-                    "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-VidVigilante}",
+                    "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
                 ]
             interval: 10s
             timeout: 5s
             retries: 5
 
-    # Backend with PostgreSQL dependency
+    # --- SERVICE MODIFICATIONS ---
+    # Make the backend and worker wait for the local database to be ready.
     backend:
         depends_on:
             postgres:
                 condition: service_healthy
-            redis:
+
+    worker:
+        depends_on:
+            postgres:
                 condition: service_healthy
 
-    # Prisma Studio with PostgreSQL dependency
     prisma-studio:
         depends_on:
             postgres:
                 condition: service_healthy
 
 volumes:
-    postgres_data:
-        driver: local
-    redis_data:
-        driver: local
-    storage_data:
-        driver: local
+    postgres_volume:

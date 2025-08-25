@@ -1,9 +1,7 @@
 import os
 import redis
 
-# IMPORTANT: Set your environment variable before running this script
-# In your terminal: export REDIS_URL="rediss://default:YOUR_PASSWORD@..."
-redis_url = "rediss://default:AWeMAAIncDFmMmQ3MzY4MjI1Zjc0ZTIxYjllOTYxOTQ2MDFhZGYzYnAxMjY1MDg@driving-tortoise-26508.upstash.io"
+redis_url = os.getenv("REDIS_URL")
 
 if not redis_url:
     print("❌ ERROR: The REDIS_URL environment variable is not set.")

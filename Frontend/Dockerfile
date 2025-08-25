@@ -1,13 +1,13 @@
-# --- STAGE 1: Build the React application ---
-# Use an official Node.js image. The 'alpine' version is lightweight.
-# Match the Node version to your project's requirements (e.g., node:18 or node:20).
+# Dockerfile for the Frontend React Application
+
+# --- STAGE 1: Build Stage ---
+# Use a Node.js image to build the React app. 'alpine' is lightweight.
 FROM node:18-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or npm-shrinkwrap.json)
-# This step is separated to leverage Docker's layer caching.
+# Copy package.json and package-lock.json to leverage Docker's layer caching.
 # Dependencies are only re-installed if these files change.
 COPY package*.json ./
 
@@ -17,40 +17,27 @@ RUN npm install
 # Copy the rest of the application's source code
 COPY . .
 
-# IMPORTANT: Handle Build-Time Environment Variables
-# Use ARG to allow passing environment variables during the Docker build process.
-ARG VITE_PROJECT_NAME
-ARG VITE_PROJECT_DESC
+# Use ARG to pass environment variables during the Docker build process.
+# These are used by Vite to bake values into the static files.
 ARG VITE_BACKEND_URL
-ARG NODE_ENV
-
-# Set environment variables for the build process
-ENV VITE_PROJECT_NAME=${VITE_PROJECT_NAME}
-ENV VITE_PROJECT_DESC=${VITE_PROJECT_DESC}
 ENV VITE_BACKEND_URL=${VITE_BACKEND_URL}
-ENV NODE_ENV=${NODE_ENV}
 
-# Build the application for production
-# This command runs "vite build" as defined in your package.json
+# Build the application for production. This runs "vite build".
 RUN npm run build
 
-# --- STAGE 2: Serve the application using Nginx ---
-# Use a lightweight, official Nginx image
+# --- STAGE 2: Production Stage ---
+# Use a lightweight, official Nginx image to serve the static files.
 FROM nginx:stable-alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
-
-# Copy the custom Nginx configuration file
-# We will create this file next. It's crucial for React Router.
+# Copy the custom Nginx configuration. This is crucial for React Router.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy the built static files from the 'builder' stage
-# The 'dist' folder is Vite's default build output directory.
+# Copy the built static files from the 'builder' stage's 'dist' folder.
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port 80 to the outside world
+# Expose port 80 to the outside world (Nginx's default port)
 EXPOSE 80
 
-# The command to start Nginx when the container launches
+# The command to start Nginx when the container launches.
+# '-g daemon off;' ensures Nginx runs in the foreground, which is standard for containers.
 CMD ["nginx", "-g", "daemon off;"]

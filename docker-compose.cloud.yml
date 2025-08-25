@@ -1,26 +1,20 @@
-# Docker Compose Override for Cloud Database
-# Use this when connecting to external/cloud databases
+# ===================================================================
+# CLOUD Environment Override
+# ===================================================================
+# This file disables any local infrastructure containers not needed
+# when connecting to cloud services (e.g., Upstash for Redis).
+# Assumes DATABASE_URL and REDIS_URL are set to cloud URIs in .env
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.cloud.yml up
+# -------------------------------------------------------------------
+
+version: "3.8"
 
 services:
-    # Override backend to remove postgres dependency
-    backend:
-        depends_on:
-            - redis
-        environment:
-            # Cloud database URL should be set in .env file
-            DATABASE_URL: ${DATABASE_URL}
-
-    # Override Prisma Studio to remove postgres dependency
-    prisma-studio:
-        depends_on: []
-        environment:
-            DATABASE_URL: ${DATABASE_URL}
-
-# Remove postgres service entirely
-volumes:
-    # Keep only non-postgres volumes
-    redis_data:
-        driver: local
-    storage_data:
-        driver: local
+    # If your .env REDIS_URL points to Upstash, you don't need a local Redis.
+    # This section disables the 'redis' service defined in the base file.
+    redis:
+        image: alpine:latest
+        # The 'profiles' key is a trick to disable a service.
+        # By assigning it a profile that is never activated, it won't start.
+        profiles:
+            - donotstart
