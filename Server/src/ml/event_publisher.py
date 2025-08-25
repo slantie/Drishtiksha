@@ -14,7 +14,7 @@ redis_url = os.getenv("REDIS_URL")
     # logger.warning("Detected 'redis:' in REDIS_URL, converting to 'rediss:' for secure connection.")
     # redis_url = redis_url.replace("redis:", "rediss:")
 
-VIDEO_PROGRESS_CHANNEL = "video-progress-events"
+MEDIA_PROGRESS_CHANNEL = "media-progress-events"
 redis_client = None
 
 # Only initialize the client if REDIS_URL is set
@@ -50,10 +50,10 @@ def publish_progress(event_data: dict):
 
     try:
         payload = json.dumps(event_data)
-        redis_client.publish(VIDEO_PROGRESS_CHANNEL, payload)
+        redis_client.publish(MEDIA_PROGRESS_CHANNEL, payload)
         # Uncomment for debugging if needed
-        # logger.info(f"🚀 Published event '{event_data.get('event')}' to Redis channel '{VIDEO_PROGRESS_CHANNEL}'")
-    
+        # logger.info(f"🚀 Published event '{event_data.get('event')}' to Redis channel '{MEDIA_PROGRESS_CHANNEL}'")
+
     except redis.exceptions.ConnectionError as e:
         # This will catch errors if the connection is lost despite the health checks
         logger.error(f"Could not publish to Redis, connection lost: {e}. Will attempt to reconnect on next publish.")

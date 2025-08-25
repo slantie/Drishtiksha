@@ -6,6 +6,10 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { errorMiddleware } from "./middleware/error.middleware.js";
+// ADDED: These are required for path resolution
+import { fileURLToPath } from "url";
+import path from "path";
+import logger from "./utils/logger.js";
 
 const app = express();
 
@@ -32,7 +36,6 @@ app.use(
     })
 );
 
-// Handle CORS preflight for all routes
 app.options("*", cors());
 
 const limiter = rateLimit({
@@ -47,125 +50,48 @@ app.use(limiter);
 
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
-app.use(express.static("public"));
 app.use(cookieParser());
 
+// --- SIMPLIFIED: Static File Serving for Local Storage ---
+// This block is now cleaner and more direct.
 if (process.env.STORAGE_PROVIDER === "local") {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
-    // Get the configured path, e.g., "database/public/media"
+    // Get the root storage path from environment variables.
     const localStoragePath = process.env.LOCAL_STORAGE_PATH || "public/media";
 
-    // Create a safe URL path for static serving
-    let staticUrlPath = localStoragePath
-        .replace(/\\/g, "/") // Convert Windows backslashes to forward slashes
-        .replace(/^public\//, "") // Remove leading public/
-        .replace(/^\/+|\/+$/g, "") // Remove leading and trailing slashes
-        .replace(/\/+/g, "/") // Replace multiple slashes with single slash
-        .replace(/[^a-zA-Z0-9\-_\/]/g, ""); // Remove special characters that might break path-to-regexp
-
-    // Fallback to a safe default if the path is empty or invalid
-    if (!staticUrlPath || staticUrlPath === "/") {
-        staticUrlPath = "media";
-    }
-
-    // Ensure it doesn't start with a slash (Express will add it)
-    staticUrlPath = staticUrlPath.replace(/^\/+/, "");
-
+    // Resolve the absolute path to the directory on the server's filesystem.
     const staticDirPath = path.resolve(__dirname, "..", localStoragePath);
 
-    // Log the paths for debugging
-    console.log("Local storage path:", localStoragePath);
-    console.log("Static URL path:", staticUrlPath);
-    console.log("Static directory path:", staticDirPath);
+    // Create a URL-safe path for Express to mount.
+    // This logic correctly handles the base path for serving files.
+    const staticUrlPath = localStoragePath
+        .replace(/^public\//, "") // Remove 'public/' prefix to prevent it from being in the URL.
+        .replace(/\\/g, "/"); // Normalize backslashes to forward slashes for URL compatibility.
 
-    try {
-        app.use(
-            `/${staticUrlPath}`,
-            (req, res, next) => {
-                // Set CORS headers for all requests
-                res.header(
-                    "Access-Control-Allow-Origin",
-                    process.env.FRONTEND_URL || "*"
-                );
-                res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
-                res.header(
-                    "Access-Control-Allow-Headers",
-                    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-                );
-                res.header("Access-Control-Allow-Credentials", "true");
+    logger.info(
+        `🚀 Serving static files from URL '/${staticUrlPath}' mapped to directory '${staticDirPath}'`
+    );
 
-                // Handle preflight OPTIONS requests
-                if (req.method === "OPTIONS") {
-                    res.status(200).end();
-                    return;
-                }
-
-                next();
-            },
-            express.static(staticDirPath)
-        );
-
-        logger.info(
-            `🚀 Serving static files for local storage from URL '/${staticUrlPath}' mapped to directory '${staticDirPath}'`
-        );
-    } catch (error) {
-        console.error("Error setting up static file serving:", error);
-        logger.error("Failed to set up static file serving:", error);
-
-        // Fallback to a simple media route
-        app.use(
-            "/media",
-            (req, res, next) => {
-                // Set CORS headers for all requests
-                res.header(
-                    "Access-Control-Allow-Origin",
-                    process.env.FRONTEND_URL || "*"
-                );
-                res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
-                res.header(
-                    "Access-Control-Allow-Headers",
-                    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-                );
-                res.header("Access-Control-Allow-Credentials", "true");
-
-                // Handle preflight OPTIONS requests
-                if (req.method === "OPTIONS") {
-                    res.status(200).end();
-                    return;
-                }
-
-                next();
-            },
-            express.static(staticDirPath)
-        );
-
-        logger.info(
-            `🚀 Fallback: Serving static files from URL '/media' mapped to directory '${staticDirPath}'`
-        );
-    }
+    // Mount the static directory. Express handles the rest.
+    app.use(`/${staticUrlPath}`, express.static(staticDirPath));
 }
 
 // --- Route Imports ---
 import authRoutes from "./api/auth/auth.routes.js";
-import videoRoutes from "./api/videos/video.routes.js";
+import mediaRoutes from "./api/media/media.routes.js";
 import monitoringRoutes from "./api/monitoring/monitoring.routes.js";
-import { fileURLToPath } from "url";
-import path from "path";
-import logger from "./utils/logger.js";
-// REMOVED: import healthRoutes from "./api/health/health.routes.js";
 
 // --- API Routes ---
-// REMOVED: app.use("/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/videos", videoRoutes);
+app.use("/api/v1/media", mediaRoutes);
 app.use("/api/v1/monitoring", monitoringRoutes);
 
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
-        message: "API is alive and running!",
+        message: "Drishtiksha API is alive and running!",
     });
 });
 

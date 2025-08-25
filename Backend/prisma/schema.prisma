@@ -26,7 +26,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   refreshTokens RefreshToken[]
-  videos        Video[]
+  media        Media[]
 
   @@map("users")
 }
@@ -42,30 +42,72 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-model Video {
-  id            String      @id @default(uuid())
-  filename      String
-  url           String
-  visualizedUrl String? // Legacy: General visualized analysis URL (deprecated in favor of per-analysis URLs)
-  publicId      String
-  mimetype      String
-  size          Int
-  description   String?
-  status        VideoStatus @default(UPLOADED)
-  userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+model Media {
+  id          String      @id @default(uuid())
+  filename    String
+  url         String
+  publicId    String
+  mimetype    String
+  size        Int
+  description String?
+  status      MediaStatus @default(QUEUED)
+  mediaType   MediaType
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   analyses DeepfakeAnalysis[]
+  videoMetadata VideoMetadata?
+  imageMetadata ImageMetadata?
+  audioMetadata AudioMetadata?
 
-  @@map("videos")
+  // RECOMMENDED: Add this composite index for fast, sorted queries on the dashboard.
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("media")
+}
+model VideoMetadata {
+  id        String   @id @default(uuid())
+  mediaId   String   @unique
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  duration  Float? // Duration in seconds
+  width     Int?
+  height    Int?
+  fps       Float? // Frames per second
+  codec     String?
+  createdAt DateTime @default(now())
+
+  @@map("video_metadata")
 }
 
+model ImageMetadata {
+  id        String   @id @default(uuid())
+  mediaId   String   @unique
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  width     Int?
+  height    Int?
+  format    String? // e.g., JPEG, PNG, WEBP
+  createdAt DateTime @default(now())
+
+  @@map("image_metadata")
+}
+
+model AudioMetadata {
+  id        String   @id @default(uuid())
+  mediaId   String   @unique
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  duration  Float?   // Duration in seconds
+  bitrate   Int?     // in kbps
+  codec     String?
+  channels  Int?     // e.g., 1 for mono, 2 for stereo
+  createdAt DateTime @default(now())
+
+  @@map("audio_metadata")
+}
 model DeepfakeAnalysis {
   id             String         @id @default(uuid())
-  videoId        String
-  video          Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  mediaId        String
+  media          Media          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   prediction     PredictionType
   confidence     Float
   processingTime Float? // in seconds
@@ -79,16 +121,49 @@ model DeepfakeAnalysis {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  // Enhanced analysis data relationships
+  // --- Data Relationships for different analysis types ---
+  // A video analysis might have details, frame data, and temporal data.
   analysisDetails  AnalysisDetails?
   frameAnalysis    FrameAnalysis[]
   temporalAnalysis TemporalAnalysis?
+
+  // NEW: An audio analysis will have this relationship populated.
+  audioAnalysis    AudioAnalysis?
+
+  // --- Common metadata for all analysis types ---
   modelInfo        ModelInfo?
   systemInfo       SystemInfo?
-  errors           AnalysisError[] // Track analysis errors and retry attempts
+  errors           AnalysisError[]
 
-  @@index([videoId, model, analysisType])
+  @@index([mediaId, model, analysisType])
   @@map("deepfake_analyses")
+}
+
+model AudioAnalysis {
+  id                  String           @id @default(uuid())
+  analysisId          String           @unique
+  analysis            DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  // Pitch Analysis
+  meanPitchHz         Float?
+  pitchStabilityScore Float?
+
+  // Energy Analysis
+  rmsEnergy           Float?
+  silenceRatio        Float?
+
+  // Spectral Analysis
+  spectralCentroid    Float
+  spectralContrast    Float
+
+  // Visualization
+  spectrogramUrl      String?
+  // Storing raw spectrogram data allows for rich, client-side chart rendering.
+  spectrogramData     Json?
+
+  createdAt           DateTime         @default(now())
+
+  @@map("audio_analysis")
 }
 
 model AnalysisDetails {
@@ -219,7 +294,7 @@ enum Role {
   MODATOR
 }
 
-enum VideoStatus {
+enum MediaStatus {
   UPLOADED
   QUEUED
   PROCESSING
@@ -254,4 +329,10 @@ enum ServerStatus {
   UNHEALTHY // Server not responding or major issues
   MAINTENANCE // Server in maintenance mode
   UNKNOWN // Status not yet determined
+}
+
+enum MediaType {
+  VIDEO
+  IMAGE
+  AUDIO
 }

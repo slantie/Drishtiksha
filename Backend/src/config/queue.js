@@ -1,7 +1,8 @@
 // src/config/queue.js
 
 import { Queue, FlowProducer } from "bullmq";
-import { VIDEO_PROCESSING_QUEUE_NAME } from "./constants.js";
+// UPDATED: Importing the new constant name
+import { MEDIA_PROCESSING_QUEUE_NAME } from "./constants.js";
 import logger from "../utils/logger.js";
 
 const createRedisConnection = () => {
@@ -39,7 +40,8 @@ const createRedisConnection = () => {
 
 export const redisConnection = createRedisConnection();
 
-export const videoQueue = new Queue(VIDEO_PROCESSING_QUEUE_NAME, {
+// RENAMED: from videoQueue to mediaQueue
+export const mediaQueue = new Queue(MEDIA_PROCESSING_QUEUE_NAME, {
     connection: redisConnection,
     defaultJobOptions: {
         attempts: 3,
@@ -47,35 +49,47 @@ export const videoQueue = new Queue(VIDEO_PROCESSING_QUEUE_NAME, {
     },
 });
 
-export const videoFlowProducer = new FlowProducer({
+// RENAMED: from videoFlowProducer to mediaFlowProducer
+export const mediaFlowProducer = new FlowProducer({
     connection: redisConnection,
 });
 
-videoQueue.on("error", (err) => {
+mediaQueue.on("error", (err) => {
     logger.error(`BullMQ Queue Error: ${err.message}`);
 });
 
-export const addVideoToQueue = async (videoId) => {
-    await videoQueue.add("analysis-flow", { videoId }, { jobId: videoId });
-    logger.info(`Video ${videoId} 'analysis-flow' job added to the queue.`);
-};
+// REMOVED: addVideoToQueue is obsolete as flows are now created directly in the service.
 
-export const addAnalysisFlowToQueue = async (videoId, childJobs) => {
-    await videoFlowProducer.add({
+/**
+ * Adds a BullMQ flow to the queue.
+ * A flow consists of a parent job (the finalizer) that only runs after all
+ * its child jobs (the individual model analyses) have completed.
+ *
+ * @param {string} mediaId - The ID of the media item being processed.
+ * @param {Array<object>} childJobs - An array of child job definitions for each analysis.
+ */
+// RENAMED: from addAnalysisFlowToQueue to addMediaAnalysisFlow
+export const addMediaAnalysisFlow = async (mediaId, childJobs) => {
+    await mediaFlowProducer.add({
         name: "finalize-analysis",
-        queueName: VIDEO_PROCESSING_QUEUE_NAME,
-        data: { videoId },
-        opts: { jobId: `${videoId}-finalizer` },
+        queueName: MEDIA_PROCESSING_QUEUE_NAME,
+        // UPDATED: Passing mediaId and the total number of jobs to the finalizer.
+        data: { mediaId: mediaId, totalAnalysesAttempted: childJobs.length },
+        opts: { jobId: `${mediaId}-finalizer` },
         children: childJobs,
     });
+    logger.info(
+        `Media ${mediaId} analysis flow with ${childJobs.length} jobs added to the queue.`
+    );
 };
 
 export const getQueueStatus = async () => {
+    // This function remains the same, but we'll use the renamed mediaQueue variable.
     return {
-        pendingJobs: await videoQueue.getWaitingCount(),
-        activeJobs: await videoQueue.getActiveCount(),
-        completedJobs: await videoQueue.getCompletedCount(),
-        failedJobs: await videoQueue.getFailedCount(),
-        delayedJobs: await videoQueue.getDelayedCount(),
+        pendingJobs: await mediaQueue.getWaitingCount(),
+        activeJobs: await mediaQueue.getActiveCount(),
+        completedJobs: await mediaQueue.getCompletedCount(),
+        failedJobs: await mediaQueue.getFailedCount(),
+        delayedJobs: await mediaQueue.getDelayedCount(),
     };
 };

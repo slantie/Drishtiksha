@@ -1,6 +1,6 @@
 // src/api/monitoring/monitoring.controller.js
 
-import { videoRepository } from "../../repositories/video.repository.js";
+import { mediaRepository } from "../../repositories/media.repository.js";
 import { modelAnalysisService } from "../../services/modelAnalysis.service.js";
 // CORRECTED IMPORT: Points to the consolidated queue config file.
 import { getQueueStatus } from "../../config/queue.js";
@@ -13,7 +13,7 @@ const getServerStatus = asyncHandler(async (req, res) => {
     try {
         const serverStats = await modelAnalysisService.getServerStatistics();
 
-        videoRepository.storeServerHealth(serverStats).catch((err) => {
+        mediaRepository.storeServerHealth(serverStats).catch((err) => {
             logger.error(
                 `Failed to store server health in background: ${err.message}`
             );
@@ -27,7 +27,7 @@ const getServerStatus = asyncHandler(async (req, res) => {
             )
         );
     } catch (error) {
-        videoRepository
+        mediaRepository
             .storeServerHealth({
                 status: "UNHEALTHY",
                 errorMessage: error.message,
@@ -44,7 +44,7 @@ const getServerStatus = asyncHandler(async (req, res) => {
 
 const getServerHealthHistory = asyncHandler(async (req, res) => {
     const { limit = 50, serverUrl } = req.query;
-    const history = await videoRepository.getServerHealthHistory(
+    const history = await mediaRepository.getServerHealthHistory(
         serverUrl,
         parseInt(limit)
     );
@@ -59,7 +59,7 @@ const getServerHealthHistory = asyncHandler(async (req, res) => {
 
 const getAnalysisStats = asyncHandler(async (req, res) => {
     const { timeframe = "24h" } = req.query;
-    const stats = await videoRepository.getAnalysisStats(timeframe);
+    const stats = await mediaRepository.getAnalysisStats(timeframe);
     res.status(200).json(
         new ApiResponse(
             200,
@@ -85,5 +85,5 @@ export const monitoringController = {
     getServerStatus,
     getServerHealthHistory,
     getAnalysisStats,
-    getQueueStatus: getQueueStatusHandler, // Assigning the handler here
+    getQueueStatus: getQueueStatusHandler,
 };

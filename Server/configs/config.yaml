@@ -10,8 +10,7 @@
 # The device setting here is overridden by the DEVICE environment variable.
 
 project_name: "Drishtiksha: Deepfake Detection"
-device: "cuda"  # Default fallback, overridden by DEVICE environment variable
-
+device: "cuda" # Default fallback, overridden by DEVICE environment variable
 
 # --- MODEL CONFIGURATIONS ---
 # Each key here represents a unique model identifier used in API calls.
@@ -19,108 +18,117 @@ device: "cuda"  # Default fallback, overridden by DEVICE environment variable
 # model defined in `src/config.py` for validation to succeed.
 
 models:
-  SIGLIP-LSTM-V1:
-    class_name: "SIGLIP-LSTM-V1"
-    description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
-    model_path: "models/SigLip-LSTM-v1.pth"
-    processor_path: "google/siglip-base-patch16-224"
-    num_frames: 120
-    device: "cuda"  # Overridden by DEVICE environment variable
-    isDetailed: false
+    SIGLIP-LSTM-V1:
+        class_name: "SIGLIP-LSTM-V1"
+        description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
+        model_path: "models/SigLip-LSTM-v1.pth"
+        processor_path: "google/siglip-base-patch16-224"
+        num_frames: 120
+        device: "cuda" # Overridden by DEVICE environment variable
+        isDetailed: false
+        isAudio: false
+        isVideo: true
 
-    model_definition:
-      base_model_path: "google/siglip-base-patch16-224"
-      lstm_hidden_size: 512
-      lstm_num_layers: 2
-      num_classes: 1
+        model_definition:
+            base_model_path: "google/siglip-base-patch16-224"
+            lstm_hidden_size: 512
+            lstm_num_layers: 2
+            num_classes: 1
 
-  SIGLIP-LSTM-V3:
-    class_name: "SIGLIP-LSTM-V3"
-    description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
-    model_path: "models/SigLip-LSTM-v3.pth"
-    processor_path: "google/siglip-base-patch16-224"
-    num_frames: 120
-    rolling_window_size: 10
-    device: "cuda"  # Overridden by DEVICE environment variable
-    isDetailed: true  # Supports detailed analysis
-    
-    model_definition:
-      base_model_path: "google/siglip-base-patch16-224"
-      lstm_hidden_size: 512
-      lstm_num_layers: 2
-      num_classes: 1
+    SIGLIP-LSTM-V3:
+        class_name: "SIGLIP-LSTM-V3"
+        description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
+        model_path: "models/SigLip-LSTM-v3.pth"
+        processor_path: "google/siglip-base-patch16-224"
+        num_frames: 120
+        rolling_window_size: 10
+        device: "cuda" # Overridden by DEVICE environment variable
+        isDetailed: true # Supports detailed analysis
+        isAudio: false
+        isVideo: true
 
-  SIGLIP-LSTM-V4:
-    class_name: "SIGLIP-LSTM-V4"
-    description: "V4 SigLIP-LSTM with deeper classifier heads and dropout for improved regularization."
-    model_path: "models/SigLip-LSTM-v4.pth"
-    processor_path: "google/siglip-base-patch16-224"
-    num_frames: 120
-    rolling_window_size: 10
-    device: "cuda"  # Overridden by DEVICE environment variable
-    isDetailed: true  # Supports detailed analysis
-    isAudio: false
-    
-    model_definition:
-      base_model_path: "google/siglip-base-patch16-224"
-      lstm_hidden_size: 512
-      lstm_num_layers: 2
-      num_classes: 1
-      dropout_rate: 0.5
+        model_definition:
+            base_model_path: "google/siglip-base-patch16-224"
+            lstm_hidden_size: 512
+            lstm_num_layers: 2
+            num_classes: 1
 
-  COLOR-CUES-LSTM-V1:
-    class_name: "COLOR-CUES-LSTM-V1"
-    description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
-    model_path: "models/ColorCues-LSTM-v1.pth"
-    dlib_model_path: "models/Face-Landmarks.dat"
-    device: "cuda"
-    isDetailed: true  # Supports detailed analysis
-    isAudio: false
+    SIGLIP-LSTM-V4:
+        class_name: "SIGLIP-LSTM-V4"
+        description: "V4 SigLIP-LSTM with deeper classifier heads and dropout for improved regularization."
+        model_path: "models/SigLip-LSTM-v4.pth"
+        processor_path: "google/siglip-base-patch16-224"
+        num_frames: 120
+        rolling_window_size: 10
+        device: "cuda" # Overridden by DEVICE environment variable
+        isDetailed: true # Supports detailed analysis
+        isAudio: false
+        isVideo: true
 
-    # Parameters specific to the ColorCues model architecture
-    sequence_length: 32
-    frames_per_video: 50
-    histogram_bins: 32
-    landmark_margin: 20
-    rolling_window_size: 10
-    hidden_size: 64
-    dropout: 0.5
+        model_definition:
+            base_model_path: "google/siglip-base-patch16-224"
+            lstm_hidden_size: 512
+            lstm_num_layers: 2
+            num_classes: 1
+            dropout_rate: 0.5
 
-  EFFICIENTNET-B7-V1:
-    class_name: "EFFICIENTNET-B7-V1"
-    description: "Frame-by-frame face detector using MTCNN and EFFICIENTNET-B7-V1 classifier with confidence-based aggregation."
-    model_path: "models/EfficientNet-B7-v1"
-    encoder: "tf_efficientnet_b7.ns_jft_in1k"
-    input_size: 380
-    device: "cuda"
-    isDetailed: true
-    isAudio: false
+    COLOR-CUES-LSTM-V1:
+        class_name: "COLOR-CUES-LSTM-V1"
+        description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
+        model_path: "models/ColorCues-LSTM-v1.pth"
+        dlib_model_path: "models/Face-Landmarks.dat"
+        device: "cuda"
+        isDetailed: true # Supports detailed analysis
+        isAudio: false
+        isVideo: true
 
-  EYEBLINK-CNN-LSTM-V1:
-    class_name: "EYEBLINK-CNN-LSTM-V1"
-    description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
-    model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
-    dlib_model_path: "models/Face-Landmarks.dat"
-    sequence_length: 10
-    blink_threshold: 0.45
-    consecutive_frames: 2
-    device: "cuda"
-    isDetailed: true
-    isAudio: false
-    model_definition:
-      base_model_name: "legacy_xception"
-      lstm_hidden_size: 128
-      dropout_rate: 0.3
-      img_size: [160, 160]
+        # Parameters specific to the ColorCues model architecture
+        sequence_length: 32
+        frames_per_video: 50
+        histogram_bins: 32
+        landmark_margin: 20
+        rolling_window_size: 10
+        hidden_size: 64
+        dropout: 0.5
 
-  SCATTERING-WAVE-V1:
-    class_name: "SCATTERING-WAVE-V1"
-    description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
-    model_path: "models/Scattering-Wave-v1.pth"
-    device: "cuda"
-    isDetailed: true
-    isAudio: true
-    # Parameters specific to the audio model
-    sampling_rate: 16000
-    duration_seconds: 2.0
-    image_size: [256, 256]
+    EFFICIENTNET-B7-V1:
+        class_name: "EFFICIENTNET-B7-V1"
+        description: "Frame-by-frame face detector using MTCNN and EFFICIENTNET-B7-V1 classifier with confidence-based aggregation."
+        model_path: "models/EfficientNet-B7-v1"
+        encoder: "tf_efficientnet_b7.ns_jft_in1k"
+        input_size: 380
+        device: "cuda"
+        isDetailed: true
+        isAudio: false
+        isVideo: true
+
+    EYEBLINK-CNN-LSTM-V1:
+        class_name: "EYEBLINK-CNN-LSTM-V1"
+        description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
+        model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
+        dlib_model_path: "models/Face-Landmarks.dat"
+        sequence_length: 10
+        blink_threshold: 0.45
+        consecutive_frames: 2
+        device: "cuda"
+        isDetailed: true
+        isAudio: false
+        isVideo: true
+        model_definition:
+            base_model_name: "legacy_xception"
+            lstm_hidden_size: 128
+            dropout_rate: 0.3
+            img_size: [160, 160]
+
+    SCATTERING-WAVE-V1:
+        class_name: "SCATTERING-WAVE-V1"
+        description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
+        model_path: "models/Scattering-Wave-v1.pth"
+        device: "cuda"
+        isDetailed: true
+        isAudio: true
+        isVideo: false
+        # Parameters specific to the audio model
+        sampling_rate: 16000
+        duration_seconds: 2.0
+        image_size: [256, 256]

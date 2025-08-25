@@ -6,9 +6,9 @@ import { app } from "./src/app.js";
 import { connectDatabase, disconnectDatabase } from "./src/config/database.js";
 import { initializeSocketIO } from "./src/config/socket.js";
 import { QueueEvents } from "bullmq";
-import { VIDEO_PROCESSING_QUEUE_NAME } from "./src/config/constants.js";
-import { videoRepository } from "./src/repositories/video.repository.js";
-import {eventService} from "./src/services/event.service.js";
+import { MEDIA_PROCESSING_QUEUE_NAME } from "./src/config/constants.js";
+import { mediaRepository } from "./src/repositories/media.repository.js";
+import { eventService } from "./src/services/event.service.js";
 import logger from "./src/utils/logger.js";
 
 dotenv.config({ path: "./.env" });
@@ -20,7 +20,7 @@ const io = initializeSocketIO(httpServer);
 app.set("io", io);
 
 // --- BullMQ Event Listener ---
-const queueEvents = new QueueEvents(VIDEO_PROCESSING_QUEUE_NAME, {
+const queueEvents = new QueueEvents(MEDIA_PROCESSING_QUEUE_NAME, {
     connection: {
         host: process.env.REDIS_URL
             ? new URL(process.env.REDIS_URL).hostname
@@ -41,7 +41,7 @@ queueEvents.on("completed", async ({ jobId }) => {
         logger.info(
             `[QueueEvents] Finalizer Job for video ${videoId} has completed.`
         );
-        const video = await videoRepository.findById(videoId);
+        const video = await mediaRepository.findById(videoId);
         if (video) {
             io.to(video.userId).emit("video_update", video);
         }
@@ -53,7 +53,7 @@ queueEvents.on("failed", async ({ jobId, failedReason }) => {
     const videoId = jobId.split("-")[0];
 
     try {
-        const video = await videoRepository.findById(videoId);
+        const video = await mediaRepository.findById(videoId);
         if (video) {
             io.to(video.userId).emit("processing_error", {
                 videoId,

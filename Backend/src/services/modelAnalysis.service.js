@@ -7,12 +7,14 @@ import path from "path";
 import { ApiError } from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 
+// UPDATED: Added the new AUDIO endpoint
 const ANALYSIS_ENDPOINTS = {
     QUICK: "/analyze",
     FRAMES: "/analyze/frames",
     VISUALIZE_STREAM: "/analyze/visualize",
     VISUALIZE_DOWNLOAD: "/analyze/visualization",
     COMPREHENSIVE: "/analyze/comprehensive",
+    AUDIO: "/analyze/audio", // NEW
 };
 
 const MONITORING_ENDPOINTS = {
@@ -23,8 +25,8 @@ class ModelAnalysisService {
     constructor() {
         this.serverUrl = process.env.SERVER_URL;
         this.apiKey = process.env.SERVER_API_KEY;
-        this.comprehensiveTimeout = 1200000;
-        this.healthTimeout = 20000;
+        this.comprehensiveTimeout = 1200000; // 20 minutes
+        this.healthTimeout = 20000; // 20 seconds
 
         if (!this.apiKey) {
             logger.warn(
@@ -41,8 +43,6 @@ class ModelAnalysisService {
         return Boolean(this.apiKey && this.serverUrl);
     }
 
-    // CHANGED: This is now the single source of truth for server state.
-    // REASON: Consolidates all server state fetching into one efficient, comprehensive call.
     async getServerStatistics() {
         if (!this.isAvailable()) {
             throw new ApiError(503, "Model service is not configured.");
@@ -57,40 +57,88 @@ class ModelAnalysisService {
                 }
             );
             const responseTime = Date.now() - startTime;
-
             return { ...response.data, responseTime };
         } catch (error) {
             this._handleAnalysisError(error, "STATS");
         }
     }
 
-    async analyzeVideoComprehensive(videoPath, modelName, videoId, userId) {
+    /**
+     * REFACTORED: This is now the primary, generic analysis method.
+     * It intelligently routes the analysis request to the correct AI server endpoint
+     * based on the media type.
+     *
+     * @param {string} mediaPath - The local path to the media file.
+     * @param {string} mediaType - The type of media ('VIDEO', 'AUDIO', 'IMAGE').
+     * @param {string} modelName - The name of the model to use.
+     * @param {string} mediaId - The ID of the media record.
+     * @param {string} userId - The ID of the user.
+     * @returns {Promise<object>} The analysis result from the AI server.
+     */
+    async analyzeMediaComprehensive(
+        mediaPath,
+        mediaType,
+        modelName,
+        mediaId,
+        userId
+    ) {
         if (!this.isAvailable()) {
             throw new ApiError(
                 503,
                 "Model analysis service is not configured."
             );
         }
-        if (!fs.existsSync(videoPath)) {
+        if (!fs.existsSync(mediaPath)) {
             throw new ApiError(
                 404,
-                `Video file not found at path: ${videoPath}`
+                `Media file not found at path: ${mediaPath}`
             );
         }
-        const logId = videoId || path.basename(videoPath);
+
+        const logId = mediaId || path.basename(mediaPath);
         logger.info(
-            `Starting comprehensive analysis for video ${logId} with model ${modelName}`
+            `Starting comprehensive analysis for ${mediaType} ${logId} with model ${modelName}`
         );
+
+        // --- NEW: Dynamic Endpoint and Form Field Selection ---
+        let endpoint;
+        let formFieldName;
+
+        switch (mediaType) {
+            case "VIDEO":
+                endpoint = ANALYSIS_ENDPOINTS.COMPREHENSIVE;
+                formFieldName = "video"; // The AI server expects the field to be named 'video'
+                break;
+            case "AUDIO":
+                endpoint = ANALYSIS_ENDPOINTS.AUDIO;
+                formFieldName = "video"; // The audio endpoint also expects the field 'video'
+                break;
+            case "IMAGE":
+                // Placeholder for when image analysis is added
+                // endpoint = ANALYSIS_ENDPOINTS.IMAGE;
+                // formFieldName = 'image';
+                throw new ApiError(
+                    501,
+                    "Image analysis is not yet implemented."
+                );
+            default:
+                throw new ApiError(
+                    400,
+                    `Unsupported media type for analysis: ${mediaType}`
+                );
+        }
+
         try {
             const formData = new FormData();
-            formData.append("video", fs.createReadStream(videoPath));
+            formData.append(formFieldName, fs.createReadStream(mediaPath));
             formData.append("model", modelName);
 
-            // ADDED: Send the context to the Python server.
-            if (videoId) formData.append("video_id", videoId);
+            // Pass context to the Python server for logging and progress events
+            if (mediaId) formData.append("video_id", mediaId);
             if (userId) formData.append("user_id", userId);
+
             const response = await axios.post(
-                `${this.serverUrl}${ANALYSIS_ENDPOINTS.COMPREHENSIVE}`,
+                `${this.serverUrl}${endpoint}`,
                 formData,
                 {
                     headers: {
@@ -100,13 +148,17 @@ class ModelAnalysisService {
                     timeout: this.comprehensiveTimeout,
                 }
             );
+
             if (!response.data || !response.data.success) {
                 throw new ApiError(
                     500,
-                    "Comprehensive analysis failed with an invalid response from the model server."
+                    `Comprehensive analysis failed with an invalid response from the model server.`
                 );
             }
-            logger.info(`Comprehensive analysis completed for video ${logId}`);
+
+            logger.info(
+                `Comprehensive analysis completed for ${mediaType} ${logId}`
+            );
             return response.data;
         } catch (error) {
             this._handleAnalysisError(error, "COMPREHENSIVE", logId);
@@ -131,10 +183,8 @@ class ModelAnalysisService {
         }
     }
 
-    mapModelNameToEnum(modelName) {
-        return MODEL_ENUM_MAPPING[modelName] || null;
-    }
-
+    // This function maps the server's statistics to our Prisma schema structure.
+    // It remains highly valuable and does not need changes.
     mapServerStatsToDbSchema(stats, modelName) {
         const modelInfoFromServer =
             stats.models_info?.find((m) => m.name === modelName) || {};
@@ -163,6 +213,7 @@ class ModelAnalysisService {
         return { modelInfo, systemInfo };
     }
 
+    // The generic error handler is robust and does not need changes.
     _handleAnalysisError(error, analysisType, logId = "") {
         logger.error(
             `Analysis Service Error for ${logId} (${analysisType}): ${error.message}`

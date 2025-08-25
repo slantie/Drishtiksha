@@ -67,6 +67,8 @@ class ModelInfo(BaseModel):
     device: str
     model_path: str
     isDetailed: bool
+    isAudio: bool = False
+    isVideo: bool = False
     memory_usage_mb: Optional[float] = None
     load_time: Optional[float] = None
     inference_count: Optional[int] = 0

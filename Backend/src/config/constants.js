@@ -1,5 +1,5 @@
 // src/config/constants.js
 
-export const VIDEO_PROCESSING_QUEUE_NAME = "video-processing";
+export const MEDIA_PROCESSING_QUEUE_NAME = "media-processing";
 
-export const VIDEO_PROGRESS_CHANNEL = "video-progress-events";
+export const MEDIA_PROGRESS_CHANNEL = "media-progress-events";

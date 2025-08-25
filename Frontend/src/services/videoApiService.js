@@ -38,7 +38,7 @@ const apiRequest = async (url, options = {}) => {
 
 export const videoApiService = {
     getAllVideos: () => apiRequest(API_ENDPOINTS.VIDEOS),
-    getVideoById: (videoId) => apiRequest(API_ENDPOINTS.VIDEO_BY_ID(videoId)), // This is the required function
+    getVideoById: (videoId) => apiRequest(API_ENDPOINTS.VIDEO_BY_ID(videoId)),
     uploadVideo: (formData) =>
         apiRequest(API_ENDPOINTS.VIDEOS, { method: "POST", body: formData }),
     updateVideo: (videoId, updateData) =>

@@ -8,10 +8,6 @@ import { ApiError } from "../utils/ApiError.js";
 const STORAGE_ROOT = process.env.LOCAL_STORAGE_PATH || "public/media";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
-/**
- * Ensures a directory exists, creating it if necessary.
- * @param {string} dirPath - The full path of the directory to ensure.
- */
 const ensureDirectoryExists = async (dirPath) => {
     try {
         await fs.mkdir(dirPath, { recursive: true });
@@ -23,18 +19,15 @@ const ensureDirectoryExists = async (dirPath) => {
     }
 };
 
-/**
- * Local filesystem storage provider.
- * This object provides a standardized interface for saving and deleting files locally.
- */
 const localProvider = {
     /**
      * Moves a file from a temporary path to the permanent local storage.
      * @param {string} localFilePath - The temporary local path of the file.
-     * @param {string} [subfolder="videos"] - The subfolder to store the file in.
+     * @param {string} [subfolder="media"] - The subfolder to store the file in (e.g., 'videos', 'images').
      * @returns {Promise<{url: string, publicId: string}>} - The public URL and relative path (as publicId).
      */
-    async uploadFile(localFilePath, subfolder = "videos") {
+    // UPDATED: The default subfolder is now more generic.
+    async uploadFile(localFilePath, subfolder = "media") {
         const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
         await ensureDirectoryExists(permanentStorageDir);
 
@@ -44,7 +37,6 @@ const localProvider = {
         try {
             await fs.rename(localFilePath, destinationPath);
         } catch (error) {
-            // If rename fails (e.g., across devices), fall back to copy and unlink.
             logger.warn(
                 `fs.rename failed: ${error.message}. Falling back to copy/unlink.`
             );
@@ -53,8 +45,6 @@ const localProvider = {
         }
 
         const relativePath = path.join(subfolder, uniqueFilename);
-        // For local storage, we need to construct the URL that matches the static serving configuration
-        // The static serving removes "public/" from LOCAL_STORAGE_PATH, so we do the same
         const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
             /\\/g,
             "/"
@@ -65,14 +55,14 @@ const localProvider = {
 
         return {
             url: publicUrl,
-            publicId: relativePath, // For local storage, publicId is the relative path for easy deletion.
+            publicId: relativePath,
         };
     },
 
     /**
      * Saves a file from a readable stream to local storage.
      * @param {ReadableStream} stream - The readable stream of the file content.
-     * @param {object} options - Options for the upload, including folder.
+     * @param {object} options - Options for the upload, including folder and resource_type.
      * @returns {Promise<{url: string, publicId: string}>} - The public URL and relative path.
      */
     async uploadStream(stream, options = {}) {
@@ -80,7 +70,9 @@ const localProvider = {
         const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
         await ensureDirectoryExists(permanentStorageDir);
 
-        const uniqueFilename = `${Date.now()}-visualization.mp4`;
+        // --- NEW: Determine file extension based on resource type for streams ---
+        const extension = options.resource_type === "image" ? ".png" : ".mp4";
+        const uniqueFilename = `${Date.now()}-${typeLabel}${extension}`;
         const destinationPath = path.join(permanentStorageDir, uniqueFilename);
 
         return new Promise((resolve, reject) => {
@@ -88,7 +80,6 @@ const localProvider = {
             stream.pipe(writeStream);
             writeStream.on("finish", () => {
                 const relativePath = path.join(subfolder, uniqueFilename);
-                // For local storage, we need to construct the URL that matches the static serving configuration
                 const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
                     /\\/g,
                     "/"
@@ -112,8 +103,9 @@ const localProvider = {
     /**
      * Deletes a file from the local filesystem.
      * @param {string} publicId - The relative path of the file to delete.
+     * @param {string} [resourceType] - The type of resource (ignored by local provider, but included for interface consistency).
      */
-    async deleteFile(publicId) {
+    async deleteFile(publicId, resourceType) {
         if (!publicId) return;
         const fullPath = path.join(STORAGE_ROOT, publicId);
         try {

@@ -1,32 +1,45 @@
 /**
  * Test Setup and Configuration
  *
- * Global test configuration, mocks, and utilities for the enhanced video analysis API tests
+ * Global test configuration, mocks, and utilities for the enhanced media analysis API tests
+ * This file now integrates with real environment variables for proper backend-server integration testing
  */
 
 import { jest } from "@jest/globals";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import TEST_CONFIG, { testUtils } from "./testEnv.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Global test configuration
-export const TEST_CONFIG = {
-    timeout: 30000, // 30 seconds timeout for tests
+// Enhanced test configuration merging environment and defaults
+export { TEST_CONFIG, testUtils };
+
+// Legacy test config for backward compatibility
+export const LEGACY_TEST_CONFIG = {
+    timeout: TEST_CONFIG.defaultTimeout,
     apiUrl: "http://localhost:3000/api",
     testUserId: "test-user-123",
     testVideoId: "test-video-123",
-    mockServerUrl: "http://localhost:8000",
+    mockServerUrl: TEST_CONFIG.serverUrl,
     testDataPath: join(__dirname, "../fixtures"),
 };
 
-// Mock environment variables
-process.env.NODE_ENV = "test";
-process.env.SERVER_URL = TEST_CONFIG.mockServerUrl;
-process.env.SERVER_API_KEY = "test-api-key";
-process.env.JWT_SECRET = "test-jwt-secret";
-process.env.DATABASE_URL = "file:./test.db";
+// Only mock environment variables if they're not already set for integration tests
+if (!process.env.SERVER_URL || process.env.NODE_ENV === "test-unit") {
+    console.log("🧪 Setting up mocked environment for unit tests");
+    process.env.SERVER_URL = process.env.SERVER_URL || "http://localhost:8000";
+    process.env.SERVER_API_KEY = process.env.SERVER_API_KEY || "test-api-key";
+    process.env.JWT_SECRET = process.env.JWT_SECRET || "test-jwt-secret";
+    if (!process.env.DATABASE_URL) {
+        process.env.DATABASE_URL = "file:./test.db";
+    }
+} else {
+    console.log(
+        "🔗 Using real environment configuration for integration tests"
+    );
+}
 
 // Global mocks setup
 export const setupGlobalMocks = () => {

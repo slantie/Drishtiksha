@@ -70,7 +70,7 @@ The project follows a modern, modular structure that cleanly separates concerns.
 │   │
 │   ├── repositories/       # Data access layer (Prisma queries)
 │   │   ├── user.repository.js
-│   │   └── video.repository.js
+│   │   └── media.repository.js
 │   │
 │   ├── services/           # Business logic layer
 │   │   ├── auth.service.js

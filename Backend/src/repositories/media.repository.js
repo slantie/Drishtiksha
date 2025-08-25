@@ -1,18 +1,28 @@
-// src/repositories/video.repository.js
+// src/repositories/media.repository.js
 
 import prisma from "../config/database.js";
 
-const videoWithDetails = {
+// RENAMED: from videoWithDetails to mediaWithDetails.
+// UPDATED: This object now includes relations for ALL possible media types and analysis types.
+// This allows us to fetch a media item and all its related data in a single, efficient query,
+// regardless of whether it's a video, image, or audio file.
+const mediaWithDetails = {
     include: {
         user: {
             select: { id: true, firstName: true, lastName: true, email: true },
         },
+        // Include all possible metadata relations. Only one will be non-null.
+        videoMetadata: true,
+        imageMetadata: true,
+        audioMetadata: true,
         analyses: {
             orderBy: { createdAt: "desc" },
             include: {
                 analysisDetails: true,
                 frameAnalysis: { orderBy: { frameNumber: "asc" } },
                 temporalAnalysis: true,
+                // NEW: Include the new audio analysis data.
+                audioAnalysis: true,
                 modelInfo: true,
                 systemInfo: true,
                 errors: true,
@@ -21,35 +31,92 @@ const videoWithDetails = {
     },
 };
 
-export const videoRepository = {
-    async create(videoData) {
-        return prisma.video.create({ data: videoData });
+// RENAMED: from videoRepository to mediaRepository.
+export const mediaRepository = {
+    // UPDATED: Now creates a 'Media' record.
+    async create(mediaData) {
+        return prisma.media.create({ data: mediaData });
     },
-    async findById(videoId) {
-        return prisma.video.findUnique({
-            where: { id: videoId },
-            ...videoWithDetails,
+
+    // NEW: A dedicated function to create the correct metadata record based on mediaType.
+    // This abstracts the logic from the service layer, keeping it clean.
+    async createMetadata(mediaId, mediaType, metadata) {
+        switch (mediaType) {
+            case "VIDEO":
+                return prisma.videoMetadata.create({
+                    data: {
+                        mediaId,
+                        duration: metadata.duration,
+                        width: metadata.width,
+                        height: metadata.height,
+                        bitrate: metadata.bitrate || null,
+                        codec: metadata.codec || null,
+                        frameRate: metadata.frameRate || null,
+                        resolution: metadata.resolution || null,
+                    },
+                });
+            case "IMAGE":
+                return prisma.imageMetadata.create({
+                    data: {
+                        mediaId,
+                        width: metadata.width,
+                        height: metadata.height,
+                        format: metadata.format || null,
+                        fileSize: metadata.fileSize || null,
+                        colorSpace: metadata.colorSpace || null,
+                    },
+                });
+            case "AUDIO":
+                return prisma.audioMetadata.create({
+                    data: {
+                        mediaId,
+                        duration: metadata.duration,
+                        bitrate: metadata.bitrate || null,
+                        codec: metadata.codec || null,
+                        channels: metadata.channels || null,
+                        // Note: Audio metadata doesn't have width/height
+                    },
+                });
+            default:
+                throw new Error(
+                    `Invalid media type for metadata creation: ${mediaType}`
+                );
+        }
+    },
+
+    // UPDATED: Queries the 'media' table.
+    async findById(mediaId) {
+        return prisma.media.findUnique({
+            where: { id: mediaId },
+            ...mediaWithDetails,
         });
     },
-    async findByIdAndUserId(videoId, userId) {
-        return prisma.video.findFirst({
-            where: { id: videoId, userId },
-            ...videoWithDetails,
+
+    // UPDATED: Queries the 'media' table.
+    async findByIdAndUserId(mediaId, userId) {
+        return prisma.media.findFirst({
+            where: { id: mediaId, userId },
+            ...mediaWithDetails,
         });
     },
+
+    // UPDATED: Queries the 'media' table.
     async findAllByUserId(userId) {
-        return prisma.video.findMany({
+        return prisma.media.findMany({
             where: { userId },
-            ...videoWithDetails,
+            ...mediaWithDetails,
             orderBy: { createdAt: "desc" },
         });
     },
-    async updateStatus(videoId, status) {
-        return prisma.video.update({
-            where: { id: videoId },
+
+    // UPDATED: Queries the 'media' table.
+    async updateStatus(mediaId, status) {
+        return prisma.media.update({
+            where: { id: mediaId },
             data: { status },
         });
     },
+
     async updateAnalysis(analysisId, data) {
         return prisma.deepfakeAnalysis.update({
             where: { id: analysisId },
@@ -57,18 +124,20 @@ export const videoRepository = {
         });
     },
 
-    // Update Video details (only filename and description)
-    async updateById(videoId, updateData) {
-        return prisma.video.update({
-            where: { id: videoId },
+    // UPDATED: Queries the 'media' table.
+    async updateById(mediaId, updateData) {
+        return prisma.media.update({
+            where: { id: mediaId },
             data: updateData,
         });
     },
 
-    async deleteById(videoId) {
-        return prisma.video.delete({ where: { id: videoId } });
+    // UPDATED: Queries the 'media' table.
+    async deleteById(mediaId) {
+        return prisma.media.delete({ where: { id: mediaId } });
     },
 
+    // This function does not need changes as it only queries the DeepfakeAnalysis table.
     async getAnalysisStats(timeframe) {
         const now = new Date();
         let startDate;
@@ -84,7 +153,6 @@ export const videoRepository = {
                 break;
             default:
                 startDate = new Date(now.getTime() - 86400000);
-                break;
         }
         const where = { createdAt: { gte: startDate } };
         const [total, successful, failed, timeAgg, modelBreakdown] =
@@ -132,24 +200,35 @@ export const videoRepository = {
         };
     },
 
-    async createAnalysisResult(videoId, resultData) {
+    // --- REFACTORED: This is now the most powerful function in the repository. ---
+    // It can intelligently save results for ANY media type by checking the shape of the resultData.
+    async createAnalysisResult(mediaId, resultData) {
         const {
+            // Common fields
             prediction,
             confidence,
             processingTime,
             model,
             modelVersion,
             analysisType,
+            // Video-specific fields
             metrics,
             framePredictions,
             temporalAnalysis,
+            // Audio-specific fields
+            pitch,
+            energy,
+            spectral,
+            visualization,
+            // Common metadata
             modelInfo,
             systemInfo,
         } = resultData;
+
         return prisma.$transaction(async (tx) => {
             const analysis = await tx.deepfakeAnalysis.create({
                 data: {
-                    videoId,
+                    mediaId, // UPDATED
                     prediction,
                     confidence,
                     processingTime,
@@ -160,16 +239,21 @@ export const videoRepository = {
                     timestamp: new Date(),
                 },
             });
+
+            // --- CONDITIONAL LOGIC FOR VIDEO DATA ---
             if (metrics) {
                 await tx.analysisDetails.create({
                     data: {
                         analysisId: analysis.id,
                         frameCount:
-                            metrics.frameCount || 
-                            metrics.sequenceCount || 
+                            metrics.frameCount ||
+                            metrics.sequenceCount ||
                             metrics.totalFacesDetected ||
                             0,
-                        avgConfidence: metrics.finalAverageScore || metrics.averageFaceScore || 0,
+                        avgConfidence:
+                            metrics.finalAverageScore ||
+                            metrics.averageFaceScore ||
+                            0,
                         confidenceStd: metrics.scoreVariance || 0,
                         temporalConsistency:
                             temporalAnalysis?.consistencyScore || null,
@@ -203,6 +287,27 @@ export const videoRepository = {
                     },
                 });
             }
+
+            // --- NEW: CONDITIONAL LOGIC FOR AUDIO DATA ---
+            if (pitch && energy && spectral) {
+                await tx.audioAnalysis.create({
+                    data: {
+                        analysisId: analysis.id,
+                        meanPitchHz: pitch.mean_pitch_hz,
+                        pitchStabilityScore: pitch.pitch_stability_score,
+                        rmsEnergy: energy.rms_energy,
+                        silenceRatio: energy.silence_ratio,
+                        spectralCentroid: spectral.spectral_centroid,
+                        spectralContrast: spectral.spectral_contrast,
+                        spectrogramUrl: visualization?.spectrogram_url,
+                        // Storing the raw data for potential client-side charting
+                        spectrogramData:
+                            visualization?.spectrogram_data || undefined,
+                    },
+                });
+            }
+
+            // --- COMMON METADATA ---
             if (modelInfo)
                 await tx.modelInfo.create({
                     data: { analysisId: analysis.id, ...modelInfo },
@@ -211,19 +316,22 @@ export const videoRepository = {
                 await tx.systemInfo.create({
                     data: { analysisId: analysis.id, ...systemInfo },
                 });
+
             return analysis;
         });
     },
 
-    async createAnalysisError(videoId, model, analysisType, error) {
+    // UPDATED: Changed videoId to mediaId.
+    async createAnalysisError(mediaId, model, analysisType, error) {
         return prisma.$transaction(async (tx) => {
             const analysis = await tx.deepfakeAnalysis.create({
                 data: {
-                    videoId,
+                    mediaId, // UPDATED
                     model,
                     analysisType,
                     status: "FAILED",
                     errorMessage: error.message,
+                    // These fields are non-nullable, so we provide defaults
                     prediction: "REAL",
                     confidence: 0,
                 },
@@ -240,6 +348,7 @@ export const videoRepository = {
         });
     },
 
+    // These monitoring functions remain unchanged as they don't depend on the 'Video' model.
     async storeServerHealth(healthData) {
         const mapStatus = (s) => {
             const statusStr = String(s).toUpperCase();

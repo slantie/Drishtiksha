@@ -202,6 +202,21 @@ def get_model_info(manager) -> list[ModelInfo]:
             except Exception:
                 pass  # Memory estimation failed, leave as None
         
+        # Determine media type flags based on model configuration
+        # First check if explicitly set in config, then use model name/class fallbacks
+        is_audio = getattr(config, 'isAudio', None)
+        is_video = getattr(config, 'isVideo', None)
+        
+        # If not explicitly set, determine from model class name
+        if is_audio is None:
+            # Audio models: SCATTERING-WAVE and any model with "AUDIO" in name
+            is_audio = ('SCATTERING-WAVE' in config.class_name or 
+                       'AUDIO' in config.class_name.upper())
+        
+        if is_video is None:
+            # Video models: All models except audio models
+            is_video = not is_audio
+
         model_info = ModelInfo(
             name=name,
             class_name=config.class_name,
@@ -210,6 +225,8 @@ def get_model_info(manager) -> list[ModelInfo]:
             device=config.device,
             model_path=config.model_path,
             isDetailed=config.isDetailed,  # Include detailed analysis capability
+            isAudio=is_audio,
+            isVideo=is_video,
             memory_usage_mb=round(memory_usage_mb, 2) if memory_usage_mb else None,
             load_time=None,  # TODO: Track this in model loading
             inference_count=0  # TODO: Track this in model inference

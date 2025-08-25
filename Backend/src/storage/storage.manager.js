@@ -14,7 +14,9 @@ if (providerType === "local") {
     storageManager = localProvider;
     logger.info("📦 Storage Manager: Using 'local' filesystem provider.");
 } else {
-    const { default: cloudinaryProvider } = await import("./cloudinary.provider.js");
+    const { default: cloudinaryProvider } = await import(
+        "./cloudinary.provider.js"
+    );
     storageManager = cloudinaryProvider;
     logger.info("☁️ Storage Manager: Using 'cloudinary' provider.");
 }
