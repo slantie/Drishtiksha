@@ -17,14 +17,14 @@ import {
     Loader2,
     AlertCircle,
 } from "lucide-react";
-import { useVideoQuery } from "../hooks/useVideosQuery.jsx";
+import { useMediaItemQuery } from "../hooks/useMediaQuery.jsx";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
-import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
+import { MediaPlayer } from "../components/media/MediaPlayer.jsx";
 import { ANALYSIS_TYPE_INFO, MODEL_INFO } from "../constants/apiEndpoints.js";
 import { showToast } from "../utils/toast.js";
-import { useVideoMetadata } from "../hooks/useVideoMetadata.js";
+import { useMediaMetadata } from "../hooks/useMediaMetadata.js";
 import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
 
 // FrameAnalysisCards Options
@@ -698,7 +698,7 @@ const FrameAnalysisCard5 = ({ frames }) => {
 };
 
 const FrameAnalysisCard6 = ({ frames, videoUrl }) => {
-    const fps = useVideoMetadata(videoUrl, frames.length);
+    const fps = useMediaMetadata(videoUrl, frames.length);
 
     if (!frames || frames.length === 0) return null;
 
@@ -900,7 +900,7 @@ const FrameAnalysisCard7 = ({ frames }) => {
 };
 
 const FrameAnalysisCard8 = ({ frames, videoUrl }) => {
-    const fps = useVideoMetadata(videoUrl, frames.length);
+    const fps = useMediaMetadata(videoUrl, frames.length);
     const [hoverData, setHoverData] = useState(null);
 
     if (!frames || frames.length === 0) return null;
@@ -1108,6 +1108,35 @@ const DetailedAnalysisSkeleton = () => (
     </div>
 );
 
+// NEW: Component specifically for Audio Analysis data
+const AudioAnalysisReport = ({ analysis }) => {
+    const { pitch, energy, spectral, visualization } = analysis.audioAnalysis;
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Audio Forensic Details</CardTitle>
+                <CardDescription>Detailed metrics extracted from the audio track.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoCard title="Mean Pitch" value={pitch.meanPitchHz ? `${pitch.meanPitchHz.toFixed(1)} Hz` : 'N/A'} />
+                    <InfoCard title="Pitch Stability" value={pitch.pitchStabilityScore ? `${(pitch.pitchStabilityScore * 100).toFixed(1)}%` : 'N/A'} />
+                    <InfoCard title="RMS Energy" value={energy.rmsEnergy.toFixed(4)} />
+                    <InfoCard title="Silence Ratio" value={`${(energy.silenceRatio * 100).toFixed(1)}%`} />
+                    <InfoCard title="Spectral Centroid" value={spectral.spectralCentroid.toFixed(2)} />
+                    <InfoCard title="Spectral Contrast" value={spectral.spectralContrast.toFixed(2)} />
+                </div>
+                {visualization.spectrogramUrl && (
+                    <div>
+                        <h4 className="font-semibold mb-2">Mel Spectrogram</h4>
+                        <img src={visualization.spectrogramUrl} alt="Mel Spectrogram" className="rounded-lg border dark:border-gray-700 w-full" />
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
 // Other helper components
 const AnalysisResultCard = ({ analysis }) => {
     if (!analysis) return null;
@@ -1266,71 +1295,38 @@ const ProcessingEnvironmentCard = ({ modelInfo, systemInfo }) => {
 };
 
 const DetailedAnalysis = () => {
-    const { videoId, analysisId } = useParams();
+    // UPDATED: Renamed URL params for clarity
+    const { mediaId, analysisId } = useParams();
     const navigate = useNavigate();
-    const {
-        data: video,
-        isLoading,
-        error,
-        refetch,
-        isRefetching,
-    } = useVideoQuery(videoId);
+    // UPDATED: Using the new generic hook and variable name
+    const { data: media, isLoading, error, refetch, isRefetching } = useMediaItemQuery(mediaId);
 
-    if (isLoading) return <DetailedAnalysisSkeleton />;
+    if (isLoading) return <AnalysisSkeleton />;
+    if (error) return <div>Error: {error.message}</div>;
 
-    if (error)
-        return (
-            <div className="text-center p-8">
-                <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Error Loading Data</h2>
-                <p className="mb-6">{error.message}</p>
-                <Button onClick={() => navigate(`/results/${videoId}`)}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                </Button>
-            </div>
-        );
+    const analysis = media?.analyses?.find((a) => a.id === analysisId);
+    if (!media || !analysis) return <div>Analysis not found.</div>;
 
-    const analysis = video?.analyses?.find((a) => a.id === analysisId);
-    if (!video || !analysis)
-        return (
-            <div className="text-center p-8">
-                <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Analysis Not Found</h2>
-                <p className="mb-6">
-                    The requested analysis could not be found.
-                </p>
-                <Button onClick={() => navigate(`/results/${videoId}`)}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                </Button>
-            </div>
-        );
-
-    const modelInfo = MODEL_INFO[analysis.model];
-    const typeInfo = ANALYSIS_TYPE_INFO[analysis.analysisType];
+    const modelLabel = MODEL_INFO[analysis.model]?.label || analysis.model;
 
     return (
-        <div className="space-y-6 mx-auto">
-            <ReportHeader
-                modelName={modelInfo?.label || analysis.model}
-                analysisType={typeInfo?.label || analysis.analysisType}
-                onRefresh={refetch}
-                isRefetching={isRefetching}
-                videoId={videoId}
+        <div className="space-y-4">
+            <PageHeader
+                title={`${modelLabel} Report`}
+                description={`Forensic analysis details for ${media.filename}`}
+                actions={<Button onClick={() => navigate(`/results/${mediaId}`)} variant="outline"><ArrowLeft className="mr-2 h-4 w-4"/>Back to Summary</Button>}
             />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1 space-y-6">
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                <div className="lg:col-span-1 space-y-4 sticky top-24">
                     <Card>
-                        <div className="p-4 border-b dark:border-gray-700">
-                            <h3 className="font-semibold flex items-center gap-2">
-                                <FileText className="w-5 h-5" />
-                                {video.filename}
-                            </h3>
-                        </div>
-                        <div className="p-4">
-                            <VideoPlayer videoUrl={video.url} />
-                        </div>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Video className="h-5 w-5 text-primary-main" /> Original Media</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {/* UPDATED: Using the generic MediaPlayer */}
+                            <MediaPlayer media={media} />
+                        </CardContent>
                     </Card>
                     <AnalysisResultCard analysis={analysis} />
                 </div>
@@ -1342,7 +1338,7 @@ const DetailedAnalysis = () => {
                                     <TrendingUp className="h-5 w-5 text-primary-main" />
                                     Analysis Visualization
                                 </h3>
-                                <VideoPlayer
+                                <MediaPlayer
                                     videoUrl={analysis.visualizedUrl}
                                 />
                             </div>

@@ -10,7 +10,7 @@ export const API_BASE_URL =
     import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 export const API_ENDPOINTS = {
-    // --- Authentication Routes ---
+    // --- Authentication Routes (No Changes) ---
     AUTH: {
         LOGIN: `/auth/login`,
         SIGNUP: `/auth/signup`,
@@ -20,23 +20,19 @@ export const API_ENDPOINTS = {
         UPDATE_AVATAR: `/auth/profile/avatar`,
     },
 
-    // --- Video Routes ---
-    VIDEOS: {
-        // GET all videos, POST to upload a new video
-        ALL: `/videos`,
-        // GET, PATCH, DELETE a specific video by its ID
-        BY_ID: (id) => `/videos/${id}`,
+    // --- REFACTORED: From VIDEOS to MEDIA ---
+    MEDIA: {
+        // GET all media, POST to upload new media
+        ALL: `/media`,
+        // GET, PATCH, DELETE a specific media item by its ID
+        BY_ID: (id) => `/media/${id}`,
     },
 
-    // --- Monitoring Routes ---
+    // --- Monitoring Routes (No Changes) ---
     MONITORING: {
-        // GET the live status of the ML server
         SERVER_STATUS: `/monitoring/server-status`,
-        // GET historical health data for the ML server
         SERVER_HISTORY: `/monitoring/server-history`,
-        // GET aggregated analysis performance statistics
         ANALYSIS_STATS: `/monitoring/stats/analysis`,
-        // GET the status of the video processing queue
         QUEUE_STATUS: `/monitoring/queue-status`,
     },
 };
@@ -52,36 +48,59 @@ export const ANALYSIS_TYPES = {
     COMPREHENSIVE: "COMPREHENSIVE",
 };
 
-/** Supported model types (should match keys in `configs/config.yaml` on the server) */
+/**
+ * UPDATED: Model types now reflect the full suite from the Python server.
+ * This ensures the UI can display correct labels and descriptions.
+ */
 export const MODEL_TYPES = {
-    "SIGLIP-LSTM-V3": "SIGLIP-LSTM-V3",
+    "SIGLIP-LSTM-V4": "SIGLIP-LSTM-V4",
+    "EFFICIENTNET-B7-V1": "EFFICIENTNET-B7-V1",
     "COLOR-CUES-LSTM-V1": "COLOR-CUES-LSTM-V1",
+    "EYEBLINK-CNN-LSTM-V1": "EYEBLINK-CNN-LSTM-V1",
+    "SCATTERING-WAVE-V1": "SCATTERING-WAVE-V1",
+    "SIGLIP-LSTM-V3": "SIGLIP-LSTM-V3", // Legacy
+    "SIGLIP-LSTM-V1": "SIGLIP-LSTM-V1", // Legacy
 };
 
+/** Metadata for displaying models in the UI */
+export const MODEL_INFO = {
+    [MODEL_TYPES["SIGLIP-LSTM-V4"]]: {
+        label: "SigLip LSTM v4",
+        description: "State-of-the-art temporal analysis model with dropout.",
+    },
+    [MODEL_TYPES["EFFICIENTNET-B7-V1"]]: {
+        label: "EfficientNet B7",
+        description: "High-accuracy frame-by-frame face classifier.",
+    },
+    [MODEL_TYPES["COLOR-CUES-LSTM-V1"]]: {
+        label: "Color Cues LSTM v1",
+        description: "Specialized model focusing on color inconsistencies.",
+    },
+    [MODEL_TYPES["EYEBLINK-CNN-LSTM-V1"]]: {
+        label: "Eyeblink CNN+LSTM",
+        description: "Detects inconsistencies in eye blinking patterns.",
+    },
+    [MODEL_TYPES["SCATTERING-WAVE-V1"]]: {
+        label: "Scattering Wave v1",
+        description: "Analyzes audio tracks for signs of voice cloning.",
+    },
+    [MODEL_TYPES["SIGLIP-LSTM-V3"]]: {
+        label: "SigLip LSTM v3 (Legacy)",
+        description: "Previous-generation temporal analysis model.",
+    },
+    [MODEL_TYPES["SIGLIP-LSTM-V1"]]: {
+        label: "SigLip LSTM v1 (Legacy)",
+        description: "The foundational temporal analysis model.",
+    },
+};
+
+// ADD THIS MISSING EXPORT BACK
 /** Metadata for displaying analysis types in the UI */
 export const ANALYSIS_TYPE_INFO = {
     [ANALYSIS_TYPES.COMPREHENSIVE]: {
         label: "Comprehensive Analysis",
         description:
             "Complete analysis with detailed metrics and confidence scores.",
-        duration: "~1-3 minutes",
-        icon: "🔍",
     },
     // Add other types here if they become individually selectable in the future
-};
-
-/** Metadata for displaying models in the UI */
-export const MODEL_INFO = {
-    [MODEL_TYPES["SIGLIP-LSTM-V3"]]: {
-        label: "SigLIP LSTM v3",
-        description: "Enhanced temporal analysis model with high accuracy.",
-        version: "3.0.0",
-        specialty: "General Purpose",
-    },
-    [MODEL_TYPES["COLOR-CUES-LSTM-V1"]]: {
-        label: "Color Cues LSTM v1",
-        description: "Specialized model focusing on color inconsistencies.",
-        version: "1.0.0",
-        specialty: "Color Artifacts",
-    },
 };

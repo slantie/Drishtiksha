@@ -1,4 +1,4 @@
-// src/components/videos/VideoSearchFilter.jsx
+// src/components/media/VideoSearchFilter.jsx
 
 import React, { useMemo } from "react";
 import { Search, X } from "lucide-react";

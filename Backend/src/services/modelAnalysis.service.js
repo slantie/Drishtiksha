@@ -102,7 +102,7 @@ class ModelAnalysisService {
 
         // --- NEW: Dynamic Endpoint and Form Field Selection ---
         let endpoint;
-        let formFieldName;
+        let formFieldName = "video";
 
         switch (mediaType) {
             case "VIDEO":
@@ -131,6 +131,8 @@ class ModelAnalysisService {
         try {
             const formData = new FormData();
             formData.append(formFieldName, fs.createReadStream(mediaPath));
+             const fileStream = fs.createReadStream(mediaPath);
+            formData.append(formFieldName, fileStream);
             formData.append("model", modelName);
 
             // Pass context to the Python server for logging and progress events
@@ -146,6 +148,8 @@ class ModelAnalysisService {
                         "X-API-Key": this.apiKey,
                     },
                     timeout: this.comprehensiveTimeout,
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity,
                 }
             );
 

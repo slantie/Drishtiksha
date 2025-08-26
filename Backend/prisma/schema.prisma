@@ -66,28 +66,33 @@ model Media {
   @@index([userId, createdAt(sort: Desc)])
   @@map("media")
 }
+
 model VideoMetadata {
   id        String   @id @default(uuid())
   mediaId   String   @unique
   media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  duration  Float? // Duration in seconds
+  duration  Float?
   width     Int?
   height    Int?
-  fps       Float? // Frames per second
+  fps       Float?   
   codec     String?
+  bitrate   Int?    
+  resolution String?
   createdAt DateTime @default(now())
 
   @@map("video_metadata")
 }
 
 model ImageMetadata {
-  id        String   @id @default(uuid())
-  mediaId   String   @unique
-  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  width     Int?
-  height    Int?
-  format    String? // e.g., JPEG, PNG, WEBP
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  mediaId    String   @unique
+  media      Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  width      Int?
+  height     Int?
+  format     String?  // e.g., JPEG, PNG, WEBP
+  fileSize   Int?     // in bytes
+  colorSpace String?  // e.g., RGB, CMYK
+  createdAt  DateTime @default(now())
 
   @@map("image_metadata")
 }

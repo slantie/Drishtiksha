@@ -13,7 +13,7 @@ import {
     Video, // Used for the video player
     AlertCircle,
 } from "lucide-react";
-import { useVideoQuery } from "../hooks/useVideosQuery.jsx";
+import { useMediaItemQuery } from "../hooks/useMediaQuery.jsx";
 import { Button } from "../components/ui/Button";
 import {
     Card,
@@ -23,7 +23,7 @@ import {
     CardDescription,
 } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
-import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
+import { MediaPlayer } from "../components/media/MediaPlayer.jsx";
 import { MODEL_INFO } from "../constants/apiEndpoints.js";
 import { PageHeader } from "../components/layout/PageHeader.jsx";
 import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
@@ -463,6 +463,49 @@ const FrameAnalysisHeatmap = ({ frames }) => {
     );
 };
 
+const AudioAnalysisReport = ({ analysis }) => {
+    const { audioAnalysis } = analysis;
+    if (!audioAnalysis) return null;
+
+    const InfoItem = ({ label, value }) => (
+        <div className="flex justify-between items-center border-b border-light-secondary/50 dark:border-dark-secondary/50 py-2">
+            <span className="text-light-muted-text dark:text-dark-muted-text">{label}</span>
+            <span className="font-semibold font-sans">{value}</span>
+        </div>
+    );
+    
+    return (
+        <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Music className="h-5 w-5 text-primary-main" /> Audio Forensic Report</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <h3 className="font-semibold mb-2">Pitch Analysis</h3>
+                        <InfoItem label="Mean Pitch (Hz)" value={audioAnalysis.meanPitchHz?.toFixed(2) || 'N/A'} />
+                        <InfoItem label="Pitch Stability" value={audioAnalysis.pitchStabilityScore ? `${(audioAnalysis.pitchStabilityScore * 100).toFixed(1)}%` : 'N/A'} />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold mb-2">Energy Analysis</h3>
+                        <InfoItem label="RMS Energy" value={audioAnalysis.rmsEnergy?.toFixed(4)} />
+                        <InfoItem label="Silence Ratio" value={`${(audioAnalysis.silenceRatio * 100).toFixed(1)}%`} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <h3 className="font-semibold mb-2">Spectral Analysis</h3>
+                        <InfoItem label="Spectral Centroid" value={audioAnalysis.spectralCentroid?.toFixed(2)} />
+                        <InfoItem label="Spectral Contrast" value={audioAnalysis.spectralContrast?.toFixed(2)} />
+                    </div>
+                </div>
+                {audioAnalysis.spectrogramUrl && (
+                    <div className="pt-4">
+                        <h3 className="font-semibold mb-2">Mel Spectrogram</h3>
+                        <img src={audioAnalysis.spectrogramUrl} alt="Mel Spectrogram" className="rounded-lg border dark:border-gray-700 w-full" />
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 const DetailedAnalysisSkeleton = () => (
     <div className="space-y-6">
         <SkeletonCard className="h-20" />
@@ -583,15 +626,16 @@ const FrameAnalysisTabs = ({ analysis }) => {
 };
 
 const Analysis = () => {
-    const { videoId, analysisId } = useParams();
+    // UPDATED: Renamed URL params for clarity
+    const { mediaId, analysisId } = useParams();
     const navigate = useNavigate();
     const {
-        data: video,
+        data: media,
         isLoading,
         error,
         refetch,
         isRefetching,
-    } = useVideoQuery(videoId);
+    } = useMediaItemQuery(mediaId);
 
     if (isLoading) return <DetailedAnalysisSkeleton />;
 
@@ -601,7 +645,7 @@ const Analysis = () => {
                 <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Error Loading Data</h2>
                 <p className="mb-6">{error.message}</p>
-                <Button onClick={() => navigate(`/results/${videoId}`)}>
+                <Button onClick={() => navigate(`/results/${mediaId}`)}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                 </Button>
@@ -617,7 +661,7 @@ const Analysis = () => {
                 <p className="mb-6">
                     The requested analysis could not be found.
                 </p>
-                <Button onClick={() => navigate(`/results/${videoId}`)}>
+                <Button onClick={() => navigate(`/results/${mediaId}`)}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                 </Button>
@@ -671,7 +715,7 @@ const Analysis = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <VideoPlayer videoUrl={video.url} />
+                    <MediaPlayer videoUrl={video.url} />
                 </CardContent>
             </Card>
 

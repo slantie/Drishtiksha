@@ -1,46 +1,37 @@
-// src/hooks/useVideoMetadata.js
+// src/hooks/useMediaProgress.js
 
 import { useState, useEffect } from "react";
+import { socketService } from "../lib/socket";
 
-export const useVideoMetadata = (videoUrl, frameCount) => {
-    const [fps, setFps] = useState(30); // Default to 30fps
+// RENAMED: from useVideoProgress to useMediaProgress
+export const useMediaProgress = (mediaId) => {
+    const [progressEvents, setProgressEvents] = useState([]);
 
     useEffect(() => {
-        if (!videoUrl || !frameCount) return;
+        // UPDATED: Check for mediaId
+        if (!socketService.socket || !mediaId) return;
 
-        const videoElement = document.createElement("video");
-        videoElement.src = videoUrl;
-        videoElement.preload = "metadata";
-
-        const handleMetadata = () => {
-            if (videoElement.duration && !isNaN(videoElement.duration)) {
-                const calculatedFps = frameCount / videoElement.duration;
-                // Use a reasonable range to avoid extreme values from very short videos
-                if (calculatedFps > 10 && calculatedFps < 120) {
-                    setFps(Math.round(calculatedFps));
-                }
+        const handleProgress = (data) => {
+            // The backend socket event sends a 'videoId' property which is the mediaId.
+            // We handle it here and check against our required mediaId.
+            const eventMediaId = data.videoId || data.mediaId;
+            if (eventMediaId === mediaId) {
+                setProgressEvents((prevEvents) => [...prevEvents, data]);
             }
-            // Clean up the element after use
-            videoElement.remove();
         };
 
-        const handleError = () => {
-            console.warn(
-                "Could not load video metadata to calculate FPS. Falling back to 30fps."
-            );
-            videoElement.remove();
-        };
+        socketService.socket.on("progress_update", handleProgress);
 
-        videoElement.addEventListener("loadedmetadata", handleMetadata);
-        videoElement.addEventListener("error", handleError);
-
-        // Cleanup function
         return () => {
-            videoElement.removeEventListener("loadedmetadata", handleMetadata);
-            videoElement.removeEventListener("error", handleError);
-            videoElement.remove();
+            socketService.socket.off("progress_update", handleProgress);
         };
-    }, [videoUrl, frameCount]);
+    // UPDATED: Dependency is now mediaId
+    }, [mediaId]);
 
-    return fps;
+    const latestProgress =
+        progressEvents.length > 0
+            ? progressEvents[progressEvents.length - 1]
+            : null;
+
+    return { latestProgress, progressEvents };
 };

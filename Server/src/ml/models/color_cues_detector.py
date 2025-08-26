@@ -91,17 +91,37 @@ class ColorCuesLSTMV1(BaseModel):
     def _extract_features_from_video(
         self, video_path: str, video_id: str = None, user_id: str = None
     ) -> List[np.ndarray]:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise IOError(f"Could not open video file: {video_path}")
+        # --- NEW: RETRY MECHANISM ---
+        max_retries = 3
+        retry_delay = 0.5  # seconds
+        cap = None
 
+        for attempt in range(max_retries):
+            try:
+                # Add a small delay to allow the OS to flush file buffers
+                time.sleep(attempt * retry_delay) 
+                
+                cap = cv2.VideoCapture(video_path)
+                if cap.isOpened():
+                    logger.info(f"Successfully opened video file on attempt {attempt + 1}")
+                    break # Exit loop on success
+                else:
+                    logger.warning(f"Attempt {attempt + 1}: cv2.VideoCapture failed to open file. Retrying...")
+            except Exception as e:
+                 logger.error(f"Attempt {attempt + 1}: Exception during VideoCapture: {e}")
+            
+            if attempt == max_retries - 1:
+                # If all retries fail, raise the final error
+                raise IOError(f"Could not open video file after {max_retries} attempts: {video_path}")
+        # --- END NEW: RETRY MECHANISM ---
+        
         all_histograms: List[np.ndarray] = []
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if total_frames <= 0:
             cap.release()
             return all_histograms
 
-        # Uniformly sample frames across the video
+        # ... (rest of the function remains the same) ...
         frames_to_take = max(1, int(self.config.frames_per_video))
         frame_indices = np.linspace(0, total_frames - 1, frames_to_take, dtype=int)
 

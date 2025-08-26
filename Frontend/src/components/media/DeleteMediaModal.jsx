@@ -1,17 +1,18 @@
-// src/components/videos/DeleteVideoModal.jsx
+// src/components/media/DeleteMediaModal.jsx
 
 import React, { useState } from "react";
 import { Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "../ui/Button";
-import { Modal } from "../ui/Modal"; // REFACTOR: Using the new base Modal component.
+import { Modal } from "../ui/Modal";
 
-export const DeleteVideoModal = ({ isOpen, onClose, video, onDelete }) => {
+// RENAMED: from DeleteVideoModal to DeleteMediaModal
+export const DeleteMediaModal = ({ isOpen, onClose, media, onDelete }) => {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleDelete = async () => {
         setIsDeleting(true);
         try {
-            await onDelete(video.id);
+            await onDelete(media.id);
             onClose();
         } catch (error) {
             console.log("Delete failed:", error);
@@ -20,9 +21,8 @@ export const DeleteVideoModal = ({ isOpen, onClose, video, onDelete }) => {
         }
     };
 
-    if (!isOpen || !video) return null;
+    if (!isOpen || !media) return null;
 
-    // REFACTOR: Using the destructive variant for the primary button.
     const modalFooter = (
         <>
             <Button variant="outline" onClick={onClose} disabled={isDeleting}>
@@ -34,7 +34,8 @@ export const DeleteVideoModal = ({ isOpen, onClose, video, onDelete }) => {
                 isLoading={isDeleting}
             >
                 {!isDeleting && <Trash2 className="mr-2 h-4 w-4" />}
-                Delete Video
+                {/* UPDATED: Generic button text */}
+                Delete Media
             </Button>
         </>
     );
@@ -55,9 +56,10 @@ export const DeleteVideoModal = ({ isOpen, onClose, video, onDelete }) => {
                 </div>
                 <div className="text-sm">
                     <p>
+                        {/* UPDATED: Generic confirmation text */}
                         Are you sure you want to delete{" "}
-                        <span className="font-semibold">{video.filename}</span>?
-                        This action cannot be undone.
+                        <span className="font-semibold">{media.filename}</span>?
+                        This will permanently remove the file and all its analysis data. This action cannot be undone.
                     </p>
                 </div>
             </div>

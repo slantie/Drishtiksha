@@ -1,16 +1,23 @@
-// src/hooks/useVideoProgress.js
+// src/hooks/useMediaProgress.js
 
 import { useState, useEffect } from "react";
 import { socketService } from "../lib/socket";
 
-export const useVideoProgress = (videoId) => {
+// RENAMED: from useVideoProgress to useMediaProgress
+// PARAMETER RENAMED: from videoId to mediaId for clarity
+export const useMediaProgress = (mediaId) => {
     const [progressEvents, setProgressEvents] = useState([]);
 
     useEffect(() => {
-        if (!socketService.socket || !videoId) return;
+        // UPDATED: Check for mediaId
+        if (!socketService.socket || !mediaId) return;
 
         const handleProgress = (data) => {
-            if (data.videoId === videoId) {
+            // The backend socket event sends a 'videoId' property in its payload.
+            // We treat this as our generic mediaId and check if it matches the one
+            // this hook instance is listening for.
+            const eventMediaId = data.videoId; 
+            if (eventMediaId === mediaId) {
                 // Add new event to the list, keeping a history
                 setProgressEvents((prevEvents) => [...prevEvents, data]);
             }
@@ -22,7 +29,8 @@ export const useVideoProgress = (videoId) => {
         return () => {
             socketService.socket.off("progress_update", handleProgress);
         };
-    }, [videoId]);
+    // UPDATED: The hook's dependency is now mediaId
+    }, [mediaId]);
 
     // Return the latest progress event for simple display
     const latestProgress =

@@ -434,7 +434,7 @@ export const DownloadService = {
             await html2pdf().from(body).set(options).save();
         } catch (error) {
             console.error("Error generating PDF with html2pdf:", error);
-            await this.generateAndDownloadPDFPrint(video, user);
+            await this.generateeAndDownloadPDFPrint(video, user);
         }
     },
 

@@ -1,4 +1,4 @@
-// src/components/videos/EditVideoModal.jsx
+// src/components/media/EditMediaModal.jsx
 
 import React, { useState, useEffect } from "react";
 import { Save } from "lucide-react";
@@ -6,22 +6,23 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
 
-export const EditVideoModal = ({ isOpen, onClose, video, onUpdate }) => {
+// RENAMED: from EditVideoModal to EditMediaModal
+export const EditMediaModal = ({ isOpen, onClose, media, onUpdate }) => {
     const [filename, setFilename] = useState("");
     const [description, setDescription] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (video) {
-            setFilename(video.filename || "");
-            setDescription(video.description || "");
+        if (media) {
+            setFilename(media.filename || "");
+            setDescription(media.description || "");
         }
-    }, [video]);
+    }, [media]);
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await onUpdate(video.id, { filename, description });
+            await onUpdate(media.id, { filename, description });
             onClose();
         } catch (error) {
             console.error("Update failed:", error);
@@ -30,7 +31,7 @@ export const EditVideoModal = ({ isOpen, onClose, video, onUpdate }) => {
         }
     };
 
-    if (!isOpen || !video) return null;
+    if (!isOpen || !media) return null;
 
     const modalFooter = (
         <>
@@ -48,7 +49,8 @@ export const EditVideoModal = ({ isOpen, onClose, video, onUpdate }) => {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Edit Video Details"
+            // UPDATED: Generic title
+            title="Edit Media Details"
             footer={modalFooter}
         >
             <div className="space-y-4">

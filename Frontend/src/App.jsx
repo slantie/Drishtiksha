@@ -14,9 +14,9 @@ import Authentication from "./pages/Authentication";
 import Profile from "./pages/Profile.jsx";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
-import DetailedAnalysis from "./pages/DetailedAnalysis";
-import Monitoring from "./pages/Monitoring.jsx";
 import Analysis from "./pages/Analysis.jsx";
+import Monitoring from "./pages/Monitoring.jsx";
+// import DetailedAnalysis from "./pages/DetailedAnalysis";
 
 function App() {
     return (
@@ -81,7 +81,7 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
-                    <Route
+                    {/* <Route
                         path="/results/legacy/:videoId/:analysisId"
                         element={
                             <ProtectedRoute>
@@ -90,7 +90,7 @@ function App() {
                                 </Layout>
                             </ProtectedRoute>
                         }
-                    />
+                    /> */}
                     <Route
                         path="/monitor"
                         element={

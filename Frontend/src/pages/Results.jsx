@@ -22,10 +22,10 @@ import {
     FileSpreadsheetIcon,
 } from "lucide-react";
 import {
-    useVideoQuery,
-    useUpdateVideoMutation,
-    useDeleteVideoMutation,
-} from "../hooks/useVideosQuery.jsx";
+    useMediaQuery,
+    useUpdateMediaMutation,
+    useDeleteMediaMutation,
+} from "../hooks/useMediaQuery.jsx";
 import { AuthContext } from "../contexts/AuthContext.jsx";
 import { Button } from "../components/ui/Button";
 import {
@@ -37,10 +37,10 @@ import {
     CardFooter,
 } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
-import { VideoPlayer } from "../components/videos/VideoPlayer.jsx";
-import { AnalysisInProgress } from "../components/videos/AnalysisInProgress.jsx";
-import { EditVideoModal } from "../components/videos/EditVideoModal.jsx";
-import { DeleteVideoModal } from "../components/videos/DeleteVideoModal.jsx";
+import { MediaPlayer } from "../components/media/MediaPlayer.jsx";
+import { AnalysisInProgress } from "../components/media/AnalysisInProgress.jsx";
+import { EditMediaModal } from "../components/media/EditMediaModal.jsx";
+import { DeleteMediaModal } from "../components/media/DeleteMediaModal.jsx";
 import ModelSelectionModal from "../components/analysis/ModelSelectionModal.jsx";
 import { DownloadService } from "../services/DownloadReport.js";
 import { MODEL_INFO } from "../constants/apiEndpoints.js";
@@ -191,14 +191,14 @@ const Results = () => {
         isLoading,
         error,
         refetch,
-    } = useVideoQuery(videoId, {
+    } = useMediaQuery(videoId, {
         refetchInterval: (query) =>
             ["QUEUED", "PROCESSING"].includes(query.state.data?.status)
                 ? 3000
                 : false,
     });
-    const updateMutation = useUpdateVideoMutation();
-    const deleteMutation = useDeleteVideoMutation();
+    const updateMutation = useUpdateMediaMutation();
+    const deleteMutation = useDeleteMediaMutation();
     const [modal, setModal] = useState({ type: null, data: null });
     const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
     const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
@@ -296,7 +296,7 @@ const Results = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <VideoPlayer videoUrl={video.url} />
+                            <MediaPlayer videoUrl={video.url} />
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h4 className="font-semibold text-lg">
@@ -445,7 +445,7 @@ const Results = () => {
             </div>
 
             {/* Modals */}
-            <EditVideoModal
+            <EditMediaModal
                 isOpen={modal.type === "edit"}
                 onClose={() => setModal({ type: null })}
                 video={modal.data}
@@ -453,7 +453,7 @@ const Results = () => {
                     updateMutation.mutateAsync({ videoId, updateData: data })
                 }
             />
-            <DeleteVideoModal
+            <DeleteMediaModal
                 isOpen={modal.type === "delete"}
                 onClose={() => setModal({ type: null })}
                 video={modal.data}

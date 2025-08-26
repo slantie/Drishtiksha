@@ -49,9 +49,11 @@ export const mediaRepository = {
                         duration: metadata.duration,
                         width: metadata.width,
                         height: metadata.height,
-                        bitrate: metadata.bitrate || null,
+                        // CORRECTED: 'frameRate' is now 'fps' to match the schema
+                        fps: metadata.frameRate || null, 
                         codec: metadata.codec || null,
-                        frameRate: metadata.frameRate || null,
+                        // ENABLED: These fields will now work correctly
+                        bitrate: metadata.bitrate || null,
                         resolution: metadata.resolution || null,
                     },
                 });
@@ -62,6 +64,7 @@ export const mediaRepository = {
                         width: metadata.width,
                         height: metadata.height,
                         format: metadata.format || null,
+                        // ENABLED: These fields will now work correctly
                         fileSize: metadata.fileSize || null,
                         colorSpace: metadata.colorSpace || null,
                     },
@@ -74,7 +77,6 @@ export const mediaRepository = {
                         bitrate: metadata.bitrate || null,
                         codec: metadata.codec || null,
                         channels: metadata.channels || null,
-                        // Note: Audio metadata doesn't have width/height
                     },
                 });
             default:

@@ -1,28 +1,64 @@
 // src/lib/toastOrchestrator.jsx
 
 import React from "react";
-import { showToast } from "../utils/toast";
+import { showToast } from "../utils/toast.js";
 import { ToastProgress } from "../components/ui/ToastProgress.jsx";
-import { CheckCircle, AlertTriangle } from "lucide-react";
 
 class ToastOrchestrator {
-    videoToastMap = new Map();
+    // These maps now store toasts for any mediaId, not just videos.
+    mediaToastMap = new Map();
     modelToastMap = new Map();
 
-    startVideoProcessing(videoId, message) {
-        if (this.videoToastMap.has(videoId)) return;
+    // NEW: A single, generic event handler
+    handleProgressEvent(mediaId, event, message, data) {
+        switch (event) {
+            case "PROCESSING_STARTED":
+                this.startMediaProcessing(mediaId, message);
+                break;
+            
+            // These events all update a model-specific toast
+            case "ANALYSIS_STARTED":
+            case "FRAME_ANALYSIS_PROGRESS":
+            case "AUDIO_EXTRACTION_START": // Handle new audio events
+            case "SPECTROGRAM_GENERATION_START":
+            case "VISUALIZATION_UPLOADING":
+            case "VISUALIZATION_COMPLETED":
+                if (data?.modelName) {
+                    this.updateModelProgress(
+                        mediaId,
+                        data.modelName,
+                        message,
+                        data.progress,
+                        data.total
+                    );
+                }
+                break;
+            
+            case "ANALYSIS_COMPLETED":
+                if (data?.modelName) {
+                    this.resolveModelProgress(
+                        mediaId,
+                        data.modelName,
+                        data.success
+                    );
+                }
+                break;
+        }
+    }
+
+    // RENAMED: from startVideoProcessing to startMediaProcessing
+    startMediaProcessing(mediaId, message) {
+        if (this.mediaToastMap.has(mediaId)) return;
 
         const toastId = showToast.loading(<ToastProgress message={message} />, {
             duration: Infinity,
         });
-        this.videoToastMap.set(videoId, toastId);
-        console.log(
-            `[Orchestrator] ✨ Created main toast (ID: ${toastId}) for video ${videoId}`
-        );
+        this.mediaToastMap.set(mediaId, toastId);
+        console.log(`[Orchestrator] ✨ Created main toast (ID: ${toastId}) for media ${mediaId}`);
     }
 
-    updateModelProgress(videoId, modelName, message, progress, total) {
-        const modelToastKey = `${videoId}-${modelName}`;
+    updateModelProgress(mediaId, modelName, message, progress, total) {
+        const modelToastKey = `${mediaId}-${modelName}`;
         let toastId = this.modelToastMap.get(modelToastKey);
 
         const toastContent = (
@@ -37,16 +73,13 @@ class ToastOrchestrator {
         if (!toastId) {
             toastId = showToast.loading(toastContent, { duration: Infinity });
             this.modelToastMap.set(modelToastKey, toastId);
-            console.log(
-                `[Orchestrator] ✨ Created model toast (ID: ${toastId}) for ${modelName}`
-            );
         } else {
             showToast.loading(toastContent, { id: toastId });
         }
     }
 
-    resolveModelProgress(videoId, modelName, success) {
-        const modelToastKey = `${videoId}-${modelName}`;
+    resolveModelProgress(mediaId, modelName, success) {
+        const modelToastKey = `${mediaId}-${modelName}`;
         const toastId = this.modelToastMap.get(modelToastKey);
 
         if (toastId) {
@@ -58,14 +91,12 @@ class ToastOrchestrator {
                 duration: 5000,
             });
             this.modelToastMap.delete(modelToastKey);
-            console.log(
-                `[Orchestrator] ✅ Resolved model toast (ID: ${toastId}) for ${modelName}`
-            );
         }
     }
 
-    resolveVideoProcessing(videoId, filename, success, errorMsg = "") {
-        const mainToastId = this.videoToastMap.get(videoId);
+    // RENAMED: from resolveVideoProcessing to resolveMediaProcessing
+    resolveMediaProcessing(mediaId, filename, success, errorMsg = "") {
+        const mainToastId = this.mediaToastMap.get(mediaId);
         if (mainToastId) {
             const message = success
                 ? `All analyses for "${filename}" are complete!`
@@ -76,10 +107,7 @@ class ToastOrchestrator {
                 id: mainToastId,
                 duration: 8000,
             });
-            this.videoToastMap.delete(videoId);
-            console.log(
-                `[Orchestrator] ✅ Resolved main video toast (ID: ${mainToastId})`
-            );
+            this.mediaToastMap.delete(mediaId);
         }
     }
 }

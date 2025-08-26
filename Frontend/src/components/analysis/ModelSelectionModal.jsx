@@ -15,7 +15,7 @@ import { Card } from "../ui/Card";
 import { Modal } from "../ui/Modal";
 import { Alert, AlertDescription, AlertTitle } from "../ui/Alert";
 import { useServerStatusQuery } from "../../hooks/useMonitoringQuery.js";
-import { useCreateAnalysisMutation } from "../../hooks/useVideosQuery.jsx";
+import { useCreateAnalysisMutation } from "../../hooks/useMediaQuery.jsx";
 import { cn } from "../../lib/utils";
 
 const ModelCard = ({ model, isSelected, onSelect }) => (

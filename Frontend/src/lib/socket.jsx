@@ -1,6 +1,5 @@
 // src/lib/socket.jsx
 
-import React from "react";
 import { io } from "socket.io-client";
 import { queryClient } from "./queryClient";
 import { queryKeys } from "./queryKeys";
@@ -40,85 +39,52 @@ class SocketService {
         if (!this.socket) return;
 
         this.socket.on("progress_update", (progress) => {
-            console.log(
-                "[Socket] 📩 Received 'progress_update' event:",
-                progress
-            );
-            const { videoId, event, message, data } = progress;
+            console.log("[Socket] 📩 Received 'progress_update' event:", progress);
+            
+            // The backend uses 'videoId' as the key, which is our generic mediaId.
+            const mediaId = progress.videoId || progress.mediaId;
+            const { event, message, data } = progress;
+            
+            if (!mediaId) return;
 
-            switch (event) {
-                case "PROCESSING_STARTED":
-                    toastOrchestrator.startVideoProcessing(videoId, message);
-                    break;
-                case "ANALYSIS_STARTED":
-                case "FRAME_ANALYSIS_PROGRESS":
-                case "VISUALIZATION_UPLOADING":
-                case "VISUALIZATION_COMPLETED":
-                    if (data?.modelName) {
-                        toastOrchestrator.updateModelProgress(
-                            videoId,
-                            data.modelName,
-                            message,
-                            data.progress,
-                            data.total
-                        );
-                    }
-                    break;
-                case "ANALYSIS_COMPLETED":
-                    if (data?.modelName) {
-                        toastOrchestrator.resolveModelProgress(
-                            videoId,
-                            data.modelName,
-                            data.success
-                        );
-                    }
-                    break;
-            }
+            // Delegate all toast logic to the orchestrator
+            toastOrchestrator.handleProgressEvent(mediaId, event, message, data);
 
-            // Invalidate query to keep the UI on pages like /results/:videoId in sync
+            // Invalidate the specific media item's query to trigger a refetch in the UI
             queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.detail(videoId),
+                queryKey: queryKeys.media.detail(mediaId),
             });
         });
 
-        this.socket.on("video_update", (video) => {
-            console.log(
-                "[Socket] 📩 Received final 'video_update' event:",
-                video
-            );
-            toastOrchestrator.resolveVideoProcessing(
-                video.id,
-                video.filename,
-                true
-            );
+        // REFACTORED: The 'video_update' event now represents a generic media update.
+        this.socket.on("video_update", (media) => {
+            console.log("[Socket] 📩 Received final 'media_update' event:", media);
+            
+            // The backend still calls the event 'video_update', but the payload is a generic media object.
+            const mediaId = media.id;
+            const filename = media.filename || "your media file";
 
-            // Invalidate both detail and list views
+            toastOrchestrator.resolveVideoProcessing(mediaId, filename, true);
+
+            // Invalidate both the specific media item and the list of all media
             queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.detail(video.id),
+                queryKey: queryKeys.media.detail(mediaId),
             });
             queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.lists(),
+                queryKey: queryKeys.media.lists(),
             });
         });
 
         this.socket.on("processing_error", (errorData) => {
-            console.error(
-                "[Socket] 📩 Received 'processing_error' event:",
-                errorData
-            );
-            toastOrchestrator.resolveVideoProcessing(
-                errorData.videoId,
-                "your video",
-                false,
-                errorData.error
-            );
+            console.error("[Socket] 📩 Received 'processing_error' event:", errorData);
 
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.detail(errorData.videoId),
-            });
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.videos.lists(),
-            });
+            const mediaId = errorData.videoId || errorData.mediaId;
+            if (!mediaId) return;
+
+            toastOrchestrator.resolveVideoProcessing(mediaId, "your media file", false, errorData.error);
+            
+            queryClient.invalidateQueries({ queryKey: queryKeys.media.detail(mediaId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
         });
     }
 }

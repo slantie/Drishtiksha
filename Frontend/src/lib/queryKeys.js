@@ -11,11 +11,11 @@ export const queryKeys = {
         profile: () => [...queryKeys.auth.all, "profile"],
     },
 
-    // Video-related data
-    videos: {
-        all: ["videos"],
-        lists: () => [...queryKeys.videos.all, "list"],
-        detail: (id) => [...queryKeys.videos.all, "detail", id],
+    // REFACTORED: From 'videos' to 'media' for generic media handling.
+    media: {
+        all: ["media"],
+        lists: () => [...queryKeys.media.all, "list"],
+        detail: (id) => [...queryKeys.media.all, "detail", id],
     },
 
     // Monitoring data from the backend
