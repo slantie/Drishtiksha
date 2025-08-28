@@ -6,6 +6,7 @@ from typing import Dict, Tuple, Union, Annotated, Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, Field, SecretStr, ValidationError
 
+# Use __name__ for a module-specific logger, which is a standard best practice.
 logger = logging.getLogger(__name__)
 
 # A dedicated Pydantic model for the SigLIP architecture details
@@ -30,8 +31,12 @@ class BaseModelConfig(BaseModel):
     class_name: str
     description: str
     model_path: str
-    device: str = "cuda"  # Default value, will be overridden by environment variable
-    isDetailed: bool = False  # Whether this model supports detailed analysis
+    device: str = "cuda"
+    isDetailed: bool = False
+    # FIX: Added isAudio and isVideo flags with defaults to ensure all model configs are validated.
+    # This makes the system more robust against misconfiguration.
+    isAudio: bool = False
+    isVideo: bool = True
 
 # Specific configuration model for SIGLIP-LSTM-V1 - Legacy Model
 class SiglipLSTMv1Config(BaseModelConfig):
@@ -76,6 +81,7 @@ class EfficientNetB7Config(BaseModelConfig):
     
 class EyeblinkModelConfig(BaseModelConfig):
     class_name: Literal["EYEBLINK-CNN-LSTM-V1"]
+    # FIX: Added the missing dlib_model_path to match the YAML file.
     dlib_model_path: str
     sequence_length: int
     blink_threshold: float
@@ -108,7 +114,7 @@ class Settings(BaseSettings):
     default_model_name: str
     project_name: str
     device: str
-    active_models: str = "SIGLIP-LSTM-V1,SIGLIP-LSTM-V3,COLOR-CUES-LSTM-V1"  # Default to all models
+    active_models: str
     models: Dict[str, ModelConfig]
 
     model_config = SettingsConfigDict(
@@ -127,17 +133,15 @@ class Settings(BaseSettings):
         """Factory method to load settings from a YAML file and merge with .env."""
         import os
         
-        # PRIORITY 1: Load .env file first
         try:
             from dotenv import load_dotenv
             load_dotenv()
-            logger.info("🔧 Loaded environment variables from .env file")
+            logger.info("🔧 Loaded environment variables from .env file.")
         except ImportError:
-            logger.warning("⚠️ python-dotenv not available, using system environment variables only")
+            logger.warning("⚠️ python-dotenv not found, using system environment variables only.")
         
-        # PRIORITY 2: Get device from environment variable, fallback to 'cpu'
         env_device = os.getenv('DEVICE', 'cpu').lower()
-        logger.info(f"🔧 Device setting from environment: '{env_device}'")
+        logger.info(f"🔧 [High Priority] Device set to '{env_device}' from environment variable.")
         
         try:
             with open(yaml_path, 'r') as file:
@@ -149,41 +153,44 @@ class Settings(BaseSettings):
         except yaml.YAMLError as e:
             raise RuntimeError(f"Error parsing YAML file '{yaml_path}': {e}")
 
-        # PRIORITY 3: Override global device setting with environment variable
+        # Override global and all model-specific device settings with the environment variable.
+        # This ensures the environment setting is the single source of truth for the compute device.
         yaml_config['device'] = env_device
-        
-        # PRIORITY 4: Override ALL model device settings with environment variable
         if yaml_config.get('models'):
-            for model_name, model_config in yaml_config['models'].items():
-                if isinstance(model_config, dict):
-                    model_config['device'] = env_device
-                    logger.info(f"🔧 Forcing device '{env_device}' for model '{model_name}'")
+            for model_name in yaml_config['models']:
+                if isinstance(yaml_config['models'][model_name], dict):
+                    yaml_config['models'][model_name]['device'] = env_device
 
-        # Create a temporary instance to get other environment variables
+        # Temporarily load settings to get the ACTIVE_MODELS list from .env
         temp_settings = cls(**yaml_config)
         
-        # Filter models based on active_models configuration
-        active_model_list = [model.strip() for model in temp_settings.active_models.split(',')]
+        active_model_list = temp_settings.active_model_list
+        all_configured_models = yaml_config.get('models', {})
+        
+        # Filter the models from YAML to only include those specified in ACTIVE_MODELS
         filtered_models = {
-            model_name: model_config 
-            for model_name, model_config in yaml_config.get('models', {}).items()
-            if model_name in active_model_list
+            name: config for name, config in all_configured_models.items() if name in active_model_list
         }
         
-        # Update yaml_config with filtered models
+        if len(filtered_models) != len(active_model_list):
+            logger.warning(
+                f"⚠️ Mismatch between ACTIVE_MODELS and config.yaml. "
+                f"Requested: {active_model_list}. Found in YAML: {list(all_configured_models.keys())}"
+            )
+
         yaml_config['models'] = filtered_models
         
-        # Log which models are being loaded
         if filtered_models:
-            active_names = ', '.join(filtered_models.keys())
-            logger.info(f"🔧 Loading active models: {active_names}")
+            logger.info(f"🔧 Loading configurations for active models: {', '.join(filtered_models.keys())}")
         else:
-            logger.warning("⚠️ No active models configured!")
+            logger.warning("⚠️ No active models are configured to be loaded!")
 
         return cls(**yaml_config)
 
 try:
     settings = Settings.from_yaml("configs/config.yaml")
 except (RuntimeError, ValueError, ValidationError) as e:
-    logger.critical(f"❌ FATAL: Could not load configuration. {e}")
-    exit(1)
+    logger.critical(f"❌ FATAL: Could not load configuration. Server cannot start. Error: {e}")
+    # Use sys.exit(1) for a more forceful shutdown on critical config errors.
+    import sys
+    sys.exit(1)

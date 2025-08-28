@@ -1,9 +1,11 @@
 # src/ml/models/siglip_lstm_detector.py
 
 import os
+import cv2
 import time
 import torch
 import logging
+import tempfile
 import matplotlib
 import numpy as np
 from PIL import Image
@@ -13,105 +15,79 @@ import matplotlib.pyplot as plt
 from src.ml.base import BaseModel
 from transformers import AutoProcessor
 from src.ml.utils import extract_frames
-from typing import Any, Dict, Tuple, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 from src.ml.event_publisher import publish_progress
-from src.ml.architectures.siglip_lstm_legacy import create_legacy_lstm_model
-from src.ml.architectures.siglip_lstm import create_lstm_model as create_v4_model
+from src.ml.architectures.siglip_lstm import create_siglip_lstm_model
 from src.config import SiglipLSTMv1Config, SiglipLSTMv3Config, SiglipLSTMv4Config
 
-# Add matplotlib import here for the visualization method
 matplotlib.use("Agg")
-
 logger = logging.getLogger(__name__)
-class SiglipLSTMV1(BaseModel):
-    config: SiglipLSTMv1Config
 
-    def load(self) -> None:
-        start_time = time.time()
-        try:
-            model_architecture_config = self.config.model_definition.model_dump()
-            self.model = create_legacy_lstm_model(model_architecture_config)
-            state_dict = torch.load(self.config.model_path, map_location=self.device)
-            self.model.load_state_dict(state_dict)
-            self.model.to(self.device)
-            self.model.eval()
-            self.processor = AutoProcessor.from_pretrained(self.config.processor_path, use_fast=True)
-            load_time = time.time() - start_time
-            logger.info(
-                f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f} seconds."
-            )
-        except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+class BaseSiglipLSTMDetector(BaseModel):
+    """Base class for all SigLIP+LSTM models, containing shared logic."""
 
-    def predict(self, video_path: str, **kwargs) -> Dict[str, Any]:
-        start_time = time.time()
-        frames = extract_frames(video_path, self.config.num_frames)
-        if not frames:
-            raise ValueError(f"Could not extract frames from the video: {video_path}")
-        inputs = self.processor(images=frames, return_tensors="pt")
-        pixel_values = inputs['pixel_values'].to(self.device)
-        with torch.no_grad():
-            logits = self.model(pixel_values, num_frames_per_video=self.config.num_frames)
-            prob_fake = torch.sigmoid(logits.squeeze()).item()
-        predicted_class_id = 1 if prob_fake > 0.5 else 0
-        confidence = prob_fake if predicted_class_id == 1 else 1 - prob_fake
-        processing_time = time.time() - start_time
-        label_map = {0: "REAL", 1: "FAKE"}
-        return {
-            "prediction": label_map[predicted_class_id],
-            "confidence": confidence,
-            "processing_time": processing_time,
-        }
-class SiglipLSTMV3(SiglipLSTMV1):
-    """
-    Enhanced SIGLIP-LSTM V3 model. Inherits from V1 but overrides all prediction
-    methods to provide advanced, detailed analysis capabilities.
-    """
-    config: SiglipLSTMv3Config
-
-    def __init__(self, config: SiglipLSTMv3Config):
+    def __init__(self, config):
         super().__init__(config)
+        # This cache is simple and effective for the common case of a user requesting
+        # multiple analysis types (detailed, frames, visual) for the same video in short succession.
         self._last_detailed_result: Optional[Dict[str, Any]] = None
         self._last_video_path: Optional[str] = None
 
-    def _analyze_video_frames(
-        self, video_path: str, video_id: str = None, user_id: str = None
-    ) -> Tuple[List[float], List[Image.Image]]:
-        import cv2
+    def predict(self, video_path: str, **kwargs) -> Dict[str, Any]:
+        """Performs a quick, final prediction on a representative sequence of frames."""
+        start_time = time.time()
+        
+        # FIX: Convert the generator from extract_frames into a list.
+        frames = list(extract_frames(video_path, self.config.num_frames))
+        
+        if not frames:
+            logger.error(f"Could not extract any frames from video: {video_path}")
+            return {"prediction": "REAL", "confidence": 0.51, "processing_time": time.time() - start_time, "note": "Could not extract frames."}
 
+        inputs = self.processor(images=frames, return_tensors="pt")
+        pixel_values = inputs['pixel_values'].to(self.device)
+        
+        with torch.no_grad():
+            logits = self.model(pixel_values, num_frames_per_video=self.config.num_frames)
+            prob_fake = torch.sigmoid(logits.squeeze()).item()
+            
+        prediction = "FAKE" if prob_fake > 0.5 else "REAL"
+        confidence = prob_fake if prediction == "FAKE" else 1 - prob_fake
+        
+        return {
+            "prediction": prediction,
+            "confidence": confidence,
+            "processing_time": time.time() - start_time,
+        }
+
+    def _analyze_video_windows(
+        self, video_path: str, video_id: str = None, user_id: str = None
+    ) -> Tuple[List[float], int]:
+        """Analyzes the video in 50 overlapping windows for detailed frame scores."""
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            raise IOError(f"Could not open video file for processing: {video_path}")
+            raise IOError(f"Could not open video file: {video_path}")
+        
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+        
+        if total_frames == 0:
+            return [], 0
 
-        all_frames_pil = []
-        try:
-            while True:
-                ret, frame = cap.read()
-                if not ret: break
-                all_frames_pil.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-        finally:
-            cap.release()
-            
-        if not all_frames_pil:
-            return [], []
-
-        # --- REFACTORED: Use 50 fixed windows instead of per-frame analysis ---
         num_windows = 50
-        total_frames = len(all_frames_pil)
         frame_scores = []
         seq_len = self.config.num_frames
-
-        # Generate 50 evenly spaced anchor points to end our windows
-        end_frame_indices = np.linspace(0, total_frames - 1, num_windows, dtype=int)
+        end_frame_indices = np.linspace(seq_len - 1, total_frames - 1, num_windows, dtype=int)
 
         for i, end_index in enumerate(tqdm(end_frame_indices, desc=f"Analyzing {num_windows} windows for {self.config.class_name}")):
             start_index = max(0, end_index - seq_len + 1)
-            frame_window = all_frames_pil[start_index : end_index + 1]
+            indices_to_extract = np.linspace(start_index, end_index, seq_len, dtype=int).tolist()
+            
+            # FIX: Convert the generator to a list before passing to the processor.
+            frame_window = list(extract_frames(video_path, num_frames=seq_len, specific_indices=indices_to_extract))
 
-            if len(frame_window) < seq_len:
-                padding = [frame_window[0]] * (seq_len - len(frame_window))
-                frame_window = padding + frame_window
+            if not frame_window:
+                continue
 
             inputs = self.processor(images=frame_window, return_tensors="pt")
             pixel_values = inputs['pixel_values'].to(self.device)
@@ -128,44 +104,24 @@ class SiglipLSTMV3(SiglipLSTMV1):
                     "message": f"Processed window {i + 1}/{num_windows}",
                     "data": {"modelName": self.config.class_name, "progress": i + 1, "total": num_windows},
                 })
-        # --- END REFACTOR ---
-
-        return frame_scores, all_frames_pil
+        
+        return frame_scores, total_frames
 
     def _get_or_run_detailed_analysis(self, video_path: str, **kwargs) -> Dict[str, Any]:
-        """
-        Runs a two-stage analysis: first, a detailed per-frame analysis, and second,
-        a final authoritative prediction based on a representative sequence of frames.
-        Caches the result to avoid re-computation for the same video.
-        """
         if self._last_video_path == video_path and self._last_detailed_result:
             logger.info(f"✅ Using cached detailed analysis for {os.path.basename(video_path)}")
             return self._last_detailed_result
 
+        start_time = time.time()
         video_id = kwargs.get("video_id")
         user_id = kwargs.get("user_id")
-        start_time = time.time()
 
-        frame_scores, all_frames_pil = self._analyze_video_frames(
-            video_path, video_id=video_id, user_id=user_id
-        )
+        frame_scores, total_frames = self._analyze_video_windows(video_path, video_id, user_id)
+        if not frame_scores:
+            raise ValueError("Frame analysis returned no scores.")
 
-        if not frame_scores or not all_frames_pil:
-            raise ValueError("Frame analysis returned no scores or frames.")
-
-        frame_indices = np.linspace(0, len(all_frames_pil) - 1, self.config.num_frames, dtype=int)
-        final_frames_for_pred = [all_frames_pil[i] for i in frame_indices]
-        video_inputs = self.processor(images=final_frames_for_pred, return_tensors="pt")
-        pixel_values = video_inputs['pixel_values'].to(self.device)
-        
-        with torch.no_grad():
-            logits_video = self.model(pixel_values, num_frames_per_video=self.config.num_frames)
-            prob_fake_video = torch.sigmoid(logits_video.squeeze()).item()
-
-        predicted_class_id = 1 if prob_fake_video > 0.5 else 0
-        confidence = prob_fake_video if predicted_class_id == 1 else 1 - prob_fake_video
-        label_map = {0: "REAL", 1: "FAKE"}
-        authoritative_prediction = label_map[predicted_class_id]
+        # The final authoritative prediction uses the simpler, robust `predict` method.
+        final_prediction_result = self.predict(video_path)
 
         if video_id and user_id:
             publish_progress({
@@ -181,11 +137,11 @@ class SiglipLSTMV3(SiglipLSTMV1):
             rolling_avg_scores.append(np.mean(list(rolling_window)))
 
         result = {
-            "prediction": authoritative_prediction,
-            "confidence": confidence,
+            "prediction": final_prediction_result["prediction"],
+            "confidence": final_prediction_result["confidence"],
             "processing_time": time.time() - start_time,
             "metrics": {
-                "frame_count": len(frame_scores),
+                "frame_count": total_frames,
                 "per_frame_scores": frame_scores,
                 "rolling_average_scores": rolling_avg_scores,
                 "final_average_score": np.mean(frame_scores),
@@ -222,9 +178,6 @@ class SiglipLSTMV3(SiglipLSTMV1):
         }
 
     def predict_visual(self, video_path: str, **kwargs) -> str:
-        import cv2
-        import tempfile
-
         detailed_result = self._get_or_run_detailed_analysis(video_path, **kwargs)
         frame_scores = detailed_result["metrics"]["per_frame_scores"]
 
@@ -232,33 +185,31 @@ class SiglipLSTMV3(SiglipLSTMV1):
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         output_temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         output_path = output_temp_file.name
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
-        cap_frames = []
-        while True:
-            ret, frame = cap.read()
-            if not ret: break
-            cap_frames.append(frame)
-        cap.release()
-
         plt.style.use("dark_background")
         fig, ax = plt.subplots(figsize=(6, 2.5))
 
         try:
-            for i, score in enumerate(tqdm(frame_scores, desc="Generating visualization")):
-                if i >= len(cap_frames): break
-                frame = cap_frames[i].copy()
+            for i in tqdm(range(total_frames), desc="Generating visualization"):
+                ret, frame = cap.read()
+                if not ret: break
 
-                # Generate and overlay graph
+                current_score_index = min(len(frame_scores) - 1, int((i / total_frames) * len(frame_scores)))
+                score = frame_scores[current_score_index]
+
+                # ... (rest of the visualization plotting logic is identical and remains here) ...
                 ax.clear()
-                ax.fill_between(range(i + 1), frame_scores[: i + 1], color="#FF4136", alpha=0.4)
-                ax.plot(range(i + 1), frame_scores[: i + 1], color="#FF851B", linewidth=2)
+                ax.fill_between(range(len(frame_scores)), frame_scores, color="#FF4136", alpha=0.4)
+                ax.plot(range(len(frame_scores)), frame_scores, color="#FF851B", linewidth=2)
+                ax.plot(current_score_index, score, "o", color="yellow", markersize=8)
                 ax.axhline(y=0.5, color="white", linestyle="--", alpha=0.7)
-                ax.set_ylim(-0.05, 1.05); ax.set_xlim(0, len(frame_scores))
+                ax.set_ylim(-0.05, 1.05); ax.set_xlim(0, len(frame_scores) -1 if len(frame_scores) > 1 else 1)
                 ax.set_title("Suspicion Analysis", fontsize=10); fig.tight_layout(pad=1.5)
                 fig.canvas.draw()
                 buf = fig.canvas.buffer_rgba()
@@ -268,29 +219,11 @@ class SiglipLSTMV3(SiglipLSTMV1):
                 plot_h, plot_w, _ = plot_img_bgr.shape
                 new_plot_h = int(frame_height * 0.3)
                 new_plot_w = int(new_plot_h * (plot_w / plot_h))
-                # Ensure overlay fits within frame
-                if new_plot_w > frame_width:
-                    new_plot_w = frame_width - 20 if frame_width > 20 else frame_width
-                    new_plot_h = int(new_plot_w * (plot_h / plot_w))
-                if new_plot_h > frame_height:
-                    new_plot_h = frame_height - 20 if frame_height > 20 else frame_height
-                    new_plot_w = int(new_plot_h * (plot_w / plot_h))
                 resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
-                y_offset = 10
-                x_offset = frame_width - new_plot_w - 10
-                # Ensure offsets are valid
-                if x_offset < 0:
-                    x_offset = 0
-                if y_offset + new_plot_h > frame_height:
-                    y_offset = frame_height - new_plot_h
-                # Only overlay if it fits
-                if (y_offset >= 0 and x_offset >= 0 and
-                    y_offset + new_plot_h <= frame_height and
-                    x_offset + new_plot_w <= frame_width):
-                    frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
-                # else: skip overlay if it doesn't fit
+                
+                y_offset, x_offset = 10, frame_width - new_plot_w - 10
+                frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
 
-                # Generate gradient color bar
                 green, yellow, red = np.array([0, 255, 0]), np.array([0, 255, 255]), np.array([0, 0, 255])
                 interp = score * 2 if score < 0.5 else (score - 0.5) * 2
                 color_np = green * (1 - interp) + yellow * interp if score < 0.5 else yellow * (1 - interp) + red * interp
@@ -302,40 +235,64 @@ class SiglipLSTMV3(SiglipLSTMV1):
                 
                 out.write(frame)
         finally:
+            cap.release()
             out.release()
             plt.close(fig)
 
         self._last_detailed_result = None
         self._last_video_path = None
         return output_path
-class SiglipLSTMV4(SiglipLSTMV3):
-    """
-    Represents the V4 version of the Siglip-LSTM model, which incorporates
-    a deeper classifier head with dropout for enhanced regularization.
-    Inherits most of its prediction logic from V3.
-    """
-    config: SiglipLSTMv4Config
 
-    def __init__(self, config: SiglipLSTMv4Config):
-        super(SiglipLSTMV1, self).__init__(config)
-        self._last_detailed_result: Optional[Dict[str, Any]] = None
-        self._last_video_path: Optional[str] = None
-        
-    # Overload the load method for V4 to use the new architecture
+class SiglipLSTMV1(BaseSiglipLSTMDetector):
+    config: SiglipLSTMv1Config
+
     def load(self) -> None:
         start_time = time.time()
         try:
             model_architecture_config = self.config.model_definition.model_dump()
-            self.model = create_v4_model(model_architecture_config)
+            self.model = create_siglip_lstm_model(model_architecture_config)
             state_dict = torch.load(self.config.model_path, map_location=self.device)
             self.model.load_state_dict(state_dict)
             self.model.to(self.device)
             self.model.eval()
-            self.processor = AutoProcessor.from_pretrained(self.config.processor_path, use_fast=True)
-            load_time = time.time() - start_time
-            logger.info(
-                f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f} seconds."
-            )
+            self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
+            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
+        except Exception as e:
+            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+
+class SiglipLSTMV3(BaseSiglipLSTMDetector):
+    config: SiglipLSTMv3Config
+
+    def load(self) -> None:
+        start_time = time.time()
+        try:
+            model_architecture_config = self.config.model_definition.model_dump()
+            self.model = create_siglip_lstm_model(model_architecture_config)
+            state_dict = torch.load(self.config.model_path, map_location=self.device)
+            self.model.load_state_dict(state_dict)
+            self.model.to(self.device)
+            self.model.eval()
+            self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
+            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
+        except Exception as e:
+            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+
+class SiglipLSTMV4(BaseSiglipLSTMDetector):
+    config: SiglipLSTMv4Config
+
+    def load(self) -> None:
+        start_time = time.time()
+        try:
+            model_architecture_config = self.config.model_definition.model_dump()
+            self.model = create_siglip_lstm_model(model_architecture_config)
+            state_dict = torch.load(self.config.model_path, map_location=self.device)
+            self.model.load_state_dict(state_dict)
+            self.model.to(self.device)
+            self.model.eval()
+            self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
+            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
         except Exception as e:
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
             raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e

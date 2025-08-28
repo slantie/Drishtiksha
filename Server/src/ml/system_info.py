@@ -3,7 +3,8 @@
 import time
 import platform
 import sys
-from typing import Dict, Any, Optional
+import logging
+from typing import Dict, Any
 
 try:
     import psutil
@@ -18,7 +19,9 @@ except ImportError:
 from src.app.schemas import DeviceInfo, SystemInfo, ModelInfo
 from src.config import settings
 
-# Track server start time
+logger = logging.getLogger(__name__)
+
+# FIX: Centralize the server start time here.
 _start_time = time.time()
 
 def get_device_info() -> DeviceInfo:
@@ -96,10 +99,11 @@ def get_device_info() -> DeviceInfo:
         )
 
 def _get_cpu_name() -> str:
-    """Get a better CPU name, especially on Windows."""
+    """Get a detailed CPU name, with logging for debugging."""
+    # FIX: Added logging to trace the method used for getting the CPU name.
     try:
-        # Try to get CPU name from Windows registry first
         if platform.system() == "Windows":
+            logger.debug("Attempting to get CPU name from Windows registry.")
             import winreg
             try:
                 with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
@@ -107,8 +111,7 @@ def _get_cpu_name() -> str:
                     cpu_name = winreg.QueryValueEx(key, "ProcessorNameString")[0]
                     return cpu_name.strip()
             except Exception as e:
-                print(f"Registry method failed: {e}")
-            
+                print(f"Registry method failed: {e}")     
             # Try WMI as alternative for Windows
             try:
                 import subprocess
@@ -126,110 +129,55 @@ def _get_cpu_name() -> str:
             except Exception as e:
                 print(f"WMI method failed: {e}")
         
-        # Fallback to cpuinfo if available
-        if psutil is not None:
-            try:
-                import cpuinfo
-                info = cpuinfo.get_cpu_info()
-                if 'brand_raw' in info:
-                    return info['brand_raw']
-                elif 'brand' in info:
-                    return info['brand']
-            except ImportError:
-                pass
-        
-        # Final fallback to platform.processor()
-        processor = platform.processor()
-        if processor:
-            print(f"Platform fallback: {processor}")
-            return processor
-        
-        return "Unknown CPU"
-        
+        logger.debug("Attempting to get CPU name from cpuinfo library.")
+        import cpuinfo
+        info = cpuinfo.get_cpu_info()
+        if 'brand_raw' in info:
+            logger.debug("CPU name found via cpuinfo.brand_raw.")
+            return info['brand_raw']
     except Exception as e:
         print(f"Overall exception in _get_cpu_name: {e}")
         return "Unknown CPU"
+        
 
 def get_system_info() -> SystemInfo:
     """Get system resource information."""
     if psutil is None:
         return SystemInfo(
-            python_version=sys.version.split()[0],
-            platform=platform.platform(),
-            cpu_count=1,
-            total_ram=0.0,
-            used_ram=0.0,
-            ram_usage_percent=0.0,
+            python_version=sys.version.split()[0], platform=platform.platform(),
+            cpu_count=1, total_ram=0.0, used_ram=0.0, ram_usage_percent=0.0,
+            # FIX: Uptime calculation is now centralized here.
             uptime_seconds=round(time.time() - _start_time, 2)
         )
     
-    # Memory information
     memory = psutil.virtual_memory()
-    total_ram = memory.total / (1024**3)  # GB
-    used_ram = memory.used / (1024**3)    # GB
-    ram_usage_percent = memory.percent
-    
-    # Uptime
-    uptime_seconds = time.time() - _start_time
     
     return SystemInfo(
-        python_version=sys.version.split()[0],
-        platform=platform.platform(),
+        python_version=sys.version.split()[0], platform=platform.platform(),
         cpu_count=psutil.cpu_count(),
-        total_ram=round(total_ram, 2),
-        used_ram=round(used_ram, 2),
-        ram_usage_percent=round(ram_usage_percent, 2),
-        uptime_seconds=round(uptime_seconds, 2)
+        total_ram=round(memory.total / (1024**3), 2),
+        used_ram=round(memory.used / (1024**3), 2),
+        ram_usage_percent=round(memory.percent, 2),
+        uptime_seconds=round(time.time() - _start_time, 2)
     )
 
 def get_model_info(manager) -> list[ModelInfo]:
-    """Get detailed information about all models."""
+    """Get detailed information about all active models."""
     model_infos = []
     
-    for name, config in manager.model_configs.items():
-        is_loaded = name in manager._models
+    # Use public methods to get model data
+    loaded_models = manager.get_loaded_model_names()
+    active_configs = manager.get_active_model_configs()
+    
+    for name, config in active_configs.items():
+        is_loaded = name in loaded_models
+        memory_usage_mb = None # Placeholder for future memory tracking
         
-        # Try to get memory usage if model is loaded
-        memory_usage_mb = None
-        if is_loaded and hasattr(manager._models[name], 'model'):
-            try:
-                model = manager._models[name].model
-                if next(model.parameters()).is_cuda:
-                    # Rough estimation of model memory usage
-                    param_size = sum(p.numel() * p.element_size() for p in model.parameters())
-                    buffer_size = sum(b.numel() * b.element_size() for b in model.buffers())
-                    memory_usage_mb = (param_size + buffer_size) / (1024**2)
-            except Exception:
-                pass  # Memory estimation failed, leave as None
-        
-        # Determine media type flags based on model configuration
-        # First check if explicitly set in config, then use model name/class fallbacks
-        is_audio = getattr(config, 'isAudio', None)
-        is_video = getattr(config, 'isVideo', None)
-        
-        # If not explicitly set, determine from model class name
-        if is_audio is None:
-            # Audio models: SCATTERING-WAVE and any model with "AUDIO" in name
-            is_audio = ('SCATTERING-WAVE' in config.class_name or 
-                       'AUDIO' in config.class_name.upper())
-        
-        if is_video is None:
-            # Video models: All models except audio models
-            is_video = not is_audio
-
         model_info = ModelInfo(
-            name=name,
-            class_name=config.class_name,
-            description=config.description,
-            loaded=is_loaded,
-            device=config.device,
-            model_path=config.model_path,
-            isDetailed=config.isDetailed,  # Include detailed analysis capability
-            isAudio=is_audio,
-            isVideo=is_video,
-            memory_usage_mb=round(memory_usage_mb, 2) if memory_usage_mb else None,
-            load_time=None,  # TODO: Track this in model loading
-            inference_count=0  # TODO: Track this in model inference
+            name=name, class_name=config.class_name, description=config.description,
+            loaded=is_loaded, device=config.device, model_path=config.model_path,
+            isDetailed=config.isDetailed, isAudio=config.isAudio, isVideo=config.isVideo,
+            memory_usage_mb=memory_usage_mb
         )
         model_infos.append(model_info)
     

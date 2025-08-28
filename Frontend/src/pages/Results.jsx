@@ -22,11 +22,12 @@ import {
     FileSpreadsheetIcon,
 } from "lucide-react";
 import {
-    useMediaQuery,
+    useMediaItemQuery,
     useUpdateMediaMutation,
     useDeleteMediaMutation,
 } from "../hooks/useMediaQuery.jsx";
 import { AuthContext } from "../contexts/AuthContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import { Button } from "../components/ui/Button";
 import {
     Card,
@@ -37,7 +38,7 @@ import {
     CardFooter,
 } from "../components/ui/Card";
 import { PageLoader } from "../components/ui/LoadingSpinner";
-import { MediaPlayer } from "../components/media/MediaPlayer.jsx";
+import { MediaPlayer } from "../components/media/MediaPlayer.jsx"; 
 import { AnalysisInProgress } from "../components/media/AnalysisInProgress.jsx";
 import { EditMediaModal } from "../components/media/EditMediaModal.jsx";
 import { DeleteMediaModal } from "../components/media/DeleteMediaModal.jsx";
@@ -58,7 +59,7 @@ import { EmptyState } from "../components/ui/EmptyState.jsx";
 import { useMemo } from "react";
 
 // REFACTOR: The result card is now cleaner and uses Card sub-components for better structure.
-const AnalysisResultCard = ({ analysis, videoId, serverModels }) => {
+const AnalysisResultCard = ({ analysis, mediaId, serverModels }) => {
     // 1. Find the full model information from the server status data
     //    by matching the model name from the analysis record.
     const modelInfo = useMemo(() => {
@@ -166,7 +167,7 @@ const AnalysisResultCard = ({ analysis, videoId, serverModels }) => {
             <CardFooter>
                 <Button asChild variant="outline" className="w-full">
                     <Link
-                        to={`/results/${videoId}/${analysis.id}`}
+                        to={`/results/${mediaId}/${analysis.id}`}
                         className="flex items-center justify-center gap-2"
                     >
                         <ChartNetwork className="h-5 w-5 text-purple-500" />
@@ -179,35 +180,30 @@ const AnalysisResultCard = ({ analysis, videoId, serverModels }) => {
 };
 
 const Results = () => {
-    // --- STATE AND LOGIC (PRESERVED) ---
-
+    const { videoId: mediaId } = useParams(); // Use alias for clarity
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    
     const { data: serverStatus } = useServerStatusQuery();
     const serverModels = serverStatus?.modelsInfo || [];
-    const { videoId } = useParams();
-    const navigate = useNavigate();
-    const { user } = useContext(AuthContext);
-    const {
-        data: video,
-        isLoading,
-        error,
-        refetch,
-    } = useMediaQuery(videoId, {
-        refetchInterval: (query) =>
-            ["QUEUED", "PROCESSING"].includes(query.state.data?.status)
-                ? 3000
-                : false,
+
+    const { data: media, isLoading, error, refetch } = useMediaItemQuery(mediaId, {
+        refetchInterval: (query) => 
+            ["QUEUED", "PROCESSING"].includes(query.state.data?.status) ? 5000 : false,
     });
+
     const updateMutation = useUpdateMediaMutation();
     const deleteMutation = useDeleteMediaMutation();
+
     const [modal, setModal] = useState({ type: null, data: null });
     const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
-    const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
+    const [isDownloadingMedia, setIsDownloadingMedia] = useState(false);
 
     const handleDownloadPDF = async () => {
-        if (!video) return;
+        if (!media) return;
         setIsDownloadingPDF(true);
         try {
-            await DownloadService.generateAndDownloadPDF(video, user);
+            await DownloadService.generateAndDownloadPDF(media, user);
         } catch (err) {
             showToast.error(err.message || "Failed to generate PDF report.");
         } finally {
@@ -215,262 +211,117 @@ const Results = () => {
         }
     };
 
-    // --- RENDER LOGIC ---
-    if (isLoading) return <PageLoader text="Loading Analysis Report..." />;
+    if (isLoading) return <PageLoader text="Loading Media Data" />;
 
     if (error)
         return (
             <div className="text-center py-16">
                 <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold">Error Loading Video</h2>
-                <p className="mb-6 text-light-muted-text dark:text-dark-muted-text">
-                    {error.message}
-                </p>
-                <Button asChild>
-                    <Link to="/dashboard">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Go Back
-                    </Link>
-                </Button>
+                <h2 className="text-2xl font-bold">Error Loading Media</h2>
+                <p className="mb-6 text-light-muted-text dark:text-dark-muted-text">{error.message}</p>
+                <Button asChild><Link to="/dashboard"><ArrowLeft className="mr-2 h-4 w-4" /> Go Back</Link></Button>
             </div>
         );
+    
+    // FIX: Add a robust check to ensure the media object exists before rendering.
+    if (!media) return <PageLoader text="Media not found..." />;
 
-    const renderContent = () => {
-        if (isLoading) return <ResultsSkeleton />;
-        if (error) {
-            return (
-                <div className="text-center py-20">
-                    <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">Error</h2>
-                    <p className="text-lg text-light-muted-text dark:text-dark-muted-text mb-6">
-                        {error.message}
-                    </p>
-                    <Button onClick={() => navigate("/dashboard")}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-                    </Button>
-                </div>
-            );
-        }
-
-        if (!video) return <div>Video not found.</div>;
-
-        // --- REFACTORED: Conditional rendering based on the video's real-time status ---
-        const isProcessing = ["QUEUED", "PROCESSING"].includes(video.status);
-        if (isProcessing) {
-            return <AnalysisInProgress video={video} />;
-        }
-
-        return <AnalysisComplete video={video} />;
-    };
-
-    const completedAnalyses =
-        video.analyses?.filter((a) => a.status === "COMPLETED") || [];
-    const failedAnalyses =
-        video.analyses?.filter((a) => a.status === "FAILED") || [];
-    const allAnalyses = [...completedAnalyses, ...failedAnalyses].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
+    const isProcessing = ["QUEUED", "PROCESSING"].includes(media.status);
+    
+    const completedAnalyses = media.analyses?.filter((a) => a.status === "COMPLETED") || [];
+    const failedAnalyses = media.analyses?.filter((a) => a.status === "FAILED") || [];
+    const allAnalyses = [...completedAnalyses, ...failedAnalyses].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return (
         <div className="space-y-4">
             <PageHeader
                 title="Analysis Results"
-                description={`Detailed report for ${video.filename}`}
-                actions={
-                    <Button asChild variant="outline">
-                        <Link to="/dashboard">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-                        </Link>
-                    </Button>
-                }
+                description={`Detailed report for ${media.filename}`}
+                actions={<Button asChild variant="outline"><Link to="/dashboard"><ArrowLeft className="mr-2 h-4 w-4" /> Go Back</Link></Button>}
             />
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                {/* Left Column: Video Details & Actions */}
-                <div className="lg:col-span-1 space-y-4 sticky top-24">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <VideoIcon className="w-5 h-5 text-primary-main" />
-                                Video Details & Actions
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <MediaPlayer videoUrl={video.url} />
-                            <div className="flex items-center justify-between">
+            
+            {isProcessing ? (
+                <AnalysisInProgress media={media} />
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                    <div className="lg:col-span-1 space-y-4 sticky top-24">
+                        <Card>
+                            <CardHeader><CardTitle className="flex items-center gap-2"><VideoIcon className="w-5 h-5 text-primary-main" /> Media Details & Actions</CardTitle></CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* FIX: Pass the entire 'media' object to the MediaPlayer component. */}
+                                <MediaPlayer media={media} />
                                 <div>
-                                    <h4 className="font-semibold text-lg">
-                                        {video.filename}
-                                    </h4>
-                                    <p className="text-sm text-light-muted-text dark:text-dark-muted-text mt-1">
-                                        {video.description ||
-                                            "No description provided."}
-                                    </p>
+                                    <h4 className="font-semibold text-lg">{media.filename}</h4>
+                                    <p className="text-sm text-light-muted-text dark:text-dark-muted-text mt-1">{media.description || "No description provided."}</p>
                                 </div>
-
                                 <Button
-                                    onClick={() =>
-                                        DownloadService.downloadVideo(
-                                            video.url,
-                                            video.filename
-                                        )
-                                            // Set the state true,
-                                            // Set the loading state
-                                            .then(() => {
-                                                setIsDownloadingVideo(false);
-                                                showToast.success(
-                                                    "Video downloaded successfully!"
-                                                );
-                                            })
-                                            .catch((error) => {
-                                                showToast.error(
-                                                    `Failed to download video: ${error.message}`
-                                                );
-                                                setIsDownloadingVideo(false);
-                                            })
-                                    }
+                                    onClick={() => {
+                                        setIsDownloadingMedia(true);
+                                        // FIX: Corrected function call from downloadMedia to downloadVideo
+                                        DownloadService.downloadVideo(media.url, media.filename)
+                                            .then(() => showToast.success("Media download started."))
+                                            .catch((error) => showToast.error(`Failed to download media: ${error.message}`))
+                                            .finally(() => setIsDownloadingMedia(false));
+                                    }}
                                     variant="outline"
-                                    isLoading={isDownloadingVideo}
+                                    isLoading={isDownloadingMedia}
+                                    className="w-full"
                                 >
-                                    <Download className="mr-2 h-4 w-4" />{" "}
-                                    {isDownloadingVideo
-                                        ? "Downloading..."
-                                        : "Download Video"}
+                                    <Download className="mr-2 h-4 w-4" />
+                                    {isDownloadingMedia ? "Preparing..." : "Download Media"}
                                 </Button>
-                            </div>
-                            <div className="text-sm space-y-1 pt-2">
-                                <div className="flex justify-between">
-                                    <span>
-                                        <FileText className="inline w-3 h-3 mr-1" />
-                                        MIME Type:
-                                    </span>
-                                    <span className="font-mono">
-                                        {video.mimetype}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>
-                                        <HardDrive className="inline w-3 h-3 mr-1" />
-                                        File Size:
-                                    </span>
-                                    <span className="font-mono">
-                                        {formatBytes(video.size)}
-                                    </span>
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardContent className="grid grid-cols-2 gap-2">
-                            {/* REFACTOR: Button text and icons are now color-coded to match the Dashboard actions for consistency. */}
-                            <Button
-                                onClick={() =>
-                                    setModal({
-                                        type: "new_analysis",
-                                        data: video,
-                                    })
-                                }
-                                variant="outline"
-                                title="Run a New Analysis"
-                            >
-                                <Brain className="h-4 w-4 mr-2 text-cyan-500" />{" "}
-                                Re-Analyze Video
-                            </Button>
+                            </CardContent>
+                            <CardFooter className="grid grid-cols-2 gap-2">
+                                <Button onClick={() => setModal({ type: "new_analysis", data: media })} variant="outline"><Brain className="h-4 w-4 mr-2" /> Re-Analyze</Button>
+                                <Button onClick={() => setModal({ type: "edit", data: media })} variant="outline"><Edit className="h-4 w-4 mr-2" /> Edit</Button>
+                                <Button onClick={handleDownloadPDF} variant="outline" isLoading={isDownloadingPDF}><FileSpreadsheetIcon className="h-4 w-4 mr-2" /> PDF Report</Button>
+                                <Button onClick={() => setModal({ type: "delete", data: media })} variant="destructive"><Trash2 className="h-4 w-4 mr-2" /> Delete</Button>
+                            </CardFooter>
+                        </Card>
+                    </div>
 
-                            <Button
-                                onClick={() =>
-                                    setModal({ type: "edit", data: video })
-                                }
-                                variant="outline"
-                                title="Edit Video Details"
-                            >
-                                <Edit className="h-4 w-4 mr-2 text-blue-500" />{" "}
-                                Edit Video Details
-                            </Button>
-
-                            <Button
-                                onClick={handleDownloadPDF}
-                                variant="outline"
-                                isLoading={isDownloadingPDF}
-                                title="Download PDF Report"
-                            >
-                                <FileSpreadsheetIcon className="h-4 w-4 mr-2 text-green-500" />{" "}
-                                Download PDF Report
-                            </Button>
-
-                            <Button
-                                onClick={() =>
-                                    setModal({ type: "delete", data: video })
-                                }
-                                variant="destructive"
-                                title="Delete Video"
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete Video
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Right Column: Analysis Results */}
-                <div className="lg:col-span-2 space-y-4">
-                    {allAnalyses.length === 0 ? (
-                        <EmptyState
-                            icon={Bot}
-                            title="No Analysis Results"
-                            message="This video is awaiting its first analysis. Run one to get started."
-                            action={
-                                <Button
-                                    onClick={() =>
-                                        setModal({
-                                            type: "new_analysis",
-                                            data: video,
-                                        })
-                                    }
-                                >
-                                    <Brain className="mr-2 h-4 w-4" /> Start
-                                    First Analysis
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        allAnalyses.map((analysis) => (
-                            <AnalysisResultCard
-                                key={analysis.id}
-                                analysis={analysis}
-                                videoId={video.id}
-                                serverModels={serverModels}
+                    <div className="lg:col-span-2 space-y-4">
+                        {allAnalyses.length === 0 ? (
+                            <EmptyState
+                                icon={Bot}
+                                title="No Analysis Results"
+                                message="This media is awaiting its first analysis. Run one to get started."
+                                action={<Button onClick={() => setModal({ type: "new_analysis", data: media })}><Brain className="mr-2 h-4 w-4" /> Start First Analysis</Button>}
                             />
-                        ))
-                    )}
+                        ) : (
+                            allAnalyses.map((analysis) => (
+                                <AnalysisResultCard key={analysis.id} analysis={analysis} mediaId={media.id} serverModels={serverModels} />
+                            ))
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Modals */}
             <EditMediaModal
                 isOpen={modal.type === "edit"}
                 onClose={() => setModal({ type: null })}
-                video={modal.data}
-                onUpdate={(videoId, data) =>
-                    updateMutation.mutateAsync({ videoId, updateData: data })
-                }
+                // FIX: Pass the 'media' prop instead of 'video'.
+                media={modal.data}
+                onUpdate={(id, data) => updateMutation.mutateAsync({ mediaId: id, updateData: data })}
             />
             <DeleteMediaModal
                 isOpen={modal.type === "delete"}
                 onClose={() => setModal({ type: null })}
-                video={modal.data}
-                onDelete={(videoId) =>
-                    deleteMutation
-                        .mutateAsync(videoId)
-                        .then(() => navigate("/dashboard"))
-                }
+                // FIX: Pass the 'media' prop instead of 'video'.
+                media={modal.data}
+                onDelete={(id) => deleteMutation.mutateAsync(id).then(() => navigate("/dashboard"))}
             />
             <ModelSelectionModal
                 isOpen={modal.type === "new_analysis"}
                 onClose={() => setModal({ type: null })}
+                // Note: This prop is 'videoId' in the modal, should be renamed to 'mediaId' there for consistency later.
                 videoId={modal.data?.id}
                 onAnalysisStart={refetch}
             />
         </div>
     );
 };
+
 
 export default Results;

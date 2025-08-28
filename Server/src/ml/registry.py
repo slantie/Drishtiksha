@@ -1,16 +1,14 @@
 # src/ml/registry.py
 
-import logging
-import string
-from typing import Dict, Type
 
-from src.config import Settings
+import logging
+from typing import Dict, Type
 from src.ml.base import BaseModel
+from src.config import Settings, ModelConfig
 from src.ml.models.color_cues_detector import ColorCuesLSTMV1
 from src.ml.models.eyeblink_detector import EyeblinkDetectorV1
 from src.ml.models.efficientnet_detector import EfficientNetB7Detector
 from src.ml.models.scattering_wave_detector import ScatteringWaveV1
-
 from src.ml.models.siglip_lstm_detector import SiglipLSTMV1, SiglipLSTMV3, SiglipLSTMV4
 
 logger = logging.getLogger(__name__)
@@ -32,16 +30,10 @@ class ModelManager:
     """
 
     def __init__(self, settings: Settings):
-        """
-        Initializes the ModelManager with the application settings.
-
-        Args:
-            settings: The global, type-validated settings object.
-        """
         self._models: Dict[str, BaseModel] = {}
-        self.model_configs = settings.models
-        models = ", ".join(name.upper() for name in self.model_configs.keys())
-        logger.info(f"✅ Available Models: {models}")
+        # This now correctly stores only the active model configurations
+        self.model_configs = settings.models 
+        logger.info(f"✅ ModelManager initialized for active models: {', '.join(self.model_configs.keys())}")
 
     def get_model(self, name: str) -> BaseModel:
         """
@@ -74,18 +66,19 @@ class ModelManager:
             instance = model_class(model_config)
             instance.load()
             self._models[name] = instance
-            
-            # Print success message
-            print("=" * 80)
-            print("✅ MODEL LOADED SUCCESSFULLY")
-            print("=" * 80)
-            print(f"🤖 Model Name: {name}")
-            print(f"🖥️  Device: {model_config.device}")
-            print("🎯 Ready for inference!")
-            print("=" * 80)
 
         return self._models[name]
 
     def get_available_models(self) -> list[str]:
-        """Returns a list of all configured model names."""
+        """Returns a list of all ACTIVE model names."""
         return list(self.model_configs.keys())
+
+    # FIX: Add a public method to get loaded model names, avoiding private access.
+    def get_loaded_model_names(self) -> list[str]:
+        """Returns a list of names of models currently loaded in memory."""
+        return list(self._models.keys())
+    
+    # FIX: Add a public method to get the configurations of active models.
+    def get_active_model_configs(self) -> Dict[str, ModelConfig]:
+        """Returns the configuration objects for all active models."""
+        return self.model_configs

@@ -12,6 +12,35 @@ const sizeClasses = {
     lg: "h-10 w-10",
 };
 
+export const DotsSpinner =({
+size = "md", color="text-light-highlight dark:text-dark-highlight"
+}) => {
+    const dotSize =
+        size === "xs"
+            ? "w-1 h-1"
+            : size === "sm"
+            ? "w-1.5 h-1.5"
+            : size === "md"
+            ? "w-2 h-2"
+            : size === "lg"
+            ? "w-2.5 h-2.5"
+            : "w-3 h-3";
+
+    return (
+        <div className="flex space-x-1">
+            <div
+                className={`${dotSize} ${color} bg-current rounded-full animate-bounce [animation-delay:0ms]`}
+            />
+            <div
+                className={`${dotSize} ${color} bg-current rounded-full animate-bounce [animation-delay:150ms]`}
+            />
+            <div
+                className={`${dotSize} ${color} bg-current rounded-full animate-bounce [animation-delay:300ms]`}
+            />
+        </div>
+    );
+};
+
 export const LoadingSpinner = ({ size = "md", text, className }) => (
     <div
         className={cn(

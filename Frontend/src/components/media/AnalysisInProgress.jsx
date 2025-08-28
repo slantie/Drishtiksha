@@ -6,6 +6,7 @@ import { Loader2, Brain, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { useMediaProgress } from "../../hooks/useMediaProgess.js";
 import { useServerStatusQuery } from "../../hooks/useMonitoringQuery.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/Card.jsx";
+import { DotsSpinner } from "../ui/LoadingSpinner.jsx";
 
 const ModelStatusRow = ({ model, status }) => {
     const statusIcons = {
@@ -15,18 +16,18 @@ const ModelStatusRow = ({ model, status }) => {
         FAILED: <AlertTriangle className="w-5 h-5 text-red-500" title="Failed" />,
     };
     return (
-        <div className="flex items-center justify-between p-4 bg-light-muted-background dark:bg-dark-secondary rounded-lg">
+        <Card className="m-1 flex items-center justify-between p-4 bg-light-muted-background dark:bg-dark-secondary rounded-lg">
             <div className="flex items-center gap-4">
                 <div className="flex-shrink-0 w-10 h-10 bg-primary-main/10 rounded-full flex items-center justify-center">
                     <Brain className="w-5 h-5 text-primary-main" />
                 </div>
                 <div>
-                    <p className="font-semibold">{model.name}</p>
+                    <p className="font-semibold text-left mb-1">{model.name}</p>
                     <p className="text-xs text-light-muted-text dark:text-dark-muted-text">{model.description}</p>
                 </div>
             </div>
             {statusIcons[status]}
-        </div>
+        </Card>
     );
 };
 
@@ -68,10 +69,14 @@ export const AnalysisInProgress = ({ media }) => {
     const formattedStatus = media.status.replace("_", " ").toLowerCase();
 
     return (
-        <div className="max-w-3xl mx-auto text-center">
-            <Loader2 className="w-16 h-16 text-primary-main mx-auto animate-spin mb-6" />
-            <h1 className="text-3xl font-bold mb-2">Analysis in Progress</h1>
-            <p className="text-lg text-light-muted-text dark:text-dark-muted-text mb-8">
+        <div className="mx-auto text-center">
+            {/* <Loader2 className="w-16 h-16 text-primary-main mx-auto animate-spin mb-6" /> */}
+            <div className="flex items-center justify-center gap-4 mb-2">
+            <DotsSpinner/>
+                
+            </div>
+            <h1 className="text-2xl font-bold">Analysis in Progress</h1>
+            <p className="text-md text-light-muted-text dark:text-dark-muted-text mb-8">
                 Your file "{media.filename}" is being analyzed. This page will update automatically.
             </p>
             <Card>
@@ -79,7 +84,7 @@ export const AnalysisInProgress = ({ media }) => {
                     <CardTitle>Current Status: <span className="capitalize text-primary-main">{formattedStatus}</span></CardTitle>
                     <CardDescription>{latestEventMessage}</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="grid grid-cols-2">
                     {isServerStatusLoading ? (
                         <p>Loading available models...</p>
                     ) : (

@@ -19,26 +19,17 @@ from typing import Any, Dict, List, Optional, Tuple
 from src.ml.base import BaseModel
 from src.config import EfficientNetB7Config
 from src.ml.architectures.efficientnet import create_efficientnet_model
-# --- NEW: Import the event publisher ---
 from src.ml.event_publisher import publish_progress
-# --- END NEW ---
 
-# Update Matplotlib backend
 matplotlib.use("Agg")
-
-# Initialize logger
 logger = logging.getLogger(__name__)
 
-# Pre-define normalization for image tensors
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
 normalize_transform = Normalize(mean, std)
 
 class EfficientNetB7Detector(BaseModel):
-    """
-    DeepFake detector using an MTCNN for face extraction and an EfficientNet-B7
-    classifier for frame-by-frame, face-by-face analysis.
-    """
+    """DeepFake detector using MTCNN for faces and EfficientNet-B7 for classification."""
     config: EfficientNetB7Config
 
     def __init__(self, config: EfficientNetB7Config):
@@ -52,19 +43,15 @@ class EfficientNetB7Detector(BaseModel):
         start_time = time.time()
         timm_logger = logging.getLogger('timm')
         original_level = timm_logger.level
+        
+        # FIX: Wrap in try...finally to ensure logger level is always restored.
         try:
-            self.face_detector = MTCNN(
-                margin=0,
-                thresholds=[0.7, 0.8, 0.8],
-                device=self.device
-            )
+            self.face_detector = MTCNN(margin=0, thresholds=[0.7, 0.8, 0.8], device=self.device)
 
             timm_logger.setLevel(logging.WARNING)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 self.model = create_efficientnet_model(config=self.config.model_dump())
-
-            timm_logger.setLevel(original_level)
 
             checkpoint = torch.load(self.config.model_path, map_location="cpu", weights_only=False)
             state_dict = checkpoint.get("state_dict", checkpoint)
@@ -74,14 +61,12 @@ class EfficientNetB7Detector(BaseModel):
             self.model.eval()
 
             load_time = time.time() - start_time
-            logger.info(
-                f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f}s."
-            )
+            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            # Ensure logger level is restored on failure
-            timm_logger.setLevel(original_level)
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
             raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+        finally:
+            timm_logger.setLevel(original_level)
 
     def _extract_faces(self, frame: np.ndarray) -> List[np.ndarray]:
         """Detects and extracts all faces from a single frame."""
@@ -136,14 +121,19 @@ class EfficientNetB7Detector(BaseModel):
 
     def _confident_strategy(self, preds: List[float], threshold: float = 0.8) -> float:
         """Aggregates per-face predictions using a confidence-based heuristic."""
-        if not preds: return 0.5
+        if not preds: return 0.5 # Default neutral score
         preds = np.array(preds)
+        
+        # FIX: Added logging to provide insight into aggregation logic
         fakes = np.count_nonzero(preds > threshold)
         if fakes > len(preds) / 2.5 and fakes > 11:
+            logger.debug(f"Confident strategy: High fake count ({fakes}) met. Averaging high-confidence fakes.")
             return np.mean(preds[preds > threshold])
         elif np.count_nonzero(preds < 0.2) > 0.9 * len(preds):
+            logger.debug("Confident strategy: Overwhelming real count met. Averaging high-confidence reals.")
             return np.mean(preds[preds < 0.2])
         else:
+            logger.debug("Confident strategy: Defaulting to mean of all predictions.")
             return np.mean(preds)
             
     def predict(self, video_path: str, **kwargs) -> Dict[str, Any]:
@@ -156,15 +146,12 @@ class EfficientNetB7Detector(BaseModel):
 
     def _get_or_run_detailed_analysis(self, video_path: str, **kwargs) -> Dict[str, Any]:
         if self._last_video_path == video_path and self._last_detailed_result:
-            logger.info(f"✅ Using cached detailed analysis for {os.path.basename(video_path)}")
             return self._last_detailed_result
 
-        # --- NEW: Extract context for progress reporting ---
         video_id = kwargs.get("video_id")
         user_id = kwargs.get("user_id")
-        # --- END NEW ---
-
         start_time = time.time()
+
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened(): raise IOError(f"Could not open video file: {video_path}")
 
@@ -180,63 +167,41 @@ class EfficientNetB7Detector(BaseModel):
                 faces = self._extract_faces(frame)
                 
                 if not faces:
-                    per_frame_scores.append(0.0)
+                    per_frame_scores.append(0.0) # Assume real if no face is detected in a frame
                     continue
 
                 face_preds = self._predict_on_faces(faces)
                 all_face_predictions.extend(face_preds)
                 per_frame_scores.append(max(face_preds) if face_preds else 0.0)
 
-                # --- NEW: Emit progress to Redis ---
                 if (i + 1) % 10 == 0 and video_id and user_id:
                     publish_progress({
-                        "videoId": video_id,
-                        "userId": user_id,
-                        "event": "FRAME_ANALYSIS_PROGRESS",
+                        "videoId": video_id, "userId": user_id, "event": "FRAME_ANALYSIS_PROGRESS",
                         "message": f"Processed frame {i + 1}/{total_frames}",
-                        "data": {
-                            "modelName": self.config.class_name,
-                            "progress": i + 1,
-                            "total": total_frames,
-                        },
+                        "data": {"modelName": self.config.class_name, "progress": i + 1, "total": total_frames},
                     })
-                # --- END NEW ---
         finally:
             cap.release()
 
-        # --- NEW: Emit final progress event ---
-        if video_id and user_id:
-            publish_progress({
-                "videoId": video_id,
-                "userId": user_id,
-                "event": "FRAME_ANALYSIS_PROGRESS",
-                "message": f"Completed frame analysis for {self.config.class_name}",
-                "data": {
-                    "modelName": self.config.class_name,
-                    "progress": total_frames,
-                    "total": total_frames,
-                },
-            })
-        # --- END NEW ---
+        # FIX: Graceful fallback for videos with no detectable faces.
+        note = None
+        if not all_face_predictions:
+            note = "No faces were detected in the video. Result is a low-confidence fallback."
+            logger.warning(f"For video '{os.path.basename(video_path)}': {note}")
+            final_prob_fake = 0.0 # Default to REAL
+        else:
+            final_prob_fake = self._confident_strategy(all_face_predictions)
 
-        final_prob_fake = self._confident_strategy(all_face_predictions)
         prediction = "FAKE" if final_prob_fake > 0.5 else "REAL"
         confidence = final_prob_fake if prediction == "FAKE" else 1 - final_prob_fake
-        processing_time = time.time() - start_time
 
         result = {
-            "prediction": prediction,
-            "confidence": confidence,
-            "processing_time": processing_time,
+            "prediction": prediction, "confidence": confidence, "processing_time": time.time() - start_time,
             "metrics": {
-                "frame_count": total_frames,
-                "total_faces_detected": len(all_face_predictions),
-                "per_frame_scores": per_frame_scores,
-                "average_face_score": np.mean(all_face_predictions) if all_face_predictions else 0.0,
-                "max_score": max(per_frame_scores) if per_frame_scores else 0.0,
-                "min_score": min(per_frame_scores) if per_frame_scores else 0.0,
+                "frame_count": total_frames, "total_faces_detected": len(all_face_predictions),
+                "per_frame_scores": per_frame_scores, "average_face_score": np.mean(all_face_predictions) if all_face_predictions else 0.0,
                 "suspicious_frames_count": sum(1 for s in per_frame_scores if s > 0.5),
-            },
+            }, "note": note
         }
         self._last_video_path = video_path
         self._last_detailed_result = result

@@ -1,5 +1,6 @@
 # src/ml/models/eyeblink_detector.py
 
+
 import os
 import cv2
 import dlib
@@ -27,11 +28,7 @@ import matplotlib.pyplot as plt
 logger = logging.getLogger(__name__)
 
 class EyeblinkDetectorV1(BaseModel):
-    """
-    Detects deepfakes by analyzing eye blink patterns using a CNN+LSTM model.
-    This implementation is a refactored, optimized, and PyTorch-native version
-    of the original Keras-based script.
-    """
+    """Detects deepfakes by analyzing eye blink patterns using a CNN+LSTM model."""
     config: EyeblinkModelConfig
 
     def __init__(self, config: EyeblinkModelConfig):
@@ -42,18 +39,16 @@ class EyeblinkDetectorV1(BaseModel):
         self._last_video_path: Optional[str] = None
 
     def load(self) -> None:
+        """Loads the dlib predictor and the PyTorch CNN+LSTM model."""
         start_time = time.time()
         try:
-            # Load dlib shape predictor for landmark detection
             if not os.path.exists(self.config.dlib_model_path):
                 raise FileNotFoundError(f"Dlib shape predictor not found at: {self.config.dlib_model_path}")
             self.shape_predictor = dlib.shape_predictor(self.config.dlib_model_path)
 
-            # Build the PyTorch model from architecture
-            model_architecture_config = self.config.model_definition.model_dump()
-            self.model = create_eyeblink_model({**model_architecture_config, 'pretrained': True}) # Ensure pretrained is used
+            model_arch_config = self.config.model_definition.model_dump()
+            self.model = create_eyeblink_model({**model_arch_config, 'pretrained': True})
             
-            # Load the converted PyTorch weights
             if not os.path.exists(self.config.model_path):
                 raise FileNotFoundError(f"PyTorch weights file not found at: {self.config.model_path}")
             state_dict = torch.load(self.config.model_path, map_location=torch.device('cpu'))
@@ -61,15 +56,14 @@ class EyeblinkDetectorV1(BaseModel):
             self.model.to(self.device)
             self.model.eval()
 
-            # Define the image preprocessing pipeline
             self.transform = Compose([
-                ToTensor(), # Converts PIL Image (RGB) to tensor and scales to [0, 1]
+                ToTensor(),
                 Resize(self.config.model_definition.img_size, antialias=True),
-                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # ImageNet normalization
+                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
 
             load_time = time.time() - start_time
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}'\t | Device: '{self.device}'\t | Time: {load_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
             raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
@@ -82,20 +76,17 @@ class EyeblinkDetectorV1(BaseModel):
         return (y1 + y2) / (2.0 * x1) if x1 > 0 else 0.0
 
     def _extract_blink_frames(self, video_path: str, video_id: str = None, user_id: str = None) -> List[Image.Image]:
-        """
-        Optimized blink extraction that samples frames from the video, detects
-        blinks, and collects eye crops for analysis.
-        """
+        """Optimized blink extraction with frame skipping."""
         detector = dlib.get_frontal_face_detector()
         (L_start, L_end) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
         (R_start, R_end) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
         cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise IOError(f"Could not open video file: {video_path}")
+        if not cap.isOpened(): raise IOError(f"Could not open video file: {video_path}")
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_skip = 10  # --- OPTIMIZATION: Analyze every 10th frame ---
+        # FIX: Introduce frame skipping for huge performance gain.
+        frame_skip = 10 
         frames_to_process = range(0, total_frames, frame_skip)
 
         all_blink_frames = []
@@ -108,20 +99,16 @@ class EyeblinkDetectorV1(BaseModel):
                 ret, frame = cap.read()
                 if not ret: break
 
-                # Publish progress based on sampled frames
-                progress_step = (i // frame_skip) + 1
                 if video_id and user_id:
-                    publish_progress({
-                        "videoId": video_id, "userId": user_id, "event": "FRAME_ANALYSIS_PROGRESS",
-                        "message": f"Scanning frame {i}/{total_frames} for blinks",
-                        "data": {"modelName": self.config.class_name, "progress": progress_step, "total": len(frames_to_process)},
-                    })
+                    publish_progress({"videoId": video_id, "userId": user_id, "event": "FRAME_ANALYSIS_PROGRESS",
+                                      "message": f"Scanning frame {i}/{total_frames} for blinks",
+                                      "data": {"modelName": self.config.class_name, "progress": i, "total": total_frames}})
 
                 frame = imutils.resize(frame, width=640)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 faces = detector(gray)
 
-                if len(faces) > 0:
+                if faces:
                     shape = self.shape_predictor(gray, faces[0])
                     shape = face_utils.shape_to_np(shape)
                     left_eye, right_eye = shape[L_start:L_end], shape[R_start:R_end]
@@ -129,12 +116,9 @@ class EyeblinkDetectorV1(BaseModel):
 
                     if avg_ear < self.config.blink_threshold:
                         consecutive_blink_frames += 1
-                        all_eye_landmarks = np.concatenate((left_eye, right_eye))
-                        (x, y, w, h) = cv2.boundingRect(all_eye_landmarks)
-                        pad = 15
-                        eye_crop = frame[max(0, y - pad):y + h + pad, max(0, x - pad):x + w + pad]
+                        (x, y, w, h) = cv2.boundingRect(np.concatenate((left_eye, right_eye)))
+                        eye_crop = frame[max(0, y - 15):y + h + 15, max(0, x - 15):x + w + 15]
                         if eye_crop.size > 0:
-                            # Convert to PIL Image (RGB) for consistent preprocessing
                             blink_frame_buffer.append(Image.fromarray(cv2.cvtColor(eye_crop, cv2.COLOR_BGR2RGB)))
                     else:
                         if consecutive_blink_frames >= self.config.consecutive_frames:
@@ -142,17 +126,17 @@ class EyeblinkDetectorV1(BaseModel):
                         consecutive_blink_frames = 0
                         blink_frame_buffer = []
             
-            # --- ROBUSTNESS: Flush buffer after loop in case video ends on a blink ---
+            # FIX: Flush buffer after loop in case video ends on a blink.
             if consecutive_blink_frames >= self.config.consecutive_frames:
                 all_blink_frames.extend(blink_frame_buffer)
         finally:
             cap.release()
             
+        logger.info(f"Detected {len(all_blink_frames)} blink frames in '{os.path.basename(video_path)}'.")
         return all_blink_frames
 
     def _get_or_run_detailed_analysis(self, video_path: str, **kwargs) -> Dict[str, Any]:
         if self._last_video_path == video_path and self._last_detailed_result:
-            logger.info(f"✅ Using cached detailed analysis for {os.path.basename(video_path)}")
             return self._last_detailed_result
 
         start_time = time.time()
@@ -161,62 +145,46 @@ class EyeblinkDetectorV1(BaseModel):
         
         blink_frames = self._extract_blink_frames(video_path, video_id, user_id)
         
+        # FIX: Greatly improved fallback logic for robustness.
         note = None
-        # Robust fallback for insufficient blinks
         if len(blink_frames) < self.config.sequence_length:
-            note = f"Insufficient blinks detected ({len(blink_frames)} frames found). Prediction is a fallback."
-            result = {
-                "prediction": "REAL", "confidence": 0.9, "processing_time": time.time() - start_time,
+            note = f"Insufficient blinks detected ({len(blink_frames)} frames found). Result is a low-confidence fallback."
+            logger.warning(f"For video '{os.path.basename(video_path)}': {note}")
+            return {
+                "prediction": "REAL", "confidence": 0.51, "processing_time": time.time() - start_time,
                 "metrics": {
                     "frame_count": len(blink_frames), "per_frame_scores": [], "sequence_count": 0,
-                    "final_average_score": 0.9, "max_score": 0.9, "min_score": 0.9, "suspicious_frames_count": 0
+                    "final_average_score": 0.0, "suspicious_frames_count": 0
                 }, "note": note
             }
-            self._last_video_path = video_path
-            self._last_detailed_result = result
-            return result
 
-        # Preprocess frames and create sequences
         processed_frames = [self.transform(frame) for frame in blink_frames]
         sequences = [processed_frames[i:i + self.config.sequence_length] for i in range(len(processed_frames) - self.config.sequence_length + 1)]
         
+        # This case is less likely now but good for safety
         if not sequences:
             note = "Could not form analysis sequences from detected blinks."
-            result = { "prediction": "REAL", "confidence": 0.9, "processing_time": time.time() - start_time,
-                "metrics": {
-                    "frame_count": len(blink_frames), "per_frame_scores": [], "sequence_count": 0,
-                    "final_average_score": 0.9, "max_score": 0.9, "min_score": 0.9, "suspicious_frames_count": 0
-                }, "note": note
-            }
-            self._last_video_path = video_path
-            self._last_detailed_result = result
-            return result
+            return { "prediction": "REAL", "confidence": 0.51, "processing_time": time.time() - start_time, "metrics": {"frame_count": len(blink_frames)}, "note": note}
 
-        # Batch sequences for prediction
         sequences_tensor = torch.stack([torch.stack(s) for s in sequences]).to(self.device)
 
         with torch.no_grad():
-            predictions = self.model(sequences_tensor).squeeze()
-            probs = torch.sigmoid(predictions).cpu().numpy().tolist()
-            # Handle case where only one sequence is predicted
-            if not isinstance(probs, list):
-                probs = [probs]
+            logits = self.model(sequences_tensor)
+            # Probabilities of being REAL (original model was trained this way)
+            probs_real = torch.sigmoid(logits.squeeze()).cpu().numpy().tolist()
+            probs_real = [probs_real] if not isinstance(probs_real, list) else probs_real
 
-        avg_prob_real = np.mean(probs) if probs else 0.9
-        avg_prob_fake = 1.0 - avg_prob_real
+        avg_prob_real = np.mean(probs_real)
         prediction = "REAL" if avg_prob_real >= 0.5 else "FAKE"
         confidence = avg_prob_real if prediction == "REAL" else 1 - avg_prob_real
 
         result = {
             "prediction": prediction, "confidence": float(confidence), "processing_time": time.time() - start_time,
             "metrics": {
-                "frame_count": len(blink_frames), 
-                "sequence_count": len(sequences),
-                "per_frame_scores": probs, 
-                "final_average_score": float(avg_prob_fake),
-                "max_score": float(max(probs)) if probs else 0.9,
-                "min_score": float(min(probs)) if probs else 0.9,
-                "suspicious_frames_count": sum(1 for s in probs if s < 0.5),
+                "frame_count": len(blink_frames), "sequence_count": len(sequences),
+                "per_frame_scores": probs_real, # Note: these are scores for REAL
+                "final_average_score": 1.0 - float(avg_prob_real), # Invert for FAKE score
+                "suspicious_frames_count": sum(1 for s in probs_real if s < 0.5),
             }, "note": note
         }
         self._last_video_path = video_path
