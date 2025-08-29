@@ -1,47 +1,62 @@
-# --- STAGE 1: Build the Python environment with uv ---
-FROM python:3.12-slim AS builder
+# Dockerfile
 
-# Install system dependencies required for building Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# --- STAGE 1: The Builder ---
+FROM python:3.12.11-slim-bookworm AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv, the fast package manager
-RUN pip install uv
-
 WORKDIR /app
-
 COPY pyproject.toml .
 
-# Create a virtual environment and install dependencies into it
-RUN uv venv && uv sync
+RUN pip install uv && \
+    uv venv && \
+    uv sync
 
-# --- STAGE 2: Create the final production image ---
-FROM python:3.12-slim
+# --- STAGE 2: The Final Production Image ---
+FROM python:3.12.11-slim-bookworm
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    # FIX: Set environment variables to point caching libraries to a writable directory.
+    # This prevents them from trying to write to the non-existent root home directory.
+    HF_HOME="/app/cache/huggingface" \
+    MPLCONFIGDIR="/app/cache/matplotlib" \
+    XDG_CACHE_HOME="/app/cache"
 
-# FIX: Create a non-root user and group for security
+# Install required RUNTIME system libraries
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libgl1 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user and group for enhanced security.
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
 WORKDIR /app
 
-# Copy the virtual environment from the builder stage
+# Copy the virtual environment from the builder stage.
 COPY --from=builder /app/.venv ./.venv
 
-# Add the virtual environment's bin directory to the PATH
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Copy your application source code
-# FIX: Change ownership of the app code to the new user
+# Copy the application source code.
 COPY --chown=appuser:appgroup . .
 
-# FIX: Switch to the non-root user
+# FIX: Create the cache directory and give our non-root user ownership.
+RUN mkdir -p /app/cache/huggingface /app/cache/matplotlib && \
+    chown -R appuser:appgroup /app/cache
+
+# Switch to the non-root user.
 USER appuser
 
 EXPOSE 8000
 
-# The command to start the Uvicorn server
 CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

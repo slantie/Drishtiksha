@@ -4,16 +4,28 @@ from fastapi import APIRouter, Depends
 
 from src.app.dependencies import get_model_manager
 from src.app.schemas import HealthStatus, ModelStatus, ServerStats, DeviceInfo, SystemInfo
+from src.app.security import get_api_key
 from src.ml.registry import ModelManager
-from src.ml.system_info import get_device_info, get_system_info, get_model_info, get_server_configuration
+from src.ml.system_info import system_monitor
 from src.config import settings
 
-router = APIRouter(tags=["Status & Statistics"])
+# --- Router for Public Endpoints ---
+# This router has NO security dependency and is for endpoints that need to be open,
+# like health checks for load balancers or container orchestrators.
+public_router = APIRouter(tags=["Status & Statistics"])
 
-@router.get("/", response_model=HealthStatus)
+# --- Router for Private, Protected Endpoints ---
+# This router applies the API key security dependency to ALL endpoints defined on it.
+private_router = APIRouter(
+    tags=["Status & Statistics"],
+    dependencies=[Depends(get_api_key)]
+)
+
+# --- Public Endpoints ---
+
+@public_router.get("/", response_model=HealthStatus)
 def get_root_health(manager: ModelManager = Depends(get_model_manager)):
-    """Provides a detailed health check of the service and the status of all active models."""
-    # REFACTOR: Use public methods to get model info, avoiding private member access.
+    """Provides a public health check of the service and the status of all active models."""
     loaded_model_names = manager.get_loaded_model_names()
     active_model_configs = manager.get_active_model_configs()
 
@@ -24,52 +36,52 @@ def get_root_health(manager: ModelManager = Depends(get_model_manager)):
             description=config.description
         ) for name, config in active_model_configs.items()
     ]
-        
     return HealthStatus(
         status="ok",
         active_models=model_statuses,
         default_model=settings.default_model_name,
     )
 
-@router.get("/ping")
+@public_router.get("/ping")
 def ping():
-    """A simple ping endpoint to confirm the server is running."""
+    """A simple public ping endpoint to confirm the server is running."""
     return {"status": "pong"}
 
-@router.get("/stats", response_model=ServerStats)
+# --- Private, API Key-Protected Endpoints ---
+
+@private_router.get("/stats", response_model=ServerStats)
 def get_server_stats(manager: ModelManager = Depends(get_model_manager)):
-    """Get comprehensive server statistics including device, system, and model information."""
-    # REFACTOR: Uptime is now fetched from the centralized system_info module.
-    system_info_data = get_system_info()
+    """(Protected) Get comprehensive server statistics including device, system, and model information."""
+    system_info_data = system_monitor.get_system_info()
     
     return ServerStats(
         service_name=settings.project_name,
         version="3.0.0",
         status="running",
         uptime_seconds=system_info_data.uptime_seconds,
-        device_info=get_device_info(),
+        device_info=system_monitor.get_device_info(),
         system_info=system_info_data,
-        models_info=get_model_info(manager),
+        models_info=system_monitor.get_models_info(manager),
         active_models_count=len(manager.get_loaded_model_names()),
         total_models_count=len(manager.get_active_model_configs()),
-        configuration=get_server_configuration()
+        configuration=system_monitor.get_server_configuration()
     )
 
-@router.get("/device", response_model=DeviceInfo)
+@private_router.get("/device", response_model=DeviceInfo)
 def get_device_status():
-    """Get detailed information about the compute device (GPU/CPU)."""
-    return get_device_info()
+    """(Protected) Get detailed information about the compute device (GPU/CPU)."""
+    return system_monitor.get_device_info()
 
-@router.get("/system", response_model=SystemInfo)
+@private_router.get("/system", response_model=SystemInfo)
 def get_system_status():
-    """Get system resource information (RAM, CPU, etc.)."""
-    return get_system_info()
+    """(Protected) Get system resource information (RAM, CPU, etc.)."""
+    return system_monitor.get_system_info()
 
-@router.get("/models")
+@private_router.get("/models")
 def get_models_info(manager: ModelManager = Depends(get_model_manager)):
-    """Get detailed information about all configured and loaded models."""
+    """(Protected) Get detailed information about all configured and loaded models."""
     return {
-        "models": get_model_info(manager),
+        "models": system_monitor.get_models_info(manager),
         "summary": {
             "total_configured": len(manager.get_active_model_configs()),
             "currently_loaded": len(manager.get_loaded_model_names()),
@@ -78,7 +90,7 @@ def get_models_info(manager: ModelManager = Depends(get_model_manager)):
         }
     }
 
-@router.get("/config")
+@private_router.get("/config")
 def get_configuration():
-    """Get server configuration summary."""
-    return get_server_configuration()
+    """(Protected) Get server configuration summary."""
+    return system_monitor.get_server_configuration()

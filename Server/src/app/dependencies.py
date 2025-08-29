@@ -12,7 +12,6 @@ from src.ml.registry import ModelManager
 
 logger = logging.getLogger(__name__)
 
-# This dictionary will hold our application's state, like the ModelManager instance.
 app_state: Dict[str, Any] = {}
 
 def get_model_manager() -> ModelManager:
@@ -25,8 +24,11 @@ def get_model_manager() -> ModelManager:
         )
     return manager
 
-async def process_video_request(
-    video: UploadFile,
+
+# REFACTOR: Renamed from process_video_request to be media-agnostic.
+async def process_media_request(
+    # REFACTOR: Changed alias from 'video' to 'media' for clarity.
+    media: UploadFile = Form(..., alias="media"),
     model_name_form: str = Form(
         default=None,
         alias="model",
@@ -42,9 +44,7 @@ async def process_video_request(
     4. Guarantees cleanup of the temporary file after the request is complete.
     """
     target_model_name = model_name_form or settings.default_model_name
-    
-    # FIX: Add crucial validation to ensure the requested model is active and loaded.
-    # This prevents errors if a client requests a model that is configured but not active.
+
     if target_model_name not in model_manager.get_available_models():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -56,29 +56,25 @@ async def process_video_request(
 
     temp_path = None
     try:
-        # Create a secure temporary file with the correct suffix to aid file-type detection.
-        suffix = os.path.splitext(video.filename)[1] if video.filename else ".tmp"
+        suffix = os.path.splitext(media.filename)[1] if media.filename else ".tmp"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             temp_path = tmp.name
 
-        # FIX: Write the uploaded file in chunks for memory efficiency, especially with large files.
         async with aiofiles.open(temp_path, 'wb') as out_file:
             content_written = 0
-            while content := await video.read(1024 * 1024):  # Read in 1MB chunks
+            while content := await media.read(1024 * 1024):  # Read in 1MB chunks
                 await out_file.write(content)
                 content_written += len(content)
 
         if content_written == 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="Uploaded file is empty."
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded media file is empty."
             )
-        
-        # Yield control back to the endpoint function. The file is guaranteed to exist.
+
         yield target_model_name, temp_path
 
     finally:
-        # This cleanup code is guaranteed to run after the request is handled.
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)

@@ -1,216 +1,155 @@
 # src/ml/system_info.py
 
+import os
 import time
 import platform
 import sys
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
+from functools import wraps
 
+# These imports are conditional to prevent crashes if they aren't installed.
 try:
     import psutil
 except ImportError:
     psutil = None
-
 try:
     import torch
 except ImportError:
     torch = None
+try:
+    import cpuinfo
+except ImportError:
+    cpuinfo = None
 
 from src.app.schemas import DeviceInfo, SystemInfo, ModelInfo
 from src.config import settings
+from src.ml.registry import ModelManager
 
 logger = logging.getLogger(__name__)
 
-# FIX: Centralize the server start time here.
-_start_time = time.time()
 
-def get_device_info() -> DeviceInfo:
-    """Get detailed information about the compute device."""
-    if torch is None:
-        return DeviceInfo(
-            type="cpu",
-            name="PyTorch not available",
-            total_memory=None,
-            used_memory=None,
-            free_memory=None,
-            memory_usage_percent=None,
-            compute_capability=None,
-            cuda_version=None
-        )
-    
-    device_type = settings.device.lower()
-    
-    # Respect user's device preference from environment variable
-    if device_type == "cpu":
-        # User explicitly wants CPU processing - get better CPU name
-        cpu_name = _get_cpu_name()
-        return DeviceInfo(
-            type="cpu",
-            name=cpu_name,
-            total_memory=None,
-            used_memory=None,
-            free_memory=None,
-            memory_usage_percent=None,
-            compute_capability=None,
-            cuda_version=None
-        )
-    elif device_type == "cuda" and torch.cuda.is_available():
-        # User wants CUDA and it's available
-        device = torch.cuda.current_device()
-        device_name = torch.cuda.get_device_name(device)
-        
-        # Memory information
-        total_memory = torch.cuda.get_device_properties(device).total_memory / (1024**3)  # GB
-        allocated_memory = torch.cuda.memory_allocated(device) / (1024**3)  # GB
-        reserved_memory = torch.cuda.memory_reserved(device) / (1024**3)  # GB
-        free_memory = total_memory - reserved_memory
-        memory_usage_percent = (reserved_memory / total_memory) * 100
-        
-        # Compute capability
-        props = torch.cuda.get_device_properties(device)
-        compute_capability = f"{props.major}.{props.minor}"
-        
-        # CUDA version
-        cuda_version = torch.version.cuda
-        
-        return DeviceInfo(
-            type="cuda",
-            name=device_name,
-            total_memory=round(total_memory, 2),
-            used_memory=round(reserved_memory, 2),
-            free_memory=round(free_memory, 2),
-            memory_usage_percent=round(memory_usage_percent, 2),
-            compute_capability=compute_capability,
-            cuda_version=cuda_version
-        )
-    else:
-        # Fallback to CPU (either user wanted CUDA but it's not available, or invalid device type)
-        fallback_reason = "CUDA not available" if device_type == "cuda" else f"Invalid device type: {device_type}"
-        cpu_name = _get_cpu_name()
-        return DeviceInfo(
-            type="cpu",
-            name=f"{cpu_name} (Fallback: {fallback_reason})",
-            total_memory=None,
-            used_memory=None,
-            free_memory=None,
-            memory_usage_percent=None,
-            compute_capability=None,
-            cuda_version=None
-        )
+def _timed_cache(ttl_seconds: int):
+    """
+    A lightweight decorator for time-based caching.
+    Caches the result of a function for a specified number of seconds.
+    """
+    def decorator(func):
+        cache = {}
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.monotonic()
+            if "result" not in cache or (now - cache.get("timestamp", 0)) > ttl_seconds:
+                cache["result"] = func(*args, **kwargs)
+                cache["timestamp"] = now
+            return cache["result"]
+        return wrapper
+    return decorator
 
-def _get_cpu_name() -> str:
-    """Get a detailed CPU name, with logging for debugging."""
-    # FIX: Added logging to trace the method used for getting the CPU name.
-    try:
-        if platform.system() == "Windows":
-            logger.debug("Attempting to get CPU name from Windows registry.")
-            import winreg
+
+class SystemMonitor:
+    """
+    REFACTORED class-based system monitor.
+
+    Provides cached, efficient access to system, device, and model statistics.
+    Manages application state like start time internally.
+    """
+    def __init__(self):
+        self._start_time = time.monotonic()
+        logger.info("SystemMonitor initialized and application start time recorded.")
+
+    @property
+    def uptime(self) -> float:
+        """Calculates the server uptime in seconds."""
+        return round(time.monotonic() - self._start_time, 2)
+
+    @_timed_cache(ttl_seconds=10)
+    def get_device_info(self) -> DeviceInfo:
+        """Get detailed information about the compute device. Cached for 10 seconds."""
+        if not torch:
+            return DeviceInfo(type="cpu", name="PyTorch not available")
+
+        device_type = settings.device.lower()
+        if device_type == "cuda" and torch.cuda.is_available():
+            device = torch.cuda.current_device()
+            props = torch.cuda.get_device_properties(device)
+            total_mem = props.total_memory / (1024**3)
+            reserved_mem = torch.cuda.memory_reserved(device) / (1024**3)
+            return DeviceInfo(
+                type="cuda",
+                name=torch.cuda.get_device_name(device),
+                total_memory=round(total_mem, 2),
+                used_memory=round(reserved_mem, 2),
+                free_memory=round(total_mem - reserved_mem, 2),
+                memory_usage_percent=round((reserved_mem / total_mem) * 100, 2),
+                compute_capability=f"{props.major}.{props.minor}",
+                cuda_version=torch.version.cuda
+            )
+        else:
+            fallback = ""
+            if device_type == "cuda" and not torch.cuda.is_available():
+                fallback = " (Fallback: CUDA not available)"
+            return DeviceInfo(type="cpu", name=f"{self._get_cpu_name()}{fallback}")
+
+    def _get_cpu_name(self) -> str:
+        """Get a detailed CPU name using the cpuinfo library as the primary source."""
+        if cpuinfo:
             try:
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
-                                  r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
-                    cpu_name = winreg.QueryValueEx(key, "ProcessorNameString")[0]
-                    return cpu_name.strip()
+                info = cpuinfo.get_cpu_info()
+                if 'brand_raw' in info:
+                    return info['brand_raw']
             except Exception as e:
-                print(f"Registry method failed: {e}")     
-            # Try WMI as alternative for Windows
-            try:
-                import subprocess
-                result = subprocess.run([
-                    "wmic", "cpu", "get", "name", "/value"
-                ], capture_output=True, text=True, timeout=5)
-                
-                if result.returncode == 0:
-                    for line in result.stdout.split('\n'):
-                        if line.startswith('Name='):
-                            cpu_name = line.split('=', 1)[1].strip()
-                            if cpu_name:
-                                print(f"WMI method found: {cpu_name}")
-                                return cpu_name
-            except Exception as e:
-                print(f"WMI method failed: {e}")
-        
-        logger.debug("Attempting to get CPU name from cpuinfo library.")
-        import cpuinfo
-        info = cpuinfo.get_cpu_info()
-        if 'brand_raw' in info:
-            logger.debug("CPU name found via cpuinfo.brand_raw.")
-            return info['brand_raw']
-    except Exception as e:
-        print(f"Overall exception in _get_cpu_name: {e}")
-        return "Unknown CPU"
-        
+                logger.warning(f"Could not get CPU name from cpuinfo: {e}")
+        return platform.processor() or "Unknown CPU"
 
-def get_system_info() -> SystemInfo:
-    """Get system resource information."""
-    if psutil is None:
+    @_timed_cache(ttl_seconds=5)
+    def get_system_info(self) -> SystemInfo:
+        """Get system resource information. Cached for 5 seconds."""
+        if not psutil:
+            return SystemInfo(
+                python_version=sys.version.split()[0], platform=platform.platform(),
+                cpu_count=os.cpu_count() or 1, total_ram=0.0, used_ram=0.0, ram_usage_percent=0.0,
+                uptime_seconds=self.uptime
+            )
+        
+        memory = psutil.virtual_memory()
         return SystemInfo(
             python_version=sys.version.split()[0], platform=platform.platform(),
-            cpu_count=1, total_ram=0.0, used_ram=0.0, ram_usage_percent=0.0,
-            # FIX: Uptime calculation is now centralized here.
-            uptime_seconds=round(time.time() - _start_time, 2)
+            cpu_count=psutil.cpu_count(),
+            total_ram=round(memory.total / (1024**3), 2),
+            used_ram=round(memory.used / (1024**3), 2),
+            ram_usage_percent=round(memory.percent, 2),
+            uptime_seconds=self.uptime
         )
-    
-    memory = psutil.virtual_memory()
-    
-    return SystemInfo(
-        python_version=sys.version.split()[0], platform=platform.platform(),
-        cpu_count=psutil.cpu_count(),
-        total_ram=round(memory.total / (1024**3), 2),
-        used_ram=round(memory.used / (1024**3), 2),
-        ram_usage_percent=round(memory.percent, 2),
-        uptime_seconds=round(time.time() - _start_time, 2)
-    )
 
-def get_model_info(manager) -> list[ModelInfo]:
-    """Get detailed information about all active models."""
-    model_infos = []
-    
-    # Use public methods to get model data
-    loaded_models = manager.get_loaded_model_names()
-    active_configs = manager.get_active_model_configs()
-    
-    for name, config in active_configs.items():
-        is_loaded = name in loaded_models
-        memory_usage_mb = None # Placeholder for future memory tracking
+    def get_models_info(self, manager: ModelManager) -> List[ModelInfo]:
+        """Get detailed information about all active models."""
+        model_infos = []
+        loaded_models = manager.get_loaded_model_names()
+        active_configs = manager.get_active_model_configs()
         
-        model_info = ModelInfo(
-            name=name, class_name=config.class_name, description=config.description,
-            loaded=is_loaded, device=config.device, model_path=config.model_path,
-            isDetailed=config.isDetailed, isAudio=config.isAudio, isVideo=config.isVideo,
-            memory_usage_mb=memory_usage_mb
-        )
-        model_infos.append(model_info)
-    
-    return model_infos
+        for name, config in active_configs.items():
+            model_infos.append(ModelInfo(
+                name=name, class_name=config.class_name, description=config.description,
+                loaded=(name in loaded_models), device=config.device, model_path=str(config.model_path),
+                isAudio=config.isAudio, isVideo=config.isVideo
+            ))
+        return model_infos
 
-def get_server_configuration() -> Dict[str, Any]:
-    """Get server configuration summary."""
-    config = {
-        "project_name": settings.project_name,
-        "device": settings.device,
-        "default_model": settings.default_model_name,
-        "active_models": settings.active_model_list,
-        "total_configured_models": len(settings.models),
-        "active_models_count": len(settings.active_model_list),
-        "python_version": sys.version.split()[0],
-    }
-    
-    if torch is not None:
-        config.update({
-            "torch_version": torch.__version__,
-            "cuda_available": torch.cuda.is_available(),
-            "cuda_device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0
-        })
-    else:
-        config.update({
-            "torch_version": "Not available",
-            "cuda_available": False,
-            "cuda_device_count": 0
-        })
-    
-    return config
+    def get_server_configuration(self) -> Dict[str, Any]:
+        """Get server configuration summary."""
+        config = {
+            "project_name": settings.project_name,
+            "device": settings.device,
+            "default_model": settings.default_model_name,
+            "active_models": settings.active_model_list,
+        }
+        if torch:
+            config["torch_version"] = torch.__version__
+            config["cuda_available"] = torch.cuda.is_available()
+        return config
 
-def reset_start_time():
-    """Reset the server start time (for testing purposes)."""
-    global _start_time
-    _start_time = time.time()
+
+# --- Singleton Instance ---
+# The application will import and use this single instance.
+system_monitor = SystemMonitor()

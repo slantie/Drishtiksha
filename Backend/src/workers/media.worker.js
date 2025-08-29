@@ -10,7 +10,6 @@ import dotenv from "dotenv";
 import { mediaRepository } from "../repositories/media.repository.js";
 import { modelAnalysisService } from "../services/modelAnalysis.service.js";
 import { redisConnection } from "../config/queue.js";
-import { MEDIA_PROCESSING_QUEUE_NAME } from "../config/constants.js";
 import logger from "../utils/logger.js";
 import { eventService } from "../services/event.service.js";
 import storageManager from "../storage/storage.manager.js";
@@ -18,9 +17,8 @@ import { toCamelCase } from "../utils/formatKeys.js";
 
 dotenv.config({ path: "./.env" });
 
-// NOTE: The queue name can be renamed to MEDIA_PROCESSING_QUEUE_NAME in constants.js for clarity.
 const worker = new Worker(
-    MEDIA_PROCESSING_QUEUE_NAME,
+    process.env.MEDIA_PROCESSING_QUEUE_NAME || "media-processing-queue",
     async (job) => {
         logger.info(`[Worker] Picked up job '${job.name}' (ID: ${job.id})`);
         switch (job.name) {

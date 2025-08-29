@@ -1,13 +1,12 @@
 // scripts/clear-queue.js
 
 import { redisConnection } from "../src/config/queue.js";
-import { MEDIA_PROCESSING_QUEUE_NAME } from "../src/config/constants.js";
 import { Queue } from "bullmq";
 
 async function clearQueue() {
     console.log("🧹 Clearing the media processing queue...");
 
-    const queue = new Queue(MEDIA_PROCESSING_QUEUE_NAME, {
+    const queue = new Queue(process.env.MEDIA_PROCESSING_QUEUE_NAME || "media-processing-queue", {
         connection: redisConnection,
     });
 

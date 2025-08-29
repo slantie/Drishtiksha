@@ -2,7 +2,6 @@
 
 import Redis from "ioredis";
 import logger from "../utils/logger.js";
-import { MEDIA_PROGRESS_CHANNEL } from "../config/constants.js";
 import { redisConnection } from "../config/queue.js";
 
 const publisher = new Redis({ ...redisConnection, lazyConnect: true });
@@ -20,7 +19,7 @@ const emitProgress = async (payload) => {
         logger.info(
             `[EventBus] Publishing event '${payload.event}' for media ${payload.mediaId}`
         );
-        publisher.publish(MEDIA_PROGRESS_CHANNEL, JSON.stringify(payload));
+        publisher.publish(process.env.MEDIA_PROGRESS_CHANNEL_NAME || "media-progress-channel", JSON.stringify(payload));
     } catch (error) {
         logger.error(`[EventBus] Failed to publish event: ${error.message}`);
     }
@@ -35,18 +34,18 @@ const listenForProgress = async (callback) => {
     try {
         if (subscriber.status !== "ready") await subscriber.connect();
 
-        subscriber.subscribe(MEDIA_PROGRESS_CHANNEL, (err) => {
+        subscriber.subscribe(process.env.MEDIA_PROGRESS_CHANNEL_NAME || "media-progress-channel", (err) => {
             if (err) {
                 logger.error("Failed to subscribe to progress channel:", err);
             } else {
                 logger.info(
-                    `[EventBus] Subscribed to '${MEDIA_PROGRESS_CHANNEL}' for real-time progress updates.`
+                    `[EventBus] Subscribed to '${process.env.MEDIA_PROGRESS_CHANNEL_NAME || "media-progress-channel"}' for real-time progress updates.`
                 );
             }
         });
 
         subscriber.on("message", (channel, message) => {
-            if (channel === MEDIA_PROGRESS_CHANNEL) {
+            if (channel === process.env.MEDIA_PROGRESS_CHANNEL_NAME || "media-progress-channel") {
                 try {
                     const progressData = JSON.parse(message);
                     callback(progressData);

@@ -8,7 +8,6 @@ import storageManager from "../storage/storage.manager.js";
 import { ApiError } from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 import { getMediaType } from "../utils/media.js";
-import { MEDIA_PROCESSING_QUEUE_NAME } from "../config/constants.js";
 
 // RENAMED: from VideoService to MediaService
 class MediaService {
@@ -99,7 +98,7 @@ class MediaService {
                     modelName,
                     serverStats,
                 },
-                queueName: MEDIA_PROCESSING_QUEUE_NAME, // This queue name can remain for now
+                queueName: process.env.MEDIA_PROCESSING_QUEUE_NAME || "media-processing-queue", // This queue name can remain for now
                 opts: { jobId: `${newMedia.id}-${modelName}` },
             }));
 

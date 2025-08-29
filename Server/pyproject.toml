@@ -1,7 +1,7 @@
 [project]
 name = "server"
-version = "0.1.0"
-description = "Add your description here"
+version = "3.0.0"
+description = "A high-performance inference server for deepfake detection models."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -38,4 +38,5 @@ dependencies = [
     "kymatio>=0.3.0",
     "opencv-python>=4.12.0.88",
     "py-cpuinfo>=9.0.0",
+    "uv>=0.2.14",
 ]

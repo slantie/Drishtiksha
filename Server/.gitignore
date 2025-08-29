@@ -1,19 +1,47 @@
+// .gitignore
+
+# ===================================================================
+# Environment & Secrets
+# NEVER commit local environment variables or secrets.
+# ===================================================================
 .env
-*.mp4
-/.venv/
-/assets/*.png
-/assets/*.jpg
-/assets/*.jpeg
-/assets/*.mp3
-/assets/*.mp4
-/models/*.pth
-/models/*.dat
-/models/*.keras
-/models/EfficientNet-B7-v1
-/src/__pycache__
-/src/app/__pycache__
-/src/app/routers/__pycache__
-/src/ml/__pycache__
-/src/ml/models/__pycache__
-/src/ml/architectures/__pycache__
-/src/training/__pycache__
+.env.*
+
+# ===================================================================
+# Python Caches & Virtual Environments
+# These are generated locally and should not be tracked.
+# ===================================================================
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# ===================================================================
+# IDE & Editor Configuration
+# Keep the repository clean of user-specific editor settings.
+# ===================================================================
+.vscode/
+.idea/
+
+# ===================================================================
+# Temporary Files & Build Artifacts
+# Ignore temporary files, logs, and build outputs.
+# ===================================================================
+*.log
+*.tmp
+*.swp
+build/
+dist/
+*.egg-info/
+
+# ===================================================================
+# Test Outputs & Reports
+# ===================================================================
+.pytest_cache/
+htmlcov/
+.coverage
+assets/
+models/

@@ -2,21 +2,26 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
-# Import our new, strongly-typed config models
 from src.config import ModelConfig
+# REFACTOR: We import the new, unified schemas that we will define next.
+from src.app.schemas import VideoAnalysisResult, AudioAnalysisResult
 
-# Set up a logger for the ML module
 logger = logging.getLogger(__name__)
+
+# REFACTOR: Define a type hint for our standardized analysis output.
+# This ensures that any model's analyze() method will return one of our approved data structures.
+AnalysisResult = Union[VideoAnalysisResult, AudioAnalysisResult]
 
 
 class BaseModel(ABC):
     """
-    Abstract Base Class for all deepfake detection models.
+    REFACTORED Abstract Base Class for all machine learning models.
 
-    This class defines a strict contract that all model implementations must adhere to,
-    ensuring they are compatible with all API endpoints.
+    This class defines a clean, simple, and powerful contract that all model
+    implementations must adhere to. It is designed to be media-type agnostic,
+    supporting video, audio, images, and more.
     """
 
     def __init__(self, config: ModelConfig):
@@ -31,64 +36,39 @@ class BaseModel(ABC):
         self.model: Any = None
         self.processor: Any = None
         self.device = config.device
-        # logger.info(f"Initializing model with config: {config.model_dump()}")
 
     @abstractmethod
     def load(self) -> None:
         """
         Loads the model, weights, and any necessary processors into memory.
-        This method should set self.model and self.processor.
+        This method is called once at server startup for each active model.
+        It should set self.model and any other required components.
         """
         pass
 
     @abstractmethod
-    def predict(self, video_path: str) -> Dict[str, Any]:
+    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
         """
-        Performs a quick analysis on a video file. Corresponds to the
-        `/analyze` endpoint.
+        Performs a comprehensive analysis on the given media file.
+
+        This is the single, unified entry point for all model inference. The method
+        should perform all necessary processing and return a structured Pydantic
+        model containing the complete results. The structure of the return object
+        (e.g., VideoAnalysisResult vs. AudioAnalysisResult) depends on the model's media type.
+
+        Args:
+            media_path (str): The local file path to the media to be analyzed.
+            **kwargs: Catches additional parameters that might be sent from the API,
+                      such as 'video_id' or 'user_id' for event publishing.
 
         Returns:
-            A dictionary containing at least 'prediction', 'confidence',
-            and 'processing_time'.
+            An instance of a Pydantic model (e.g., VideoAnalysisResult) that
+            encapsulates all the analysis data.
         """
         pass
 
-    def predict_detailed(self, video_path: str) -> Dict[str, Any]:
-        """
-        Performs a detailed analysis with extra metrics. Corresponds to the
-        `/analyze/detailed` endpoint.
-
-        Can be overridden by subclasses for model-specific detailed output.
-        By default, it calls the standard predict method.
-        """
-        raise NotImplementedError(
-            f"Detailed analysis is not implemented for model '{self.config.class_name}'"
-        )
-
-    def predict_frames(self, video_path: str) -> Dict[str, Any]:
-        """
-        Performs a frame-by-frame analysis. Corresponds to the
-        `/analyze/frames` endpoint.
-        """
-        raise NotImplementedError(
-            f"Frame-by-frame analysis is not implemented for model '{self.config.class_name}'"
-        )
-
-    def predict_visual(self, video_path: str) -> str:
-        """
-        Performs analysis and returns a path to a visualized video output.
-        Corresponds to the `/analyze/visualize` endpoint.
-
-        Returns:
-            The file path to the generated visualized video.
-        """
-        raise NotImplementedError(
-            f"Visual analysis is not implemented for model '{self.config.class_name}'"
-        )
-
     def get_info(self) -> Dict[str, Any]:
         """Returns metadata about the model, derived from its config."""
-        # This method is now much cleaner thanks to the typed config
         return {
             "model_name": self.config.description,
             "class_name": self.config.class_name,

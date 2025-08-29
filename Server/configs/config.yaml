@@ -1,134 +1,124 @@
+# configs/config.yaml
+
 # ===================================================================
-# Drishtiksha AI - Main Application Configuration
+# Drishtiksha AI - Main Application Configuration (REFACTORED)
 # ===================================================================
 # This file defines the core settings for the inference server.
 # It is loaded and validated by `src/config.py` at startup.
 # -------------------------------------------------------------------
 
-# --- GLOBAL SETTINGS ---
-# These values apply to the entire application unless overridden locally.
-# The device setting here is overridden by the DEVICE environment variable.
-
 project_name: "Drishtiksha: Deepfake Detection"
-device: "cuda" # Default fallback, overridden by DEVICE environment variable
 
 # --- MODEL CONFIGURATIONS ---
-# Each key here represents a unique model identifier used in API calls.
-# The structure of each model's settings MUST match the corresponding Pydantic
-# model defined in `src/config.py` for validation to succeed.
+# Each key is a unique model identifier used in API calls and the .env file.
+# The `class_name` MUST now match the exact Python class name for auto-discovery.
 
 models:
-    SIGLIP-LSTM-V1:
-        class_name: "SIGLIP-LSTM-V1"
-        description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
-        model_path: "models/SigLip-LSTM-v1.pth"
-        processor_path: "google/siglip-base-patch16-224"
-        num_frames: 120
-        device: "cuda" # Overridden by DEVICE environment variable
-        isDetailed: false
-        isAudio: false
-        isVideo: true
+  SIGLIP-LSTM-V1:
+    # CHANGE: Must match the Python class name `SiglipLSTMV1`
+    class_name: "SiglipLSTMV1"
+    description: "SigLIP feature extractor with a bidirectional LSTM head for temporal analysis."
+    model_path: "models/SigLip-LSTM-v1.pth"
+    processor_path: "google/siglip-base-patch16-224"
+    num_frames: 120
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: false
+    isVideo: true
+    model_definition:
+      base_model_path: "google/siglip-base-patch16-224"
+      lstm_hidden_size: 512
+      lstm_num_layers: 2
+      num_classes: 1
 
-        model_definition:
-            base_model_path: "google/siglip-base-patch16-224"
-            lstm_hidden_size: 512
-            lstm_num_layers: 2
-            num_classes: 1
+  SIGLIP-LSTM-V3:
+    # CHANGE: Must match the Python class name `SiglipLSTMV3`
+    class_name: "SiglipLSTMV3"
+    description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
+    model_path: "models/SigLip-LSTM-v3.pth"
+    processor_path: "google/siglip-base-patch16-224"
+    num_frames: 120
+    rolling_window_size: 10
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: false
+    isVideo: true
+    model_definition:
+      base_model_path: "google/siglip-base-patch16-224"
+      lstm_hidden_size: 512
+      lstm_num_layers: 2
+      num_classes: 1
 
-    SIGLIP-LSTM-V3:
-        class_name: "SIGLIP-LSTM-V3"
-        description: "Enhanced SigLIP-LSTM detector with advanced visualization and metrics collection."
-        model_path: "models/SigLip-LSTM-v3.pth"
-        processor_path: "google/siglip-base-patch16-224"
-        num_frames: 120
-        rolling_window_size: 10
-        device: "cuda" # Overridden by DEVICE environment variable
-        isDetailed: true # Supports detailed analysis
-        isAudio: false
-        isVideo: true
+  SIGLIP-LSTM-V4:
+    # CHANGE: Must match the Python class name `SiglipLSTMV4`
+    class_name: "SiglipLSTMV4"
+    description: "V4 SigLIP-LSTM with deeper classifier heads and dropout for improved regularization."
+    model_path: "models/SigLip-LSTM-v4.pth"
+    processor_path: "google/siglip-base-patch16-224"
+    num_frames: 120
+    rolling_window_size: 10
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: false
+    isVideo: true
+    model_definition:
+      base_model_path: "google/siglip-base-patch16-224"
+      lstm_hidden_size: 512
+      lstm_num_layers: 2
+      num_classes: 1
+      dropout_rate: 0.5
 
-        model_definition:
-            base_model_path: "google/siglip-base-patch16-224"
-            lstm_hidden_size: 512
-            lstm_num_layers: 2
-            num_classes: 1
+  COLOR-CUES-LSTM-V1:
+    # CHANGE: Must match the Python class name `ColorCuesLSTMV1`
+    class_name: "ColorCuesLSTMV1"
+    description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
+    model_path: "models/ColorCues-LSTM-v1.pth"
+    dlib_model_path: "models/Face-Landmarks.dat"
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: false
+    isVideo: true
+    sequence_length: 32
+    frames_per_video: 50
+    histogram_bins: 32
+    landmark_margin: 20
+    rolling_window_size: 10
+    hidden_size: 64
+    dropout: 0.5
 
-    SIGLIP-LSTM-V4:
-        class_name: "SIGLIP-LSTM-V4"
-        description: "V4 SigLIP-LSTM with deeper classifier heads and dropout for improved regularization."
-        model_path: "models/SigLip-LSTM-v4.pth"
-        processor_path: "google/siglip-base-patch16-224"
-        num_frames: 120
-        rolling_window_size: 10
-        device: "cuda" # Overridden by DEVICE environment variable
-        isDetailed: true # Supports detailed analysis
-        isAudio: false
-        isVideo: true
+  EFFICIENTNET-B7-V1:
+    # CHANGE: Must match the Python class name `EfficientNetB7Detector`
+    class_name: "EfficientNetB7Detector"
+    description: "Frame-by-frame face detector using MTCNN and EFFICIENTNET-B7 classifier."
+    model_path: "models/EfficientNet-B7-v1"
+    encoder: "tf_efficientnet_b7.ns_jft_in1k"
+    input_size: 380
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: false
+    isVideo: true
 
-        model_definition:
-            base_model_path: "google/siglip-base-patch16-224"
-            lstm_hidden_size: 512
-            lstm_num_layers: 2
-            num_classes: 1
-            dropout_rate: 0.5
+  EYEBLINK-CNN-LSTM-V1:
+    # CHANGE: Must match the Python class name `EyeblinkDetectorV1`
+    class_name: "EyeblinkDetectorV1"
+    description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
+    model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
+    dlib_model_path: "models/Face-Landmarks.dat"
+    sequence_length: 10
+    blink_threshold: 0.45
+    consecutive_frames: 2
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: false
+    isVideo: true
+    model_definition:
+      base_model_name: "legacy_xception"
+      lstm_hidden_size: 128
+      dropout_rate: 0.3
+      img_size: [160, 160]
 
-    COLOR-CUES-LSTM-V1:
-        class_name: "COLOR-CUES-LSTM-V1"
-        description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
-        model_path: "models/ColorCues-LSTM-v1.pth"
-        dlib_model_path: "models/Face-Landmarks.dat"
-        device: "cuda"
-        isDetailed: true # Supports detailed analysis
-        isAudio: false
-        isVideo: true
-
-        # Parameters specific to the ColorCues model architecture
-        sequence_length: 32
-        frames_per_video: 50
-        histogram_bins: 32
-        landmark_margin: 20
-        rolling_window_size: 10
-        hidden_size: 64
-        dropout: 0.5
-
-    EFFICIENTNET-B7-V1:
-        class_name: "EFFICIENTNET-B7-V1"
-        description: "Frame-by-frame face detector using MTCNN and EFFICIENTNET-B7-V1 classifier with confidence-based aggregation."
-        model_path: "models/EfficientNet-B7-v1"
-        encoder: "tf_efficientnet_b7.ns_jft_in1k"
-        input_size: 380
-        device: "cuda"
-        isDetailed: true
-        isAudio: false
-        isVideo: true
-
-    EYEBLINK-CNN-LSTM-V1:
-        class_name: "EYEBLINK-CNN-LSTM-V1"
-        description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
-        model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
-        dlib_model_path: "models/Face-Landmarks.dat"
-        sequence_length: 10
-        blink_threshold: 0.45
-        consecutive_frames: 2
-        device: "cuda"
-        isDetailed: true
-        isAudio: false
-        isVideo: true
-        model_definition:
-            base_model_name: "legacy_xception"
-            lstm_hidden_size: 128
-            dropout_rate: 0.3
-            img_size: [160, 160]
-
-    SCATTERING-WAVE-V1:
-        class_name: "SCATTERING-WAVE-V1"
-        description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
-        model_path: "models/Scattering-Wave-v1.pth"
-        device: "cuda"
-        isDetailed: true
-        isAudio: true
-        isVideo: false
-        # Parameters specific to the audio model
-        sampling_rate: 16000
-        duration_seconds: 2.0
-        image_size: [256, 256]
+  SCATTERING-WAVE-V1:
+    # CHANGE: Must match the Python class name `ScatteringWaveV1`
+    class_name: "ScatteringWaveV1"
+    description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
+    model_path: "models/Scattering-Wave-v1.pth"
+    # REMOVED: `isDetailed` is no longer needed.
+    isAudio: true
+    isVideo: false
+    sampling_rate: 16000
+    duration_seconds: 2.0
+    image_size: [256, 256]

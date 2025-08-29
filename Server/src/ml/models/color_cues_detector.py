@@ -1,50 +1,52 @@
 # src/ml/models/color_cues_detector.py
 
 import os
-import time
-import logging
-from typing import Any, Dict, List, Optional, Tuple
-
 import cv2
 import dlib
+import time
 import torch
+import logging
+import tempfile
 import numpy as np
 from tqdm import tqdm
 from collections import deque
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from typing import Any, Dict, List, Optional, Tuple
 
-from src.ml.base import BaseModel
+# REFACTOR: Import the base class and NEW unified schemas.
+from src.ml.base import BaseModel, AnalysisResult
+from src.app.schemas import VideoAnalysisResult, FramePrediction
 from src.config import ColorCuesConfig
-from src.ml.event_publisher import publish_progress
+from src.ml.event_publisher import event_publisher
+from src.ml.schemas import ProgressEvent, EventData
 from src.ml.architectures.color_cues_lstm import create_color_cues_model
 
 logger = logging.getLogger(__name__)
 
 
 class ColorCuesLSTMV1(BaseModel):
-    """Color Cues + LSTM video deepfake detector."""
-
+    """
+    REFACTORED Color Cues + LSTM video deepfake detector.
+    This class implements the new unified `analyze` method.
+    """
     config: ColorCuesConfig
 
     def __init__(self, config: ColorCuesConfig):
         super().__init__(config)
-        self.dlib_detector: Optional[Any] = None
-        self.dlib_predictor: Optional[Any] = None
-        # This simple cache improves performance for sequential API calls (e.g., detailed -> visual)
-        self._last_detailed_result: Optional[Dict[str, Any]] = None
-        self._last_video_path: Optional[str] = None
+        self.dlib_detector: Optional[dlib.fhog_object_detector] = None
+        self.dlib_predictor: Optional[dlib.shape_predictor] = None
 
     def load(self) -> None:
         """Loads the dlib landmark predictor and the PyTorch LSTM model."""
         start_time = time.time()
         try:
-            if not os.path.exists(self.config.dlib_model_path):
-                raise FileNotFoundError(f"Dlib landmark model not found at: {self.config.dlib_model_path}")
+            if not os.path.exists(str(self.config.dlib_model_path)):
+                raise FileNotFoundError(f"Dlib landmark model not found at: {str(self.config.dlib_model_path)}")
 
             self.dlib_detector = dlib.get_frontal_face_detector()
-            self.dlib_predictor = dlib.shape_predictor(self.config.dlib_model_path)
+            self.dlib_predictor = dlib.shape_predictor(str(self.config.dlib_model_path))
 
             model_params = self.config.model_dump()
             self.model = create_color_cues_model(model_params).to(self.device)
@@ -60,21 +62,24 @@ class ColorCuesLSTMV1(BaseModel):
             logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
             raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
 
-    def _extract_features_from_video(
-        self, video_path: str, video_id: str = None, user_id: str = None
-    ) -> List[np.ndarray]:
-        """Extracts chromaticity histograms from faces detected in video frames."""
-        cap = cv2.VideoCapture(video_path)
+    # --- Private Helper Methods ---
+
+    def _get_sequence_scores(self, media_path: str, **kwargs) -> Tuple[List[float], int, Optional[str]]:
+        """Extracts features, runs inference, and returns raw temporal scores."""
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
+
+        cap = cv2.VideoCapture(media_path)
         if not cap.isOpened():
-            raise IOError(f"Could not open video file: {video_path}")
-        
-        all_histograms: List[np.ndarray] = []
+            raise IOError(f"Could not open video file: {media_path}")
+
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if total_frames <= 0:
             cap.release()
-            return all_histograms
+            return [], 0, "Video file appears to be empty or corrupt."
 
-        frames_to_sample = max(1, int(self.config.frames_per_video))
+        all_histograms: List[np.ndarray] = []
+        frames_to_sample = max(1, self.config.frames_per_video)
         frame_indices = np.linspace(0, total_frames - 1, frames_to_sample, dtype=int)
 
         try:
@@ -84,11 +89,17 @@ class ColorCuesLSTMV1(BaseModel):
                 if not ret: continue
 
                 if (i + 1) % 5 == 0 and video_id and user_id:
-                    publish_progress({
-                        "videoId": video_id, "userId": user_id, "event": "FRAME_ANALYSIS_PROGRESS",
-                        "message": f"Processed frame {i + 1}/{len(frame_indices)}",
-                        "data": {"modelName": self.config.class_name, "progress": i + 1, "total": len(frame_indices)},
-                    })
+                    event_publisher.publish(ProgressEvent(
+                        media_id=video_id,
+                        user_id=user_id,
+                        event="FRAME_ANALYSIS_PROGRESS",
+                        message=f"Processed window {i + 1}/{frame_indices}",
+                        data=EventData(
+                            model_name=self.config.class_name,
+                            progress=i + 1,
+                            total=frame_indices
+                        )
+                    ))
 
                 gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 faces = self.dlib_detector(gray_frame, 1)
@@ -96,8 +107,8 @@ class ColorCuesLSTMV1(BaseModel):
 
                 shape = self.dlib_predictor(gray_frame, faces[0])
                 landmarks = np.array([(p.x, p.y) for p in shape.parts()])
-                margin = int(self.config.landmark_margin)
-                
+                margin = self.config.landmark_margin
+
                 x1, y1 = np.min(landmarks, axis=0) - margin
                 x2, y2 = np.max(landmarks, axis=0) + margin
                 x1, y1 = max(0, x1), max(0, y1)
@@ -108,119 +119,44 @@ class ColorCuesLSTMV1(BaseModel):
 
                 img_float = face_crop.astype(np.float32) + 1e-6
                 rgb_sum = np.sum(img_float, axis=2, keepdims=True)
-                
-                # Prevent division by zero
-                rgb_sum[rgb_sum == 0] = 1.0
+                rgb_sum[rgb_sum == 0] = 1.0 # Prevent division by zero
 
                 normalized_rgb = img_float / rgb_sum
                 r, g = normalized_rgb[:, :, 2].flatten(), normalized_rgb[:, :, 1].flatten()
 
-                hist, _, _ = np.histogram2d(r, g, bins=int(self.config.histogram_bins), range=[[0, 1], [0, 1]])
+                hist, _, _ = np.histogram2d(r, g, bins=self.config.histogram_bins, range=[[0, 1], [0, 1]])
                 cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
                 all_histograms.append(hist.astype(np.float32))
         finally:
             cap.release()
 
-        return all_histograms
-
-    def _analyze_sequences(self, video_path: str, **kwargs) -> Tuple[List[float], List[float], Optional[str]]:
-        """Analyzes sequences of histograms and returns raw and smoothed scores."""
-        all_histograms = self._extract_features_from_video(video_path, **kwargs)
-        seq_len = int(self.config.sequence_length)
-
-        # FIX: Robust fallback if feature extraction fails.
+        seq_len = self.config.sequence_length
         if len(all_histograms) < seq_len:
             note = f"Could not extract enough facial features ({len(all_histograms)} found, {seq_len} required). Result is a fallback."
-            logger.warning(f"For video '{os.path.basename(video_path)}': {note}")
-            return [], [], note # Return empty lists, handled by caller
+            logger.warning(f"For video '{os.path.basename(media_path)}': {note}")
+            return [], total_frames, note
 
         sub_sequences = [all_histograms[i : i + seq_len] for i in range(len(all_histograms) - seq_len + 1)]
         sequences_tensor = torch.from_numpy(np.array(sub_sequences)).to(self.device)
 
         with torch.no_grad():
             logits = self.model(sequences_tensor).squeeze()
-            # Handle single-sequence case where output is not a list
             probs = torch.sigmoid(logits).detach().cpu().numpy()
-            per_sequence_scores = probs.tolist() if isinstance(probs, np.ndarray) else [float(probs)]
+            sequence_scores = probs.tolist() if isinstance(probs, np.ndarray) else [float(probs)]
 
-        rolling_averages: List[float] = []
-        rolling_window = deque(maxlen=int(self.config.rolling_window_size))
-        for score in per_sequence_scores:
-            rolling_window.append(score)
-            rolling_averages.append(float(np.mean(list(rolling_window))))
+        return sequence_scores, total_frames, None
 
-        return per_sequence_scores, rolling_averages, None
-
-    def _get_or_run_detailed_analysis(self, video_path: str, **kwargs) -> Dict[str, Any]:
-        """Runs the full analysis pipeline, using a simple cache for efficiency."""
-        if self._last_video_path == video_path and self._last_detailed_result:
-            logger.info(f"✅ Using cached detailed analysis for {os.path.basename(video_path)}")
-            return self._last_detailed_result
-
-        start_time = time.time()
-        sequence_scores, rolling_avg_scores, note = self._analyze_sequences(video_path, **kwargs)
-        
-        # FIX: Standardized fallback logic
-        if not sequence_scores:
-            result = {
-                "prediction": "REAL", "confidence": 0.51, "processing_time": time.time() - start_time,
-                "metrics": {"sequence_count": 0, "per_sequence_scores": [], "final_average_score": 0.0}, "note": note
-            }
-        else:
-            avg_score = float(np.mean(sequence_scores))
-            prediction = "FAKE" if avg_score > 0.5 else "REAL"
-            confidence = avg_score if prediction == "FAKE" else 1 - avg_score
-            result = {
-                "prediction": prediction, "confidence": float(confidence), "processing_time": time.time() - start_time,
-                "metrics": {
-                    "sequence_count": len(sequence_scores),
-                    "per_sequence_scores": sequence_scores,
-                    "rolling_average_scores": rolling_avg_scores,
-                    "final_average_score": avg_score,
-                    "suspicious_sequences_count": int(sum(1 for s in sequence_scores if s > 0.5)),
-                }, "note": note
-            }
-
-        self._last_video_path = video_path
-        self._last_detailed_result = result
-        return result
-
-    # --- Public API methods ---
-    def predict(self, video_path: str, **kwargs) -> Dict[str, Any]:
-        result = self._get_or_run_detailed_analysis(video_path, **kwargs)
-        return {"prediction": result["prediction"], "confidence": result["confidence"], "processing_time": result["processing_time"], "note": result.get("note")}
-
-    def predict_detailed(self, video_path: str, **kwargs) -> Dict[str, Any]:
-        return self._get_or_run_detailed_analysis(video_path, **kwargs)
-
-    def predict_frames(self, video_path: str, **kwargs) -> Dict[str, Any]:
-        detailed_result = self._get_or_run_detailed_analysis(video_path, **kwargs)
-        metrics = detailed_result["metrics"]
-        frame_predictions = [{"frame_index": i, "score": float(score), "prediction": "FAKE" if score > 0.5 else "REAL"} for i, score in enumerate(metrics.get("per_sequence_scores", []))]
-        return {
-            "overall_prediction": detailed_result["prediction"], "overall_confidence": detailed_result["confidence"],
-            "processing_time": detailed_result["processing_time"], "frame_predictions": frame_predictions,
-            "temporal_analysis": {"rolling_averages": metrics.get("rolling_average_scores", [])}, "note": detailed_result.get("note"),
-        }
-
-    def predict_visual(self, video_path: str, **kwargs) -> str:
-        """Generate an overlay video visualizing sequence scores over time.
-
-        Cache is cleared after the visualization is produced to avoid stale reuse
-        across different visualization passes of the same video.
-        """
-        import tempfile
-        import matplotlib.pyplot as plt
-
-        detailed_result = self._get_or_run_detailed_analysis(video_path, **kwargs)
-        metrics = detailed_result["metrics"]
-        sequence_scores = metrics["per_sequence_scores"]
-
-        cap = cv2.VideoCapture(video_path)
+    def _generate_visualization(
+        self,
+        media_path: str,
+        sequence_scores: List[float],
+        total_frames: int
+    ) -> str:
+        """Generates a video with an overlay graph of the sequence scores."""
+        cap = cv2.VideoCapture(media_path)
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         output_temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         output_path = output_temp_file.name
@@ -231,12 +167,10 @@ class ColorCuesLSTMV1(BaseModel):
         fig, ax = plt.subplots(figsize=(6, 2.5))
 
         try:
-            for i in range(total_frames):
+            for i in tqdm(range(total_frames), desc="Generating visualization"):
                 ret, frame = cap.read()
-                if not ret:
-                    break
+                if not ret: break
 
-                # Map current frame to a sequence index for highlighting
                 current_sequence_idx = 0
                 if len(sequence_scores) > 1:
                     current_sequence_idx = min(
@@ -246,27 +180,18 @@ class ColorCuesLSTMV1(BaseModel):
 
                 ax.clear()
                 ax.plot(range(len(sequence_scores)), sequence_scores, color="#4ECDC4", linewidth=2)
-                ax.fill_between(
-                    range(len(sequence_scores)), sequence_scores, color="#4ECDC4", alpha=0.3
-                )
-                ax.plot(
-                    current_sequence_idx,
-                    sequence_scores[current_sequence_idx],
-                    "o",
-                    color="yellow",
-                    markersize=8,
-                )
+                ax.fill_between(range(len(sequence_scores)), sequence_scores, color="#4ECDC4", alpha=0.3)
+                if sequence_scores:
+                    ax.plot(current_sequence_idx, sequence_scores[current_sequence_idx], "o", color="yellow", markersize=8)
                 ax.axhline(y=0.5, color="white", linestyle="--", alpha=0.7)
                 ax.set_ylim(-0.05, 1.05)
-                ax.set_xlim(0, len(sequence_scores) if len(sequence_scores) > 1 else 1)
+                ax.set_xlim(0, len(sequence_scores) -1 if len(sequence_scores) > 1 else 1)
                 ax.set_title("Color Cues Sequence Analysis", fontsize=10)
                 fig.tight_layout(pad=1.5)
                 fig.canvas.draw()
 
                 buf = fig.canvas.buffer_rgba()
-                plot_img_rgba = np.frombuffer(buf, dtype=np.uint8).reshape(
-                    fig.canvas.get_width_height()[::-1] + (4,)
-                )
+                plot_img_rgba = np.frombuffer(buf, dtype=np.uint8).reshape(fig.canvas.get_width_height()[::-1] + (4,))
                 plot_img_bgr = cv2.cvtColor(plot_img_rgba, cv2.COLOR_RGBA2BGR)
 
                 plot_h, plot_w, _ = plot_img_bgr.shape
@@ -275,14 +200,75 @@ class ColorCuesLSTMV1(BaseModel):
                 resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
 
                 y_offset, x_offset = 10, frame_width - new_plot_w - 10
-                frame[y_offset : y_offset + new_plot_h, x_offset : x_offset + new_plot_w] = resized_plot
+                frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
                 out.write(frame)
         finally:
             cap.release()
             out.release()
             plt.close(fig)
 
-        self._last_detailed_result = None
-        self._last_video_path = None
-
         return output_path
+
+    # --- Public API Method ---
+
+    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
+        """The single, unified entry point for running a comprehensive analysis."""
+        start_time = time.time()
+
+        # 1. Get temporal scores and metadata
+        sequence_scores, total_frames, note = self._get_sequence_scores(media_path, **kwargs)
+
+        # 2. Handle fallback case if analysis could not produce scores
+        if not sequence_scores:
+            return VideoAnalysisResult(
+                prediction="REAL",
+                confidence=0.51,
+                processing_time=time.time() - start_time,
+                note=note,
+                frame_count=total_frames,
+                frames_analyzed=0,
+            )
+
+        # 3. Calculate final prediction and confidence
+        avg_score = float(np.mean(sequence_scores))
+        prediction = "FAKE" if avg_score > 0.5 else "REAL"
+        confidence = avg_score if prediction == "FAKE" else 1 - avg_score
+
+        # 4. Format frame-by-frame predictions
+        frame_predictions = [
+            FramePrediction(
+                index=i,
+                score=score,
+                prediction="FAKE" if score > 0.5 else "REAL"
+            ) for i, score in enumerate(sequence_scores)
+        ]
+
+        # 5. Calculate rolling averages and other metrics
+        rolling_avg_scores = []
+        rolling_window = deque(maxlen=self.config.rolling_window_size)
+        for score in sequence_scores:
+            rolling_window.append(score)
+            rolling_avg_scores.append(float(np.mean(list(rolling_window))))
+
+        metrics = {
+            "sequence_count": len(sequence_scores),
+            "rolling_average_scores": rolling_avg_scores,
+            "final_average_score": avg_score,
+            "suspicious_sequences_count": int(sum(1 for s in sequence_scores if s > 0.5)),
+        }
+
+        # 6. Generate the visualization video
+        visualization_path = self._generate_visualization(media_path, sequence_scores, total_frames)
+
+        # 7. Assemble and return the final, comprehensive result object
+        return VideoAnalysisResult(
+            prediction=prediction,
+            confidence=confidence,
+            processing_time=time.time() - start_time,
+            note=note,
+            frame_count=total_frames,
+            frames_analyzed=len(sequence_scores),
+            frame_predictions=frame_predictions,
+            metrics=metrics,
+            visualization_path=visualization_path
+        )

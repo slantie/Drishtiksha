@@ -1,8 +1,8 @@
 # src/app/schemas.py
 
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Union, TypeVar, Generic
-from datetime import datetime
 
 # --- Standard Error and Response Wrappers ---
 
@@ -14,7 +14,6 @@ class APIError(BaseModel):
 
 DataType = TypeVar('DataType')
 
-# --- REFACTORED: Make APIResponse a Generic class ---
 class APIResponse(BaseModel, Generic[DataType]):
     """Standard wrapper for all successful API responses."""
     success: bool = True
@@ -22,7 +21,7 @@ class APIResponse(BaseModel, Generic[DataType]):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     data: DataType
 
-# --- Health and Status Schemas ---
+# --- Health and Status Schemas (Unchanged) ---
 
 class ModelStatus(BaseModel):
     name: str
@@ -35,15 +34,13 @@ class HealthStatus(BaseModel):
     active_models: List[ModelStatus]
     default_model: str
 
-# --- Server Statistics Schemas ---
-
 class DeviceInfo(BaseModel):
     """Information about the compute device."""
-    type: str  # "cuda" or "cpu"
+    type: str
     name: Optional[str] = None
-    total_memory: Optional[float] = None  # In GB
-    used_memory: Optional[float] = None   # In GB
-    free_memory: Optional[float] = None   # In GB
+    total_memory: Optional[float] = None
+    used_memory: Optional[float] = None
+    free_memory: Optional[float] = None
     memory_usage_percent: Optional[float] = None
     compute_capability: Optional[str] = None
     cuda_version: Optional[str] = None
@@ -53,8 +50,8 @@ class SystemInfo(BaseModel):
     python_version: str
     platform: str
     cpu_count: int
-    total_ram: float  # In GB
-    used_ram: float   # In GB
+    total_ram: float
+    used_ram: float
     ram_usage_percent: float
     uptime_seconds: float
 
@@ -66,7 +63,6 @@ class ModelInfo(BaseModel):
     loaded: bool
     device: str
     model_path: str
-    isDetailed: bool
     isAudio: bool = False
     isVideo: bool = False
     memory_usage_mb: Optional[float] = None
@@ -86,70 +82,49 @@ class ServerStats(BaseModel):
     total_models_count: int
     configuration: Dict[str, Any]
 
-# --- Analysis Schemas (One for each endpoint type) ---
+# --- Unified Analysis Schemas ---
 
-class AnalysisData(BaseModel):
-    """Data model for the unified /analyze endpoint."""
-    prediction: str
-    confidence: float
-    processing_time: float
-    metrics: Optional[Dict[str, Any]] = None  # Includes detailed metrics if available
-    note: Optional[str] = None
-
-# Legacy schemas kept for backward compatibility
-class QuickAnalysisData(AnalysisData):
-    """Data model for backward compatibility."""
-    pass
-
-class DetailedAnalysisData(AnalysisData):
-    """Data model for backward compatibility."""
-    metrics: Dict[str, Any]  # Required for detailed analysis
+class BaseAnalysisResult(BaseModel):
+    """
+    The base schema for all model analysis results. Contains fields
+    that are common across all media types.
+    """
+    prediction: str = Field(..., description="The final prediction ('REAL' or 'FAKE').")
+    confidence: float = Field(..., description="The model's confidence in the prediction (0.0 to 1.0).")
+    processing_time: float = Field(..., description="Total time taken for the analysis in seconds.")
+    note: Optional[str] = Field(None, description="An optional note about the analysis, e.g., for fallbacks or warnings.")
 
 class FramePrediction(BaseModel):
-    """Represents the analysis result for a single frame."""
-    frame_index: int
-    score: float
-    prediction: str
+    """Represents the analysis result for a single frame or sequence window."""
+    index: int = Field(..., description="The index of the frame or window.")
+    score: float = Field(..., description="The raw 'fake' score for this frame/window (0.0 to 1.0).")
+    prediction: str = Field(..., description="The prediction for this frame/window ('REAL' or 'FAKE').")
 
-class FramesAnalysisData(BaseModel):
-    """Data model for the /analyze/frames endpoint."""
-    overall_prediction: str
-    overall_confidence: float
-    processing_time: float
-    frame_predictions: List[FramePrediction]
-    temporal_analysis: Dict[str, Any]
-    note: Optional[str] = None
+class VideoAnalysisResult(BaseAnalysisResult):
+    """
+    A comprehensive data structure for video analysis results.
+    This single schema will be the return type for all video models.
+    """
+    media_type: str = "video"
+    frame_count: Optional[int] = Field(None, description="Total frames in the video.")
+    frames_analyzed: int = Field(..., description="Number of frames or windows analyzed.")
+    frame_predictions: List[FramePrediction] = Field([], description="A list of predictions for each analyzed frame or window.")
+    metrics: Dict[str, Any] = Field({}, description="A dictionary of additional, model-specific metrics (e.g., average scores, variance).")
+    visualization_path: Optional[str] = Field(None, description="An optional path to a generated visualization video file.")
 
-class ComprehensiveAnalysisData(BaseModel):
-    """Data model for the merged comprehensive analysis endpoint."""
-    # Basic analysis results
-    prediction: str
-    confidence: float
-    processing_time: float
-    metrics: Optional[Dict[str, Any]] = None
-    note: Optional[str] = None
-    
-    # Frame-by-frame analysis results
-    frames_analysis: Optional[FramesAnalysisData] = None
-    
-    # Visualization info
-    visualization_generated: bool = False
-    visualization_filename: Optional[str] = None
-    
-    # Processing breakdown
-    processing_breakdown: Dict[str, float] = {}
+# --- Audio Schemas (Now inheriting from BaseAnalysisResult) ---
 
 class PitchAnalysis(BaseModel):
-    mean_pitch_hz: Optional[float] = Field(None, description="Average fundamental frequency (pitch) of the audio in Hertz.")
-    pitch_stability_score: Optional[float] = Field(None, description="A score from 0.0 to 1.0 indicating how stable the pitch is. Unnaturally flat or erratic pitch results in a lower score.")
+    mean_pitch_hz: Optional[float] = None
+    pitch_stability_score: Optional[float] = None
 
 class EnergyAnalysis(BaseModel):
-    rms_energy: float = Field(..., description="Root Mean Square energy, indicating the audio's loudness.")
-    silence_ratio: float = Field(..., description="The proportion of the audio clip that is considered silent (below a threshold).")
+    rms_energy: float
+    silence_ratio: float
 
 class SpectralAnalysis(BaseModel):
-    spectral_centroid: float = Field(..., description="The 'center of mass' of the spectrum, indicating brightness.")
-    spectral_contrast: float = Field(..., description="The difference between spectral peaks and valleys. Can indicate clarity.")
+    spectral_centroid: float
+    spectral_contrast: float
 
 class AudioProperties(BaseModel):
     duration_seconds: float
@@ -157,18 +132,55 @@ class AudioProperties(BaseModel):
     channels: int
 
 class AudioVisualization(BaseModel):
-    spectrogram_url: str = Field(..., description="A temporary URL to download the generated Mel Spectrogram image.")
-    spectrogram_data: List[List[float]] = Field(..., description="The raw Mel Spectrogram data (dB-scaled). Format: [frequency_bins][time_steps]. Ready for charting.")
+    spectrogram_url: Optional[str] = None
+    spectrogram_data: Optional[List[List[float]]] = None
+
+class AudioAnalysisResult(BaseAnalysisResult):
+    """
+
+    A comprehensive data structure for audio analysis results.
+    Inherits common fields and adds audio-specific ones.
+    """
+    media_type: str = "audio"
+    properties: AudioProperties
+    pitch: PitchAnalysis
+    energy: EnergyAnalysis
+    spectral: SpectralAnalysis
+    visualization: Optional[AudioVisualization] = None
+
+
+# --- LEGACY SCHEMAS (To be deprecated and removed later) ---
+
+class AnalysisData(BaseModel):
+    prediction: str
+    confidence: float
+    processing_time: float
+    metrics: Optional[Dict[str, Any]] = None
+    note: Optional[str] = None
+
+class FramesAnalysisData(BaseModel):
+    overall_prediction: str
+    overall_confidence: float
+    processing_time: float
+    frame_predictions: List[FramePrediction] # Adjusted to use the new FramePrediction
+    temporal_analysis: Dict[str, Any]
+    note: Optional[str] = None
+
+class ComprehensiveAnalysisData(AnalysisData):
+    frames_analysis: Optional[FramesAnalysisData] = None
+    visualization_generated: bool = False
+    visualization_filename: Optional[str] = None
+    processing_breakdown: Dict[str, float] = {}
 
 class AudioAnalysisData(BaseModel):
-    """Data model for a comprehensive audio analysis response."""
     prediction: str
     confidence: float
     processing_time: float
     note: Optional[str] = None
-    
     properties: AudioProperties
     pitch: PitchAnalysis
     energy: EnergyAnalysis
     spectral: SpectralAnalysis
     visualization: AudioVisualization
+    
+AnalysisResult = Union[VideoAnalysisResult, AudioAnalysisResult]

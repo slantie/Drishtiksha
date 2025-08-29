@@ -1,0 +1,29 @@
+# docker-compose.yml
+
+version: "3.8"
+
+services:
+  # The Redis Service
+  redis:
+    image: "redis:alpine"
+    container_name: drishtiksha-redis
+    ports:
+      # Expose Redis on the host machine at the default port for easy access.
+      - "6379:6379"
+    # Restart the Redis container automatically if it ever fails.
+    restart: always
+
+  # The Application Service
+  app:
+    container_name: drishtiksha-server
+    # Instructs Docker Compose to build the image from the Dockerfile in the current directory.
+    build: .
+    # Pass environment variables from the .env file into the container.
+    env_file: .env
+    ports:
+      - "8000:8000"
+    # This is the key: it makes the `app` service dependent on the `redis` service.
+    # The app will not start until the Redis container is up and running.
+    depends_on:
+      - redis
+    restart: always
