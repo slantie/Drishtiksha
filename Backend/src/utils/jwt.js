@@ -1,15 +1,14 @@
-import jwt from "jsonwebtoken";
+// src/utils/jwt.js
+
+import jwt from 'jsonwebtoken';
+import { config } from '../config/env.js';
 
 export const generateToken = (payload) => {
-    return jwt.sign(payload, process.env.JWT_SECRET || "your-secret-key", {
-        expiresIn: process.env.JWT_EXPIRES_IN || "24h",
+    return jwt.sign(payload, config.JWT_SECRET, {
+        expiresIn: config.JWT_EXPIRES_IN,
     });
 };
 
 export const verifyToken = (token) => {
-    try {
-        return jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
-    } catch (error) {
-        throw new Error("Invalid token");
-    }
+    return jwt.verify(token, config.JWT_SECRET);
 };

@@ -1,45 +1,29 @@
 // src/api/media/media.validation.js
 
-import { z } from "zod";
+import { z } from 'zod';
+import { ApiError } from '../../utils/ApiError.js';
 
-const validate = (schema) => (req, res, next) => {
+export const validate = (schema) => (req, res, next) => {
     try {
         schema.parse({ body: req.body, params: req.params });
         next();
     } catch (err) {
-        return res.status(400).json({ success: false, errors: err.errors });
+        const validationErrors = err.errors.map(e => e.message);
+        next(new ApiError(400, "Validation failed", validationErrors));
     }
 };
 
-// RENAMED: from videoUpdateSchema to mediaUpdateSchema
-const mediaUpdateSchema = z.object({
+export const mediaUpdateSchema = z.object({
     body: z.object({
-        description: z.string().optional(),
-        filename: z.string().min(3).optional(),
+        description: z.string().max(500, 'Description cannot exceed 500 characters.').optional(),
     }),
     params: z.object({
-        // UPDATED: Changed error message to be generic
-        id: z.string().uuid("Invalid media ID format"),
+        id: z.string().uuid('Invalid media ID format.'),
     }),
 });
 
-// UPDATED: This schema is now more flexible. The specific model validation
-// will be handled in the service layer, as it depends on the media type.
-const analysisRequestSchema = z.object({
-    body: z.object({
-        type: z.enum(
-            ["QUICK", "DETAILED", "FRAMES", "VISUALIZE", "COMPREHENSIVE"],
-            {
-                required_error: "Analysis type is required",
-                invalid_type_error: "Invalid analysis type",
-            }
-        ),
-        // REMOVED: The hardcoded model enum is gone. Now accepts any string.
-        model: z.string().optional(),
-    }),
+export const mediaIdParamSchema = z.object({
     params: z.object({
-        id: z.string().uuid("Invalid media ID format"),
+        id: z.string().uuid('Invalid media ID format.'),
     }),
 });
-
-export { validate, mediaUpdateSchema, analysisRequestSchema };

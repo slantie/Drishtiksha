@@ -1,6 +1,8 @@
+// prisma/schema.prisma
+
 // =============================================================================
-// Drishtiksha: Deepfake Detection Service - Database Schema
-// =============================================================================`
+// Drishtiksha Backend - Final Refactored Database Schema v3.0
+// =============================================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -11,333 +13,153 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+// =============================================================================
+// CORE MODELS
+// =============================================================================
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   firstName String
   lastName  String
   password  String
-  bio       String?
-  phone     String?
-  avatar    String?
   role      Role     @default(USER)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
-  media        Media[]
+  media Media[]
 
   @@map("users")
 }
 
-model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@map("refresh_tokens")
-}
 
 model Media {
   id          String      @id @default(uuid())
   filename    String
   url         String
-  publicId    String
+  publicId    String      // The ID used by the storage provider (e.g., Cloudinary public_id)
   mimetype    String
   size        Int
   description String?
-  status      MediaStatus @default(QUEUED)
+  status      MediaStatus @default(QUEUED) // Represents the status of the LATEST run
   mediaType   MediaType
   userId      String
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  
+  // A single media file can have multiple "runs" of the analysis pipeline over time.
+  analysisRuns AnalysisRun[]
 
-  analyses DeepfakeAnalysis[]
-  videoMetadata VideoMetadata?
-  imageMetadata ImageMetadata?
-  audioMetadata AudioMetadata?
+  // A direct link to the ID of the *most recent* analysis run.
+  // This is a performance optimization for quickly fetching the latest result.
+  latestAnalysisRunId String?
 
-  // RECOMMENDED: Add this composite index for fast, sorted queries on the dashboard.
   @@index([userId, createdAt(sort: Desc)])
   @@map("media")
 }
 
-model VideoMetadata {
+
+// =============================================================================
+// ANALYSIS & VERSIONING MODELS
+// =============================================================================
+
+// Represents a single, user-initiated execution of the multi-model analysis workflow.
+model AnalysisRun {
   id        String   @id @default(uuid())
-  mediaId   String   @unique
+  mediaId   String
   media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  duration  Float?
-  width     Int?
-  height    Int?
-  fps       Float?   
-  codec     String?
-  bitrate   Int?    
-  resolution String?
+  
+  // A simple, user-facing version number (Run 1, Run 2, etc.).
+  runNumber Int
+  
+  // The overall status of this entire run.
+  status    MediaStatus @default(QUEUED)
+  
+  // When this specific run was initiated by the user.
   createdAt DateTime @default(now())
+  
+  // Each run is composed of multiple individual model analyses.
+  analyses  DeepfakeAnalysis[]
 
-  @@map("video_metadata")
+  // A unique constraint to ensure run numbers are sequential per media item.
+  @@unique([mediaId, runNumber])
+  @@map("analysis_runs")
 }
 
-model ImageMetadata {
-  id         String   @id @default(uuid())
-  mediaId    String   @unique
-  media      Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  width      Int?
-  height     Int?
-  format     String?  // e.g., JPEG, PNG, WEBP
-  fileSize   Int?     // in bytes
-  colorSpace String?  // e.g., RGB, CMYK
-  createdAt  DateTime @default(now())
 
-  @@map("image_metadata")
-}
-
-model AudioMetadata {
-  id        String   @id @default(uuid())
-  mediaId   String   @unique
-  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  duration  Float?   // Duration in seconds
-  bitrate   Int?     // in kbps
-  codec     String?
-  channels  Int?     // e.g., 1 for mono, 2 for stereo
-  createdAt DateTime @default(now())
-
-  @@map("audio_metadata")
-}
+// Represents the result from a SINGLE model for a given AnalysisRun.
 model DeepfakeAnalysis {
-  id             String         @id @default(uuid())
-  mediaId        String
-  media          Media          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  prediction     PredictionType
-  confidence     Float
-  processingTime Float? // in seconds
-  model          String
-  modelVersion   String?
-  analysisType   AnalysisType   @default(QUICK)
-  status         AnalysisStatus @default(PENDING)
-  errorMessage   String?
-  timestamp      DateTime?
-  visualizedUrl  String? // URL for model-specific visualized analysis output (/analyze/visualize endpoint)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id              String   @id @default(uuid())
+  analysisRunId   String
+  analysisRun     AnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+  
+  // Top-level, queryable fields for quick access and filtering.
+  modelName       String
+  prediction      String
+  confidence      Float
+  status          AnalysisStatus @default(PENDING)
+  errorMessage    String?
+  
+  // The core of our new, decoupled strategy.
+  // The entire rich, structured JSON response from the Python server's 'data' field
+  // is stored here. This makes the backend future-proof.
+  resultPayload   Json
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  // --- Data Relationships for different analysis types ---
-  // A video analysis might have details, frame data, and temporal data.
-  analysisDetails  AnalysisDetails?
-  frameAnalysis    FrameAnalysis[]
-  temporalAnalysis TemporalAnalysis?
-
-  // NEW: An audio analysis will have this relationship populated.
-  audioAnalysis    AudioAnalysis?
-
-  // --- Common metadata for all analysis types ---
-  modelInfo        ModelInfo?
-  systemInfo       SystemInfo?
-  errors           AnalysisError[]
-
-  @@index([mediaId, model, analysisType])
   @@map("deepfake_analyses")
 }
 
-model AudioAnalysis {
-  id                  String           @id @default(uuid())
-  analysisId          String           @unique
-  analysis            DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
 
-  // Pitch Analysis
-  meanPitchHz         Float?
-  pitchStabilityScore Float?
-
-  // Energy Analysis
-  rmsEnergy           Float?
-  silenceRatio        Float?
-
-  // Spectral Analysis
-  spectralCentroid    Float
-  spectralContrast    Float
-
-  // Visualization
-  spectrogramUrl      String?
-  // Storing raw spectrogram data allows for rich, client-side chart rendering.
-  spectrogramData     Json?
-
-  createdAt           DateTime         @default(now())
-
-  @@map("audio_analysis")
-}
-
-model AnalysisDetails {
-  id                  String           @id @default(uuid())
-  analysisId          String           @unique
-  analysis            DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  frameCount          Int
-  avgConfidence       Float
-  confidenceStd       Float
-  temporalConsistency Float?
-  rollingAverage      Float?
-  createdAt           DateTime         @default(now())
-
-  @@map("analysis_details")
-}
-
-model FrameAnalysis {
-  id          String           @id @default(uuid())
-  analysisId  String
-  analysis    DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  frameNumber Int
-  confidence  Float
-  prediction  PredictionType
-  timestamp   Float? // Frame timestamp in video
-  createdAt   DateTime         @default(now())
-
-  @@unique([analysisId, frameNumber], name: "analysis_frame_unique")
-  @@map("frame_analysis")
-}
-
-model TemporalAnalysis {
-  id               String           @id @default(uuid())
-  analysisId       String           @unique
-  analysis         DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  consistencyScore Float
-  patternDetection String?
-  anomalyFrames    Int[] // Array of frame numbers with anomalies
-  confidenceTrend  String?
-  totalFrames      Int
-  fakeFrames       Int
-  realFrames       Int
-  avgConfidence    Float
-  createdAt        DateTime         @default(now())
-
-  @@map("temporal_analysis")
-}
-
-model ModelInfo {
-  id           String           @id @default(uuid())
-  analysisId   String           @unique
-  analysis     DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  modelName    String // e.g., "SIGLIP-LSTM-V3"
-  version      String // Model version string
-  architecture String // Model architecture details
-  device       String // Processing device (cuda:0, cpu, etc.)
-  batchSize    Int? // Batch size used
-  numFrames    Int? // Number of frames processed
-  modelSize    String? // Model size information
-  loadTime     Float? // Time taken to load model (ms)
-  memoryUsage  String? // Memory usage during processing
-  createdAt    DateTime         @default(now())
-
-  @@map("model_info")
-}
-
-model SystemInfo {
-  id                String           @id @default(uuid())
-  analysisId        String           @unique
-  analysis          DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  gpuMemoryUsed     String? // GPU memory usage during analysis
-  gpuMemoryTotal    String? // Total GPU memory available
-  processingDevice  String? // Device used for processing
-  cudaAvailable     Boolean? // CUDA availability status
-  cudaVersion       String? // CUDA version if available
-  systemMemoryUsed  String? // System RAM usage
-  systemMemoryTotal String? // Total system RAM
-  cpuUsage          Float? // CPU usage percentage during analysis
-  loadBalancingInfo Json? // Load balancing metrics as JSON
-  serverVersion     String? // ML server version
-  pythonVersion     String? // Python runtime version
-  torchVersion      String? // PyTorch version
-  requestId         String? // Unique request identifier for tracking
-  createdAt         DateTime         @default(now())
-
-  @@map("system_info")
-}
-
-model AnalysisError {
-  id              String           @id @default(uuid())
-  analysisId      String
-  analysis        DeepfakeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  errorType       String // "Model not found", "CUDA error", etc.
-  errorMessage    String
-  availableModels String[] // Available models at time of error
-  suggestions     String[] // Troubleshooting suggestions
-  stackTrace      String? // Technical stack trace for debugging
-  serverResponse  Json? // Full server error response
-  retryAttempt    Int              @default(0)
-  createdAt       DateTime         @default(now())
-
-  @@map("analysis_errors")
-}
+// =============================================================================
+// MONITORING MODELS
+// =============================================================================
 
 model ServerHealth {
-  id                String       @id @default(uuid())
-  serverUrl         String // ML Server URL
-  status            ServerStatus @default(UNKNOWN)
-  availableModels   String[] // Models currently loaded and available
-  modelStates       Json? // Detailed model state information
-  loadMetrics       Json? // Current load balancing and performance metrics
-  gpuInfo           Json? // GPU availability, memory, utilization info
-  systemResources   Json? // System resource information
-  lastHealthCheck   DateTime // When this health check was performed
-  responseTime      Float? // Health check response time in ms
-  errorMessage      String? // Any error messages from health check
-  requestCount      Int? // Number of requests processed since last check
-  avgProcessingTime Float? // Average processing time for recent requests
-  uptime            String? // Server uptime information
-  version           String? // Server software version
-  createdAt         DateTime     @default(now())
+  id              String   @id @default(uuid())
+  status          String   // e.g., "HEALTHY", "UNHEALTHY"
+  responseTimeMs  Int
+  
+  // The full, rich JSON response from the Python server's /stats endpoint.
+  // This allows us to build powerful monitoring dashboards without needing to
+  // change the schema every time the server adds a new statistic.
+  statsPayload    Json
+  
+  checkedAt       DateTime @default(now())
 
   @@map("server_health")
 }
 
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
 enum Role {
   USER
   ADMIN
-  MODATOR
 }
 
 enum MediaStatus {
-  UPLOADED
   QUEUED
   PROCESSING
   ANALYZED
-  PARTIALLY_ANALYZED
   FAILED
-}
-
-enum PredictionType {
-  REAL
-  FAKE
 }
 
 enum AnalysisStatus {
   PENDING
-  PROCESSING
   COMPLETED
   FAILED
-}
-
-enum AnalysisType {
-  QUICK // Basic analysis - /analyze endpoint
-  DETAILED // Comprehensive analysis - /analyze/detailed endpoint  
-  FRAMES // Frame-by-frame analysis - /analyze/frames endpoint
-  VISUALIZE // Visual analysis with overlays - /analyze/visualize endpoint
-  COMPREHENSIVE // Complete analysis with all features - /analyze/comprehensive endpoint
-}
-
-enum ServerStatus {
-  HEALTHY // Server responding and models loaded
-  DEGRADED // Server responding but some models unavailable
-  UNHEALTHY // Server not responding or major issues
-  MAINTENANCE // Server in maintenance mode
-  UNKNOWN // Status not yet determined
 }
 
 enum MediaType {
   VIDEO
   IMAGE
   AUDIO
+  UNKNOWN // Fallback for unsupported types
 }

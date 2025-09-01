@@ -1,57 +1,33 @@
 // src/middleware/security.middleware.js
 
-/**
- * Security middleware to add security headers and protect against common attacks
- */
-export const securityHeaders = (req, res, next) => {
-    // Prevent clickjacking
-    res.setHeader("X-Frame-Options", "DENY");
+import rateLimit from 'express-rate-limit';
+import { ApiError } from '../utils/ApiError.js';
 
-    // Prevent MIME sniffing
-    res.setHeader("X-Content-Type-Options", "nosniff");
-
-    // Enable XSS Protection
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-
-    // Strict Transport Security (HTTPS only in production)
-    if (process.env.NODE_ENV === "production") {
-        res.setHeader(
-            "Strict-Transport-Security",
-            "max-age=31536000; includeSubDomains"
-        );
-    }
-
-    // Content Security Policy (adjust as needed)
-    res.setHeader("Content-Security-Policy", "default-src 'self'");
-
-    // Referrer Policy
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-
-    next();
+const createRateLimiter = (options) => {
+    return rateLimit({
+        windowMs: 15 * 60 * 1000,
+        legacyHeaders: false,
+        standardHeaders: true,
+        handler: (req, res, next, options) => {
+            throw new ApiError(
+                options.statusCode,
+                `Too many requests. Please try again after ${Math.ceil(options.windowMs / 60000)} minutes.`
+            );
+        },
+        ...options,
+    });
 };
 
-/**
- * Middleware to validate secure token storage practices
- */
-export const validateTokenSecurity = (req, res, next) => {
-    const token =
-        req.cookies?.authToken ||
-        req.header("Authorization")?.replace("Bearer ", "");
+// A strict rate limiter for failed login attempts to prevent brute-force attacks.
+export const loginRateLimiter = createRateLimiter({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    message: 'Too many failed login attempts. Please try again after 10 minutes.',
+    skipSuccessfulRequests: true, // Only count failed requests
+});
 
-    if (token) {
-        // Log potential security issues (remove in production)
-        if (process.env.NODE_ENV === "development") {
-            const hasHttpOnlyCookie = !!req.cookies?.authToken;
-            const hasAuthHeader = !!req.header("Authorization");
-
-            console.log("Token Security Check:", {
-                hasHttpOnlyCookie,
-                hasAuthHeader,
-                userAgent: req.get("User-Agent"),
-                ip: req.ip,
-            });
-        }
-    }
-
-    next();
-};
+// A general rate limiter for all other API requests.
+export const apiRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+});

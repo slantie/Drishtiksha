@@ -1,28 +1,30 @@
-/**
- * @fileoverview Configures a Winston logger for the application.
- * Logs to the console in development and can be extended for file logging in production.
- */
+// src/utils/logger.js
 
 import winston from 'winston';
 
-const { combine, timestamp, printf, colorize } = winston.format;
+const { combine, timestamp, printf, colorize, errors } = winston.format;
 
-// Custom log format
-const logFormat = printf(({ level, message, timestamp }) => {
-  return `${timestamp} [${level}]: ${message}`;
+const logFormat = printf(({ level, message, timestamp, stack }) => {
+    const logMessage = stack || message;
+    return `${timestamp} | ${level.padEnd(17)} | ${logMessage}`;
 });
 
-// Create the logger instance
 const logger = winston.createLogger({
-  level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
-  format: combine(
-    colorize({ all: true }), // Colorize the output
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    logFormat
-  ),
-  transports: [
-    new winston.transports.Console(),
-  ],
+    level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
+    format: combine(
+        colorize({ all: true }),
+        timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        errors({ stack: true }),
+        logFormat
+    ),
+    transports: [new winston.transports.Console()],
+    exitOnError: false,
 });
+
+logger.stream = {
+    write: (message) => {
+        logger.info(message.substring(0, message.lastIndexOf('\n')));
+    },
+};
 
 export default logger;

@@ -1,89 +1,35 @@
 // src/api/monitoring/monitoring.controller.js
 
-import { mediaRepository } from "../../repositories/media.repository.js";
-import { modelAnalysisService } from "../../services/modelAnalysis.service.js";
-// CORRECTED IMPORT: Points to the consolidated queue config file.
-import { getQueueStatus } from "../../config/queue.js";
-import { ApiResponse } from "../../utils/ApiResponse.js";
-import { asyncHandler } from "../../utils/asyncHandler.js";
-import logger from "../../utils/logger.js";
-import { toCamelCase } from "../../utils/formatKeys.js";
+import { mediaRepository } from '../../repositories/media.repository.js';
+import { modelAnalysisService } from '../../services/modelAnalysis.service.js';
+import { mediaQueue } from '../../config/index.js';
+import { ApiResponse } from '../../utils/ApiResponse.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
 
 const getServerStatus = asyncHandler(async (req, res) => {
-    try {
-        const serverStats = await modelAnalysisService.getServerStatistics();
-
-        mediaRepository.storeServerHealth(serverStats).catch((err) => {
-            logger.error(
-                `Failed to store server health in background: ${err.message}`
-            );
-        });
-
-        res.status(200).json(
-            new ApiResponse(
-                200,
-                toCamelCase(serverStats),
-                "Server status retrieved successfully"
-            )
-        );
-    } catch (error) {
-        mediaRepository
-            .storeServerHealth({
-                status: "UNHEALTHY",
-                errorMessage: error.message,
-            })
-            .catch((err) => {
-                logger.error(
-                    `Failed to store FAILED server health in background: ${err.message}`
-                );
-            });
-
-        throw error;
-    }
+    const serverStats = await modelAnalysisService.getServerStatistics();
+    res.status(200).json(new ApiResponse(200, serverStats, 'Server status retrieved successfully'));
 });
 
 const getServerHealthHistory = asyncHandler(async (req, res) => {
-    const { limit = 50, serverUrl } = req.query;
-    const history = await mediaRepository.getServerHealthHistory(
-        serverUrl,
-        parseInt(limit)
-    );
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            toCamelCase(history),
-            "Server health history retrieved successfully"
-        )
-    );
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    const history = await mediaRepository.getServerHealthHistory(limit);
+    res.status(200).json(new ApiResponse(200, history, 'Server health history retrieved successfully'));
 });
 
-const getAnalysisStats = asyncHandler(async (req, res) => {
-    const { timeframe = "24h" } = req.query;
-    const stats = await mediaRepository.getAnalysisStats(timeframe);
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            toCamelCase(stats),
-            `Analysis statistics for ${timeframe} retrieved successfully`
-        )
-    );
-});
-
-// CORRECTED: This now correctly calls the imported function without conflict.
-const getQueueStatusHandler = asyncHandler(async (req, res) => {
-    const queueStatus = await getQueueStatus();
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            toCamelCase(queueStatus),
-            "Video processing queue status retrieved successfully."
-        )
-    );
+const getQueueStatus = asyncHandler(async (req, res) => {
+    const status = {
+        pending: await mediaQueue.getWaitingCount(),
+        active: await mediaQueue.getActiveCount(),
+        completed: await mediaQueue.getCompletedCount(),
+        failed: await mediaQueue.getFailedCount(),
+        delayed: await mediaQueue.getDelayedCount(),
+    };
+    res.status(200).json(new ApiResponse(200, status, 'Processing queue status retrieved successfully.'));
 });
 
 export const monitoringController = {
     getServerStatus,
     getServerHealthHistory,
-    getAnalysisStats,
-    getQueueStatus: getQueueStatusHandler,
+    getQueueStatus,
 };

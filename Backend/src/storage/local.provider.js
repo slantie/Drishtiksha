@@ -1,34 +1,30 @@
 // src/storage/local.provider.js
 
-import { promises as fs, createWriteStream } from "fs";
-import path from "path";
-import logger from "../utils/logger.js";
-import { ApiError } from "../utils/ApiError.js";
+import { promises as fs, createWriteStream, existsSync } from 'fs';
+import path from 'path';
+import { config } from '../config/env.js';
+import logger from '../utils/logger.js';
+import { ApiError } from '../utils/ApiError.js';
+import { fileURLToPath } from 'url';
 
-const STORAGE_ROOT = process.env.LOCAL_STORAGE_PATH || "public/media";
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const STORAGE_ROOT = config.LOCAL_STORAGE_PATH;
+const BASE_URL = config.BASE_URL;
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 const ensureDirectoryExists = async (dirPath) => {
     try {
         await fs.mkdir(dirPath, { recursive: true });
     } catch (error) {
-        throw new ApiError(
-            500,
-            `Could not create storage directory: ${error.message}`
-        );
+        throw new ApiError(500, `Could not create storage directory: ${error.message}`);
     }
 };
 
 const localProvider = {
-    /**
-     * Moves a file from a temporary path to the permanent local storage.
-     * @param {string} localFilePath - The temporary local path of the file.
-     * @param {string} [subfolder="media"] - The subfolder to store the file in (e.g., 'videos', 'images').
-     * @returns {Promise<{url: string, publicId: string}>} - The public URL and relative path (as publicId).
-     */
-    // UPDATED: The default subfolder is now more generic.
-    async uploadFile(localFilePath, subfolder = "media") {
-        const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
+    async uploadFile(localFilePath, subfolder = 'media') {
+        const permanentStorageDir = path.join(PROJECT_ROOT, STORAGE_ROOT, subfolder);
         await ensureDirectoryExists(permanentStorageDir);
 
         const uniqueFilename = `${Date.now()}-${path.basename(localFilePath)}`;
@@ -37,90 +33,52 @@ const localProvider = {
         try {
             await fs.rename(localFilePath, destinationPath);
         } catch (error) {
-            logger.warn(
-                `fs.rename failed: ${error.message}. Falling back to copy/unlink.`
-            );
+            logger.warn(`fs.rename failed for ${localFilePath}: ${error.message}. Falling back to copy/unlink.`);
             await fs.copyFile(localFilePath, destinationPath);
             await fs.unlink(localFilePath);
         }
 
-        const relativePath = path.join(subfolder, uniqueFilename);
-        const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
-            /\\/g,
-            "/"
-        );
-        const publicUrl = `${BASE_URL}/${urlPath}/${relativePath}`
-            .replace(/\/+/g, "/")
-            .replace(":/", "://");
-
-        return {
-            url: publicUrl,
-            publicId: relativePath,
-        };
+        const relativePath = path.join(subfolder, uniqueFilename).replace(/\\/g, '/');
+        const urlPath = STORAGE_ROOT.replace(/^public\//, '').replace(/\\/g, '/');
+        const publicUrl = new URL(`${urlPath}/${relativePath}`, BASE_URL).href;
+        
+        return { url: publicUrl, publicId: relativePath };
     },
 
-    /**
-     * Saves a file from a readable stream to local storage.
-     * @param {ReadableStream} stream - The readable stream of the file content.
-     * @param {object} options - Options for the upload, including folder and resource_type.
-     * @returns {Promise<{url: string, publicId: string}>} - The public URL and relative path.
-     */
     async uploadStream(stream, options = {}) {
-        const subfolder = options.folder || "visualizations";
-        const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
+        const subfolder = options.folder || 'visualizations';
+        const permanentStorageDir = path.join(PROJECT_ROOT, STORAGE_ROOT, subfolder);
         await ensureDirectoryExists(permanentStorageDir);
 
-        // --- NEW: Determine file extension based on resource type for streams ---
-        const extension = options.resource_type === "image" ? ".png" : ".mp4";
-        const uniqueFilename = `${Date.now()}-${typeLabel}${extension}`;
+        const extension = options.resource_type === 'image' ? '.png' : '.mp4';
+        const uniqueFilename = `${Date.now()}-visualization${extension}`;
         const destinationPath = path.join(permanentStorageDir, uniqueFilename);
 
         return new Promise((resolve, reject) => {
             const writeStream = createWriteStream(destinationPath);
             stream.pipe(writeStream);
-            writeStream.on("finish", () => {
-                const relativePath = path.join(subfolder, uniqueFilename);
-                const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
-                    /\\/g,
-                    "/"
-                );
-                const publicUrl = `${BASE_URL}/${urlPath}/${relativePath}`
-                    .replace(/\/+/g, "/")
-                    .replace(":/", "://");
+            writeStream.on('finish', () => {
+                const relativePath = path.join(subfolder, uniqueFilename).replace(/\\/g, '/');
+                const urlPath = STORAGE_ROOT.replace(/^public\//, '').replace(/\\/g, '/');
+                const publicUrl = new URL(`${urlPath}/${relativePath}`, BASE_URL).href;
                 resolve({ url: publicUrl, publicId: relativePath });
             });
-            writeStream.on("error", (error) => {
-                reject(
-                    new ApiError(
-                        500,
-                        `Failed to save stream to local storage: ${error.message}`
-                    )
-                );
+            writeStream.on('error', (error) => {
+                reject(new ApiError(500, `Failed to save stream to local storage: ${error.message}`));
             });
         });
     },
-
-    /**
-     * Deletes a file from the local filesystem.
-     * @param {string} publicId - The relative path of the file to delete.
-     * @param {string} [resourceType] - The type of resource (ignored by local provider, but included for interface consistency).
-     */
-    async deleteFile(publicId, resourceType) {
+    
+    async deleteFile(publicId) {
         if (!publicId) return;
-        const fullPath = path.join(STORAGE_ROOT, publicId);
+        const fullPath = path.join(PROJECT_ROOT, STORAGE_ROOT, publicId);
         try {
-            await fs.unlink(fullPath);
-            logger.info(`Successfully deleted local file: ${fullPath}`);
-        } catch (error) {
-            if (error.code === "ENOENT") {
-                logger.warn(
-                    `Attempted to delete a non-existent file: ${fullPath}`
-                );
-            } else {
-                logger.error(
-                    `Failed to delete local file ${fullPath}: ${error.message}`
-                );
+            if (existsSync(fullPath)) {
+                await fs.unlink(fullPath);
+                logger.info(`Successfully deleted local file: ${fullPath}`);
             }
+        } catch (error) {
+            logger.error(`Failed to delete local file ${fullPath}: ${error.message}`);
         }
     },
 };

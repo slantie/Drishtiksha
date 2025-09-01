@@ -1,15 +1,12 @@
 // src/repositories/user.repository.js
 
-import prisma from "../config/database.js";
+import { prisma } from '../config/index.js';
 
 const defaultUserSelect = {
     id: true,
     email: true,
     firstName: true,
     lastName: true,
-    bio: true,
-    phone: true,
-    avatar: true,
     role: true,
     isActive: true,
     createdAt: true,
@@ -17,34 +14,30 @@ const defaultUserSelect = {
 };
 
 export const userRepository = {
-    async findByEmail(email) {
-        return await prisma.user.findUnique({ where: { email } });
-    },
-
     async findByEmailWithPassword(email) {
-        return await prisma.user.findUnique({ where: { email } });
+        return prisma.user.findUnique({ where: { email } });
     },
 
     async findById(userId) {
-        return await prisma.user.findUnique({
+        return prisma.user.findUnique({
             where: { id: userId },
             select: defaultUserSelect,
         });
     },
-
+    
     async findByIdWithPassword(userId) {
-        return await prisma.user.findUnique({ where: { id: userId } });
+        return prisma.user.findUnique({ where: { id: userId } });
     },
 
     async create(userData) {
-        const user = await prisma.user.create({ data: userData });
-        // eslint-disable-next-line no-unused-vars
-        const { password, ...userWithoutPassword } = user;
-        return userWithoutPassword;
+        return prisma.user.create({
+            data: userData,
+            select: defaultUserSelect,
+        });
     },
 
     async update(userId, updateData) {
-        return await prisma.user.update({
+        return prisma.user.update({
             where: { id: userId },
             data: updateData,
             select: defaultUserSelect,
