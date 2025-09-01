@@ -3,21 +3,21 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { PageLoader } from "./ui/LoadingSpinner.jsx"; // REFACTOR: Using our standardized PageLoader.
+import { PageLoader } from "./ui/LoadingSpinner.jsx";
 
 const PublicRoute = ({ children }) => {
-    const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
-    if (isLoading) {
-        // REFACTOR: Ensures a consistent loading UI for public routes as well.
-        return <PageLoader text="Loading..." />;
-    }
+  if (isLoading) {
+    return <PageLoader text="Loading..." />;
+  }
 
-    if (isAuthenticated) {
-        return <Navigate to="/dashboard" replace />;
-    }
+  if (isAuthenticated) {
+    // If the user is already logged in, redirect them from public-only pages (like login) to the main dashboard.
+    return <Navigate to="/dashboard" replace />;
+  }
 
-    return children;
+  return children;
 };
 
 export default PublicRoute;

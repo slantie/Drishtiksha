@@ -14,106 +14,106 @@ import Authentication from "./pages/Authentication";
 import Profile from "./pages/Profile.jsx";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
-import Analysis from "./pages/Analysis.jsx";
+import DetailedAnalysis from "./pages/Analysis.jsx";
 import Monitoring from "./pages/Monitoring.jsx";
 // import DetailedAnalysis from "./pages/DetailedAnalysis";
 
 function App() {
-    return (
-        <Router>
-            <AuthProvider>
-                <Routes>
-                    <Route
-                        path="/"
-                        element={
-                            <Layout>
-                                <Home />
-                            </Layout>
-                        }
-                    />
-                    <Route
-                        path="/auth"
-                        element={
-                            <PublicRoute>
-                                <AuthLayout>
-                                    <Authentication />
-                                </AuthLayout>
-                            </PublicRoute>
-                        }
-                    />
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <Dashboard />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/profile"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <Profile />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/results/:videoId"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <Results />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/results/:videoId/:analysisId"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <Analysis />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                    {/* <Route
-                        path="/results/legacy/:videoId/:analysisId"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <DetailedAnalysis />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    /> */}
-                    <Route
-                        path="/monitor"
-                        element={
-                            <ProtectedRoute>
-                                <Layout>
-                                    <Monitoring />
-                                </Layout>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="*"
-                        element={
-                            <Layout>
-                                <Error />
-                            </Layout>
-                        }
-                    />
-                </Routes>
-                <ToastProvider />
-            </AuthProvider>
-        </Router>
-    );
+  return (
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Layout>
+                <Home />
+              </Layout>
+            }
+          />
+          <Route
+            path="/auth"
+            element={
+              <PublicRoute>
+                <AuthLayout>
+                  <Authentication />
+                </AuthLayout>
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Profile />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/results/:videoId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Results />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/results/:videoId/:analysisId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DetailedAnalysis />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          {/* <Route
+            path="/results/legacy/:videoId/:analysisId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DetailedAnalysis />
+                </Layout>
+              </ProtectedRoute>
+            }
+          /> */}
+          <Route
+            path="/monitor"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Monitoring />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <Layout>
+                <Error />
+              </Layout>
+            }
+          />
+        </Routes>
+        <ToastProvider />
+      </AuthProvider>
+    </Router>
+  );
 }
 
 export default App;

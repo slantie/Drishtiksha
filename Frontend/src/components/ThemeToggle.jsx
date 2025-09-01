@@ -3,73 +3,70 @@
 import React, { useState, useEffect } from "react";
 import { Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "./ui/Button"; // REFACTOR: Using our Button component as the base.
+import { Button } from "./ui/Button";
 
 function ThemeToggle() {
-    // REFACTOR: Simplified state management. The theme is either 'dark' or not.
-    const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // REFACTOR: useEffect now only runs once on mount to set the initial theme correctly.
-    useEffect(() => {
-        const storedTheme = localStorage.getItem("theme");
-        const prefersDark = window.matchMedia(
-            "(prefers-color-scheme: dark)"
-        ).matches;
-        if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
-            setIsDarkMode(true);
-            document.documentElement.classList.add("dark");
-        } else {
-            setIsDarkMode(false);
-            document.documentElement.classList.remove("dark");
-        }
-    }, []);
+  useEffect(() => {
+    const storedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+    if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
+      document.documentElement.classList.add("dark");
+      setIsDarkMode(true);
+    } else {
+      document.documentElement.classList.remove("dark");
+      setIsDarkMode(false);
+    }
+  }, []);
 
-    const toggleTheme = () => {
-        setIsDarkMode((prevMode) => {
-            const newMode = !prevMode;
-            if (newMode) {
-                document.documentElement.classList.add("dark");
-                localStorage.setItem("theme", "dark");
-            } else {
-                document.documentElement.classList.remove("dark");
-                localStorage.setItem("theme", "light");
-            }
-            return newMode;
-        });
-    };
+  const toggleTheme = () => {
+    setIsDarkMode((prevMode) => {
+      const newMode = !prevMode;
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("theme", "dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+      }
+      return newMode;
+    });
+  };
 
-    // REFACTOR: Using a single motion component for the icon switch for a cleaner animation.
-    const iconVariants = {
-        hidden: { rotate: -180, opacity: 0, scale: 0 },
-        visible: { rotate: 0, opacity: 1, scale: 1 },
-    };
+  const iconVariants = {
+    hidden: { rotate: -90, opacity: 0, scale: 0.5 },
+    visible: { rotate: 0, opacity: 1, scale: 1 },
+    exit: { rotate: 90, opacity: 0, scale: 0.5 },
+  };
 
-    return (
-        <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            className="p-2 rounded-full bg-light-hover/40 dark:bg-dark-hover/40 hover:bg-light-hover dark:hover:bg-dark-hover transition-colors duration-200"
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      aria-label="Toggle theme"
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={isDarkMode ? "moon" : "sun"}
+          variants={iconVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          transition={{ duration: 0.2 }}
         >
-            <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                    key={isDarkMode ? "moon" : "sun"}
-                    variants={iconVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="hidden"
-                    transition={{ duration: 0.25 }}
-                >
-                    {isDarkMode ? (
-                        <Sun className="h-5 w-5" />
-                    ) : (
-                        <Moon className="h-5 w-5" />
-                    )}
-                </motion.div>
-            </AnimatePresence>
-        </Button>
-    );
+          {isDarkMode ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </Button>
+  );
 }
 
 export default ThemeToggle;

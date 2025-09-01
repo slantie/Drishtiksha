@@ -3,31 +3,34 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { PageLoader } from "./ui/LoadingSpinner.jsx"; // REFACTOR: Using our standardized PageLoader.
+import { PageLoader } from "./ui/LoadingSpinner.jsx";
 
 const ProtectedRoute = ({ children, roles = [] }) => {
-    const { isAuthenticated, user, isLoading } = useAuth();
-    const location = useLocation();
+  const { isAuthenticated, user, isLoading } = useAuth();
+  const location = useLocation();
 
-    if (isLoading) {
-        // REFACTOR: Provides a full-screen, consistent loading experience.
-        return <PageLoader text="Verifying session..." />;
-    }
+  if (isLoading) {
+    // While the auth state is being determined, show a full-screen loader.
+    return <PageLoader text="Verifying session..." />;
+  }
 
-    if (!isAuthenticated) {
-        return (
-            <Navigate
-                to={`/auth?redirect=${encodeURIComponent(location.pathname)}`}
-                replace
-            />
-        );
-    }
+  if (!isAuthenticated) {
+    // If the user is not authenticated, redirect them to the auth page.
+    // We pass the current location so they can be redirected back after logging in.
+    return (
+      <Navigate
+        to={`/auth?redirect=${encodeURIComponent(location.pathname)}`}
+        replace
+      />
+    );
+  }
 
-    if (roles.length > 0 && !roles.includes(user?.role)) {
-        return <Navigate to="/dashboard" replace />;
-    }
+  // If the route requires specific roles and the user doesn't have one, redirect.
+  if (roles.length > 0 && !roles.includes(user?.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-    return children;
+  return children;
 };
 
 export default ProtectedRoute;
