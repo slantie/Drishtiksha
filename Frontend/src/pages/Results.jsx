@@ -20,6 +20,7 @@ import { Button } from "../components/ui/Button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "../components/ui/Card";

@@ -12,27 +12,29 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
-const STORAGE_ROOT_ABS = path.join(PROJECT_ROOT, config.LOCAL_STORAGE_PATH);
+const STORAGE_ROOT = path.join(PROJECT_ROOT, config.LOCAL_STORAGE_PATH);
 
-// ... (ensureDirectoryExists is the same) ...
+const ensureDirectoryExists = async (dirPath) => {
+  try {
+    await fs.mkdir(dirPath, { recursive: true });
+  } catch (error) {
+    throw new ApiError(
+      500,
+      `Could not create storage directory: ${error.message}`
+    );
+  }
+};
 
 const localProvider = {
   async uploadFile(localFilePath, subfolder = "media") {
     const permanentStorageDir = path.join(STORAGE_ROOT_ABS, subfolder);
     await ensureDirectoryExists(permanentStorageDir);
-
     const uniqueFilename = `${Date.now()}-${path.basename(localFilePath)}`;
     const destinationPath = path.join(permanentStorageDir, uniqueFilename);
-
     await fs.rename(localFilePath, destinationPath).catch(async (error) => {
-      logger.warn(
-        `fs.rename failed: ${error.message}. Falling back to copy/unlink.`
-      );
       await fs.copyFile(localFilePath, destinationPath);
       await fs.unlink(localFilePath);
     });
-
-    // --- FINAL FIX: Construct the URL using the ASSETS_BASE_URL ---
     const relativePath = path
       .join(subfolder, uniqueFilename)
       .replace(/\\/g, "/");
@@ -40,13 +42,10 @@ const localProvider = {
       /^public\//,
       ""
     ).replace(/\\/g, "/");
-
-    // Use the ASSETS_BASE_URL for constructing the public URL.
     const publicUrl = new URL(
       `${urlBasePath}/${relativePath}`,
       config.ASSETS_BASE_URL
     ).href;
-
     return { url: publicUrl, publicId: relativePath };
   },
 

@@ -22,12 +22,15 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   JWT_EXPIRES_IN: z.string().default("1d"),
   FRONTEND_URL: z.string().url({ message: "FRONTEND_URL must be a valid URL" }),
-  STORAGE_PROVIDER: z.enum(["local", "cloudinary"]).default("local"),
+  STORAGE_PROVIDER: z.enum(["local", "cloudinary"]).default("cloudinary"),
   LOCAL_STORAGE_PATH: z.string().default("public/media"),
   SERVER_URL: z
     .string()
     .url({ message: "SERVER_URL must be a valid URL for the ML server" }),
   SERVER_API_KEY: z.string().min(1, "SERVER_API_KEY is required"),
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
 });
 
 const validatedEnv = envSchema.safeParse(process.env);

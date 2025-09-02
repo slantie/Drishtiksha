@@ -62,7 +62,7 @@ function App() {
             }
           />
           <Route
-            path="/results/:videoId"
+            path="/results/:mediaId"
             element={
               <ProtectedRoute>
                 <Layout>
@@ -72,7 +72,7 @@ function App() {
             }
           />
           <Route
-            path="/results/:videoId/:analysisId"
+            path="/results/:mediaId/:analysisId"
             element={
               <ProtectedRoute>
                 <Layout>
@@ -82,7 +82,7 @@ function App() {
             }
           />
           {/* <Route
-            path="/results/legacy/:videoId/:analysisId"
+            path="/results/legacy/:mediaId/:analysisId"
             element={
               <ProtectedRoute>
                 <Layout>
