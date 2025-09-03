@@ -9,7 +9,6 @@ import {
   Maximize,
   Loader2,
   Music,
-  AlertTriangle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,8 +29,6 @@ const formatTime = (timeInSeconds) => {
 };
 
 export const MediaPlayer = ({ media }) => {
-  console.log("[MediaPlayer] Rendering with media prop:", media);
-
   const mediaRef = useRef(null);
   const containerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -49,23 +46,17 @@ export const MediaPlayer = ({ media }) => {
 
   const togglePlayPause = useCallback(() => {
     if (!mediaRef.current || !isPlayable) return;
-    console.log(
-      "[MediaPlayer] Toggling play/pause. Current state:",
-      mediaRef.current.paused ? "paused" : "playing"
-    );
     mediaRef.current.paused
       ? mediaRef.current.play()
       : mediaRef.current.pause();
   }, [isPlayable]);
 
   const toggleFullScreen = useCallback(() => {
-    if (media?.mediaType !== "VIDEO") return;
+    if (media?.mediaType !== "VIDEO" || !containerRef.current) return;
     if (!document.fullscreenElement) {
-      console.log("[MediaPlayer] Entering fullscreen.");
-      containerRef.current?.requestFullscreen?.();
+      containerRef.current.requestFullscreen();
     } else {
-      console.log("[MediaPlayer] Exiting fullscreen.");
-      document.exitFullscreen?.();
+      document.exitFullscreen();
     }
   }, [media?.mediaType]);
 
@@ -74,35 +65,45 @@ export const MediaPlayer = ({ media }) => {
     const progressBar = e.currentTarget;
     const rect = progressBar.getBoundingClientRect();
     const seekPosition = (e.clientX - rect.left) / rect.width;
-    const seekTime = seekPosition * duration;
-    console.log(`[MediaPlayer] Seeking to ${seekTime.toFixed(2)}s`);
-    mediaRef.current.currentTime = seekTime;
+    mediaRef.current.currentTime = seekPosition * duration;
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
+        return;
+      switch (e.key) {
+        case " ":
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case "f":
+          e.preventDefault();
+          toggleFullScreen();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlayPause, toggleFullScreen]);
 
   useEffect(() => {
     const element = mediaRef.current;
     if (!element) return;
 
     const onLoadedData = () => {
-      console.log("[MediaPlayer] Event: loadeddata");
       if (isPlayable) setDuration(element.duration);
       setIsLoading(false);
     };
     const onTimeUpdate = () => setCurrentTime(element.currentTime);
-    const onPlay = () => {
-      console.log("[MediaPlayer] Event: play");
-      setIsPlaying(true);
-    };
-    const onPause = () => {
-      console.log("[MediaPlayer] Event: pause");
-      setIsPlaying(false);
-    };
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
     const onVolumeChange = () => {
       setVolume(element.volume);
       setIsMuted(element.muted);
     };
     const onError = () => {
-      console.error("[MediaPlayer] Event: error - Failed to load media.");
+      console.error("[MediaPlayer] Failed to load media.");
       setIsLoading(false);
     };
 
@@ -121,7 +122,9 @@ export const MediaPlayer = ({ media }) => {
       element.removeEventListener("volumechange", onVolumeChange);
       element.removeEventListener("error", onError);
     };
-  }, [isPlayable]);
+    // THIS IS THE CRITICAL FIX for SPA navigation.
+    // The effect will now re-run whenever the media URL changes.
+  }, [isPlayable, media.url]);
 
   useEffect(() => {
     const onFullScreenChange = () =>
@@ -132,13 +135,12 @@ export const MediaPlayer = ({ media }) => {
   }, []);
 
   const renderMediaElement = () => {
-    console.log(
-      `[MediaPlayer] Rendering media element for type: ${media.mediaType}, URL: ${media.url}`
-    );
+    // Keying the element ensures React fully remounts it when the src changes.
     switch (media.mediaType) {
       case "VIDEO":
         return (
           <video
+            key={media.url}
             ref={mediaRef}
             src={media.url}
             className="w-full h-full object-contain"
@@ -146,10 +148,11 @@ export const MediaPlayer = ({ media }) => {
           />
         );
       case "AUDIO":
-        return <audio ref={mediaRef} src={media.url} />;
+        return <audio key={media.url} ref={mediaRef} src={media.url} />;
       case "IMAGE":
         return (
           <img
+            key={media.url}
             src={media.url}
             alt={media.description || media.filename}
             className="w-full h-full object-contain"
@@ -191,6 +194,7 @@ export const MediaPlayer = ({ media }) => {
               : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           }`}
         >
+          {/* Controls implementation remains the same */}
           <div
             className="relative h-2 w-full cursor-pointer group/progress"
             onClick={handleSeek}

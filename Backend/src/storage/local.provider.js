@@ -3,7 +3,6 @@
 import { promises as fs, createWriteStream, existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-// REFACTOR: Import the full config object
 import { config } from "../config/env.js";
 import logger from "../utils/logger.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -11,7 +10,9 @@ import { ApiError } from "../utils/ApiError.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// This is the absolute path to the project root (e.g., /app in Docker)
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
+// This is the absolute path to the storage directory (e.g., /app/public/media)
 const STORAGE_ROOT = path.join(PROJECT_ROOT, config.LOCAL_STORAGE_PATH);
 
 const ensureDirectoryExists = async (dirPath) => {
@@ -26,36 +27,37 @@ const ensureDirectoryExists = async (dirPath) => {
 };
 
 const localProvider = {
-  async uploadFile(localFilePath, subfolder = "media") {
-    const permanentStorageDir = path.join(STORAGE_ROOT_ABS, subfolder);
+  async uploadFile(localFilePath, subfolder = "uploads") {
+    // Correctly join the absolute storage root with the desired subfolder.
+    const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
     await ensureDirectoryExists(permanentStorageDir);
+
     const uniqueFilename = `${Date.now()}-${path.basename(localFilePath)}`;
     const destinationPath = path.join(permanentStorageDir, uniqueFilename);
-    await fs.rename(localFilePath, destinationPath).catch(async (error) => {
+
+    // Use a robust copy-then-unlink strategy as a fallback for fs.rename across devices.
+    try {
+      await fs.rename(localFilePath, destinationPath);
+    } catch (error) {
+      logger.warn(
+        `fs.rename failed (possibly cross-device), falling back to copy/unlink: ${error.message}`
+      );
       await fs.copyFile(localFilePath, destinationPath);
       await fs.unlink(localFilePath);
-    });
-    const relativePath = path
-      .join(subfolder, uniqueFilename)
-      .replace(/\\/g, "/");
-    const urlBasePath = config.LOCAL_STORAGE_PATH.replace(
-      /^public\//,
-      ""
-    ).replace(/\\/g, "/");
-    const publicUrl = new URL(
-      `${urlBasePath}/${relativePath}`,
-      config.ASSETS_BASE_URL
-    ).href;
-    return { url: publicUrl, publicId: relativePath };
+    }
+
+    // This is the relative path from the storage root, used for deletion and database storage.
+    const publicId = path.join(subfolder, uniqueFilename).replace(/\\/g, "/");
+
+    // This is the publicly accessible URL served by the dedicated asset server.
+    const publicUrl = new URL(publicId, config.ASSETS_BASE_URL).href;
+
+    return { url: publicUrl, publicId: publicId };
   },
 
   async uploadStream(stream, options = {}) {
     const subfolder = options.folder || "visualizations";
-    const permanentStorageDir = path.join(
-      PROJECT_ROOT,
-      STORAGE_ROOT,
-      subfolder
-    );
+    const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
     await ensureDirectoryExists(permanentStorageDir);
 
     const extension = options.resource_type === "image" ? ".png" : ".mp4";
@@ -66,15 +68,11 @@ const localProvider = {
       const writeStream = createWriteStream(destinationPath);
       stream.pipe(writeStream);
       writeStream.on("finish", () => {
-        const relativePath = path
+        const publicId = path
           .join(subfolder, uniqueFilename)
           .replace(/\\/g, "/");
-        const urlPath = STORAGE_ROOT.replace(/^public\//, "").replace(
-          /\\/g,
-          "/"
-        );
-        const publicUrl = new URL(`${urlPath}/${relativePath}`, BASE_URL).href;
-        resolve({ url: publicUrl, publicId: relativePath });
+        const publicUrl = new URL(publicId, config.ASSETS_BASE_URL).href;
+        resolve({ url: publicUrl, publicId: publicId });
       });
       writeStream.on("error", (error) => {
         reject(
@@ -89,7 +87,8 @@ const localProvider = {
 
   async deleteFile(publicId) {
     if (!publicId) return;
-    const fullPath = path.join(PROJECT_ROOT, STORAGE_ROOT, publicId);
+    // Construct the absolute path to the file within the storage directory for deletion.
+    const fullPath = path.join(STORAGE_ROOT, publicId);
     try {
       if (existsSync(fullPath)) {
         await fs.unlink(fullPath);

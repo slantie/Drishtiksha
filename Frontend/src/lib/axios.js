@@ -5,7 +5,7 @@ import { config } from "../config/env.js";
 import { authStorage } from "../utils/authStorage.js";
 
 const axiosInstance = axios.create({
-  baseURL: `${config.VITE_BACKEND_URL}${config.VITE_BACKEND_URL_VERSION}`,
+  baseURL: `${config.VITE_BACKEND_URL}`,
   timeout: 60000,
 });
 

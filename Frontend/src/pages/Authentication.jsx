@@ -37,7 +37,7 @@ function Authentication() {
   const direction = currentView === "login" ? "left" : "right";
 
   return (
-    <div className="w-full max-w-4xl mx-auto grid lg:grid-cols-2 bg-light-background dark:bg-dark-muted-background rounded-2xl shadow-2xl overflow-hidden">
+    <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 bg-light-background dark:bg-dark-muted-background rounded-2xl shadow-2xl overflow-hidden">
       {/* Left Panel: Brand Information */}
       <div className="hidden lg:flex flex-col items-center justify-center p-12 text-center bg-light-muted-background dark:bg-dark-background border-r border-light-secondary dark:border-dark-secondary">
         <img src="/Logo.svg" alt="Logo" className="w-24 h-24 mb-6" />

@@ -13,10 +13,6 @@ const envSchema = z.object({
 
   // The full URL to the backend API service. This is the most critical variable.
   VITE_BACKEND_URL: z.string().url("A valid VITE_BACKEND_URL is required."),
-
-  // The backend URL version to the backend API service. This is the most critical variable.
-  VITE_BACKEND_URL_VERSION: z.string(),
-  // .url("A valid VITE_BACKEND_URL_VERSION is required."),
 });
 
 // Vite exposes environment variables on `import.meta.env`.

@@ -2,22 +2,18 @@
 
 import { config } from "../config/env.js";
 import logger from "../utils/logger.js";
+import localProvider from "./local.provider.js";
+import cloudinaryProvider from "./cloudinary.provider.js";
 
 let storageManager;
 
+// This logic now correctly selects the storage provider based on the .env configuration.
 if (config.STORAGE_PROVIDER === "local") {
-  // const { default: localProvider } = await import('./local.provider.js');
-  // storageManager = localProvider;
-  // logger.info("📦 Storage Manager initialized with 'local' filesystem provider.");
-  const { default: cloudinaryProvider } = await import(
-    "./cloudinary.provider.js"
+  storageManager = localProvider;
+  logger.info(
+    "📦 Storage Manager initialized with 'local' filesystem provider."
   );
-  storageManager = cloudinaryProvider;
-  logger.info("☁️ Storage Manager initialized with 'cloudinary' provider.");
 } else {
-  const { default: cloudinaryProvider } = await import(
-    "./cloudinary.provider.js"
-  );
   storageManager = cloudinaryProvider;
   logger.info("☁️ Storage Manager initialized with 'cloudinary' provider.");
 }
