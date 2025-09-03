@@ -47,7 +47,7 @@ function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      aria-label="Toggle theme"
+      aria-label={isDarkMode ? "Switch to light theme" : "Switch to dark theme"} // More descriptive aria-label
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -59,9 +59,9 @@ function ThemeToggle() {
           transition={{ duration: 0.2 }}
         >
           {isDarkMode ? (
-            <Sun className="h-5 w-5" />
+            <Sun className="h-5 w-5" /> // Explicit size
           ) : (
-            <Moon className="h-5 w-5" />
+            <Moon className="h-5 w-5" /> // Explicit size
           )}
         </motion.div>
       </AnimatePresence>

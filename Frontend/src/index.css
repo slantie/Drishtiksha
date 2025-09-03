@@ -11,17 +11,21 @@ body {
     height: 0px;
 }
 
-/* Toast theme variables */
+/* Toast theme variables - Aligned with Tailwind config colors */
 :root {
-    --toast-bg: rgba(255, 255, 255, 0.95);
-    --toast-text: #374151;
-    --toast-border: #e5e7eb;
+    /* Light mode */
+    --toast-bg: theme('colors.light.background'); /* Use Tailwind-defined light background */
+    --toast-text: theme('colors.light.text');     /* Use Tailwind-defined light text */
+    --toast-border: theme('colors.light.secondary'); /* Use Tailwind-defined light secondary border */
+    --toast-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .dark {
-    --toast-bg: rgba(31, 41, 55, 0.95);
-    --toast-text: #f9fafb;
-    --toast-border: #4b5563;
+    /* Dark mode */
+    --toast-bg: theme('colors.dark.muted.background'); /* Use Tailwind-defined dark muted background */
+    --toast-text: theme('colors.dark.text');           /* Use Tailwind-defined dark text */
+    --toast-border: theme('colors.dark.secondary');    /* Use Tailwind-defined dark secondary border */
+    --toast-shadow: 0 4px 12px rgba(0,0,0,0.5); /* Darker shadow for dark mode */
 }
 
 /* Custom toast animations */
@@ -48,37 +52,37 @@ body {
 }
 
 /* Apply to react-hot-toast */
+/* Updated to use CSS variables for background, text, border, and shadow */
 [data-sonner-toast],
 [data-sonner-toast][data-styled] {
     animation: toast-enter 0.4s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+    background-color: var(--toast-bg) !important;
+    color: var(--toast-text) !important;
+    border: 1px solid var(--toast-border) !important;
+    box-shadow: var(--toast-shadow) !important;
 }
 
 [data-sonner-toast][data-removed="true"] {
     animation: toast-exit 0.35s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
 }
 
-/* ...existing code... */
-
+/* Marquee animation (unrelated to toasts, but kept for completeness) */
 @keyframes marquee {
     0% {
         transform: translateX(0);
     }
     100% {
         transform: translateX(-50%);
-    } /* -50% assumes duplicated content side-by-side */
+    }
 }
 
-/* utility class used in your JSX */
 .animate-marquee {
     animation: marquee 20s linear infinite;
     will-change: transform;
 }
 
-/* ensure the marquee content doesn't wrap and keeps its intrinsic width */
 .marquee-inner {
     display: inline-flex;
     min-width: max-content;
-    white-space: nowrap; /* redundant if you already have it, but safe */
+    white-space: nowrap;
 }
-
-/* ...existing code... */

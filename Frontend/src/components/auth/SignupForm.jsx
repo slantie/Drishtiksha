@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, UserPlus } from "lucide-react"; // Added UserPlus for signup button
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { showToast } from "../../utils/toast.js"; // Import toast for client-side feedback
 
 const SignupForm = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
@@ -12,7 +13,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
     lastName: "",
     email: "",
     password: "",
-    confirmPassword: "", // Kept for UI, but validation is on the backend
+    confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -24,8 +25,11 @@ const SignupForm = ({ onSwitchToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // REMOVED: Client-side validation is now handled robustly by the backend with Zod.
-    // This simplifies the component and avoids duplicating validation logic.
+    if (formData.password !== formData.confirmPassword) {
+      showToast.error("Passwords do not match.");
+      return;
+    }
+
     try {
       await signup({
         firstName: formData.firstName,
@@ -33,7 +37,9 @@ const SignupForm = ({ onSwitchToLogin }) => {
         email: formData.email,
         password: formData.password,
       });
-      // On success, the useSignupMutation hook shows a toast and we switch views.
+      // On success, AuthContext handles the success toast and navigation to /auth?view=login.
+      // We just need to trigger the parent to switch views if it's not already handled by AuthContext's navigation.
+      // If AuthContext navigates, this call might be redundant, but harmless.
       onSwitchToLogin();
     } catch (error) {
       // Errors are already handled and toasted by the useSignupMutation hook.
@@ -47,8 +53,13 @@ const SignupForm = ({ onSwitchToLogin }) => {
       type="button"
       onClick={() => setShowPassword(!showPassword)}
       aria-label="Toggle password visibility"
+      className="focus:outline-none" // Add focus outline for accessibility
     >
-      {showPassword ? <EyeOff /> : <Eye />}
+      {showPassword ? (
+        <EyeOff className="h-5 w-5" />
+      ) : (
+        <Eye className="h-5 w-5" />
+      )}
     </button>
   );
   const confirmPasswordToggle = (
@@ -56,8 +67,13 @@ const SignupForm = ({ onSwitchToLogin }) => {
       type="button"
       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
       aria-label="Toggle confirm password visibility"
+      className="focus:outline-none" // Add focus outline for accessibility
     >
-      {showConfirmPassword ? <EyeOff /> : <Eye />}
+      {showConfirmPassword ? (
+        <EyeOff className="h-5 w-5" />
+      ) : (
+        <Eye className="h-5 w-5" />
+      )}
     </button>
   );
 
@@ -81,8 +97,8 @@ const SignupForm = ({ onSwitchToLogin }) => {
           onChange={handleChange}
           placeholder="First Name"
           disabled={isSigningUp}
-          leftIcon={<User />}
-          rightIcon={<></>}
+          leftIcon={<User className="h-5 w-5" />}
+          rightIcon={null}
         />
         <Input
           name="lastName"
@@ -92,8 +108,8 @@ const SignupForm = ({ onSwitchToLogin }) => {
           onChange={handleChange}
           placeholder="Last Name"
           disabled={isSigningUp}
-          leftIcon={<User />}
-          rightIcon={<></>}
+          leftIcon={<User className="h-5 w-5" />}
+          rightIcon={null}
         />
       </div>
 
@@ -105,8 +121,8 @@ const SignupForm = ({ onSwitchToLogin }) => {
         onChange={handleChange}
         placeholder="john@example.com"
         disabled={isSigningUp}
-        leftIcon={<Mail />}
-        rightIcon={<></>}
+        leftIcon={<Mail className="h-5 w-5" />}
+        rightIcon={null}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -118,8 +134,9 @@ const SignupForm = ({ onSwitchToLogin }) => {
           onChange={handleChange}
           placeholder="Password"
           disabled={isSigningUp}
-          leftIcon={<Lock />}
+          leftIcon={<Lock className="h-5 w-5" />}
           rightIcon={passwordToggle}
+          minLength={6} // Client-side hint, backend validates
         />
         <Input
           name="confirmPassword"
@@ -129,8 +146,9 @@ const SignupForm = ({ onSwitchToLogin }) => {
           onChange={handleChange}
           placeholder="Confirm Password"
           disabled={isSigningUp}
-          leftIcon={<Lock />}
+          leftIcon={<Lock className="h-5 w-5" />}
           rightIcon={confirmPasswordToggle}
+          minLength={6} // Client-side hint, backend validates
         />
       </div>
 
@@ -139,8 +157,9 @@ const SignupForm = ({ onSwitchToLogin }) => {
         isLoading={isSigningUp}
         className="w-full"
         size="lg"
+        disabled={isSigningUp || formData.password !== formData.confirmPassword} // Disable if passwords don't match
       >
-        {!isSigningUp && <User className="w-5 h-5 mr-2" />}
+        {!isSigningUp && <UserPlus className="w-5 h-5 mr-2" />}
         {isSigningUp ? "Creating Account..." : "Create Account"}
       </Button>
 
@@ -151,6 +170,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
             type="button"
             onClick={onSwitchToLogin}
             className="font-semibold text-primary-main hover:underline"
+            disabled={isSigningUp} // Disable button while loading
           >
             Sign In
           </button>

@@ -1,24 +1,22 @@
 // src/hooks/useAuthQuery.js
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { authApi } from "../services/api/auth.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.js";
 import { authStorage } from "../utils/authStorage.js";
 
 export const useLoginMutation = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: authApi.login,
+    // onSuccess now only invalidates relevant queries, actual storage/navigation is handled in AuthContext
     onSuccess: (response) => {
-      const { token, user } = response.data;
-      authStorage.set({ token, user, rememberMe: true });
-      queryClient.setQueryData(queryKeys.auth.profile(), response.data.user);
-      showToast.success("Login successful!");
-      navigate("/dashboard");
+      // The AuthContext's login function handles setting authStorage, localToken, and navigation.
+      // This hook's onSuccess will primarily ensure other data (like media lists) are refreshed.
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.monitoring.all });
     },
     onError: (error) => {
       showToast.error(
@@ -31,9 +29,8 @@ export const useLoginMutation = () => {
 export const useSignupMutation = () => {
   return useMutation({
     mutationFn: authApi.signup,
-    onSuccess: () => {
-      showToast.success("Account created! Please log in to continue.");
-    },
+    // onSuccess now only shows a toast, navigation is handled in AuthContext
+    // The AuthContext's signup function handles showing the success toast and navigation.
     onError: (error) => {
       showToast.error(error.message || "Signup failed. Please try again.");
     },
@@ -42,28 +39,32 @@ export const useSignupMutation = () => {
 
 export const useLogoutMutation = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   return useMutation({
     mutationFn: authApi.logout,
+    // onSuccess is removed here because AuthContext's logout function
+    // already handles clearing storage, cache, and navigation after calling this mutation.
+    // This prevents redundant actions and centralizes logic.
     onSuccess: () => {
-      authStorage.clear();
-      queryClient.clear();
-      showToast.success("You have been logged out.");
-      navigate("/auth");
+      // No action here, AuthContext's logout wrapper handles everything.
     },
     onError: (error) => {
-      showToast.error(error.message || "Logout failed.");
+      // Even if the backend logout fails, we still want to clear client-side state.
+      // AuthContext will handle this by checking for local token presence.
+      showToast.error(
+        error.message ||
+          "Logout failed, but your local session has been cleared."
+      );
     },
   });
 };
 
-export const useProfileQuery = () => {
-  const { token } = authStorage.get();
+export const useProfileQuery = (token) => {
+  // Accept token as prop
   return useQuery({
     queryKey: queryKeys.auth.profile(),
     queryFn: authApi.getProfile,
-    enabled: !!token,
+    enabled: !!token, // Only run this query if a token exists
     staleTime: 1000 * 60 * 5, // 5 minutes
     select: (response) => response.data,
   });

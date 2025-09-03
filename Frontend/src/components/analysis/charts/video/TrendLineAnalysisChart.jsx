@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../../../ui/Card";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Activity } from "lucide-react";
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -39,7 +39,31 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export const TrendlineAnalysisChart = ({ frames }) => {
-  if (!frames || frames.length === 0) return null;
+  if (!frames || frames.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary-main" /> Trendline
+            Analysis
+          </CardTitle>
+          <CardDescription>
+            Shows the raw frame scores (light area) with a smoothed trendline
+            (red line) to highlight patterns.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8 text-light-muted-text dark:text-dark-muted-text">
+            <Activity className="h-12 w-12 mx-auto mb-4" />
+            <p className="text-lg font-semibold">No Frame Data for Trendline</p>
+            <p className="mt-2 text-sm">
+              Detailed frame analysis data is not available for this model.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const chartData = frames.map((frame, index) => {
     const rollingWindow = Math.max(5, Math.floor(frames.length / 10)); // Dynamic window size

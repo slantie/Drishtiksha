@@ -13,16 +13,19 @@ import {
 import { Button } from "../../ui/Button";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
 import {
-  Eye,
+  Eye, // Changed to Brain for view detailed report
   ShieldCheck,
   ShieldAlert,
   Clock,
   AlertTriangle,
-  Brain,
+  Brain, // Icon for view detailed report
 } from "lucide-react";
 import { formatProcessingTime } from "../../../utils/formatters.js";
 
 export const AnalysisResultSummaryCard = ({ analysis, mediaId }) => {
+  // `analysis` is the DeepfakeAnalysis object from the backend
+  // It has properties like `id`, `modelName`, `prediction`, `confidence`, `status`, `errorMessage`, `resultPayload`.
+
   // Card for a FAILED analysis
   if (analysis.status === "FAILED") {
     return (
@@ -36,17 +39,35 @@ export const AnalysisResultSummaryCard = ({ analysis, mediaId }) => {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Analysis Failed</AlertTitle>
             <AlertDescription>
-              {analysis.errorMessage || "An unknown error occurred."}
+              {analysis.errorMessage ||
+                "An unknown error occurred during analysis."}
             </AlertDescription>
           </Alert>
         </CardContent>
+        {/* Potentially link to a detailed error report if one exists */}
+        {mediaId && analysis.id && (
+          <CardFooter>
+            <Button asChild variant="outline" className="w-full">
+              <Link to={`/results/${mediaId}/${analysis.id}`}>
+                <Eye className="mr-2 h-4 w-4" /> View Error Details
+              </Link>
+            </Button>
+          </CardFooter>
+        )}
       </Card>
     );
   }
 
   // Card for a COMPLETED analysis
-  const { prediction, confidence, processingTime, media_type } =
-    analysis.resultPayload;
+  const resultPayload = analysis.resultPayload;
+
+  // Safely extract properties from resultPayload
+  const prediction = resultPayload?.prediction || analysis.prediction || "N/A"; // Fallback to top-level if needed
+  const confidence = resultPayload?.confidence || analysis.confidence || 0; // Fallback to top-level if needed
+  const processingTime =
+    resultPayload?.processing_time || resultPayload?.processingTime || null; // Backend might use different keys
+  const mediaType = resultPayload?.media_type || "N/A";
+
   const isReal = prediction === "REAL";
 
   return (
@@ -59,7 +80,7 @@ export const AnalysisResultSummaryCard = ({ analysis, mediaId }) => {
         <div>
           <CardTitle>{analysis.modelName}</CardTitle>
           <CardDescription className="capitalize">
-            {media_type} analysis model.
+            {mediaType} analysis model.
           </CardDescription>
         </div>
         {isReal ? (

@@ -1,4 +1,4 @@
-// src/components/analysis/charts/SpectrogramHeatmapChart.jsx
+// src/components/analysis/charts/audio/SpectrogramHeatmapChart.jsx
 
 import React, { useMemo } from "react";
 import {
@@ -17,7 +17,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../../../ui/Card";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Activity } from "lucide-react"; // Added Activity for empty state
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload?.length) {
@@ -33,8 +33,40 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
+// Placeholder for Recharts Cell or custom shape
+const CustomScatterCell = ({ fill }) => (
+  <div style={{ backgroundColor: fill, width: 5, height: 5 }} />
+);
+
 export const SpectrogramHeatmapChart = ({ data }) => {
-  if (!data || data.length === 0) return null;
+  // `data` is expected to be a 2D array (matrix) of spectrogram values (e.g., in dB)
+  if (!data || data.length === 0 || !Array.isArray(data[0])) {
+    // Check for valid 2D array
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary-main" /> Interactive
+            Spectrogram
+          </CardTitle>
+          <CardDescription>
+            An interactive heatmap of the raw spectrogram data. Hover over
+            points for details.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8 text-light-muted-text dark:text-dark-muted-text">
+            <Activity className="h-12 w-12 mx-auto mb-4" />
+            <p className="text-lg font-semibold">No Raw Spectrogram Data</p>
+            <p className="mt-2 text-sm">
+              Raw spectrogram matrix data is not available for an interactive
+              heatmap.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Transform the matrix into a flat array of points suitable for a scatter chart.
   const chartData = useMemo(
@@ -53,7 +85,10 @@ export const SpectrogramHeatmapChart = ({ data }) => {
   const getColor = (value) => {
     const minDb = -80; // A typical floor for spectrograms
     const maxDb = 0;
-    const normalized = Math.max(0, (value - minDb) / (maxDb - minDb));
+    const normalized = Math.max(
+      0,
+      Math.min(1, (value - minDb) / (maxDb - minDb))
+    ); // Clamp between 0 and 1
     const hue = (1 - normalized) * 240; // Blue (cold) to Red (hot)
     return `hsl(${hue}, 80%, 50%)`;
   };
@@ -82,8 +117,9 @@ export const SpectrogramHeatmapChart = ({ data }) => {
                 position: "insideBottom",
                 offset: -10,
                 fontSize: 12,
+                fill: "currentColor", // Theme-aware color
               }}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 10, fill: "currentColor" }}
               domain={["dataMin", "dataMax"]}
             />
             <YAxis
@@ -95,16 +131,20 @@ export const SpectrogramHeatmapChart = ({ data }) => {
                 angle: -90,
                 position: "insideLeft",
                 fontSize: 12,
+                fill: "currentColor", // Theme-aware color
               }}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 10, fill: "currentColor" }}
               domain={["dataMin", "dataMax"]}
             />
+            {/* ZAxis for size/color based on value, range depends on desired visual effect */}
             <ZAxis type="number" dataKey="value" range={[1, 100]} />
             <Tooltip
               content={<CustomTooltip />}
               cursor={{ strokeDasharray: "3 3" }}
             />
-            <Scatter data={chartData} fill="#8884d8" shape="square">
+            <Scatter data={chartData} shape="square">
+              {" "}
+              {/* Use shape="square" for heatmap-like dots */}
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={getColor(entry.value)} />
               ))}

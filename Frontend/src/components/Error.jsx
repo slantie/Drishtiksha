@@ -12,7 +12,9 @@ function Error() {
   const goBack = () => navigate(-1);
 
   return (
-    <div className="flex items-center justify-center py-12">
+    <div className="flex min-h-[calc(100vh-200px)] items-center justify-center py-12 px-4">
+      {" "}
+      {/* Added min-h and px-4 */}
       <div className="text-center space-y-8 max-w-lg">
         <div className="flex justify-center">
           <div className="flex items-center justify-center w-24 h-24 bg-red-100 dark:bg-red-900/30 rounded-full">
@@ -30,14 +32,18 @@ function Error() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button asChild>
             <Link to="/">
-              <Home className="w-4 h-4 mr-2" /> Go Home
+              <Home className="w-5 h-5 mr-2" /> Go Home
             </Link>
           </Button>
           <Button variant="outline" onClick={goBack}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Go Back
+            <ArrowLeft className="w-5 h-5 mr-2" /> Go Back
           </Button>
-          <Button variant="ghost" onClick={handleRefresh}>
-            <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+          <Button
+            variant="ghost"
+            onClick={handleRefresh}
+            aria-label="Refresh page"
+          >
+            <RefreshCw className="w-5 h-5 mr-2" /> Refresh
           </Button>
         </div>
       </div>

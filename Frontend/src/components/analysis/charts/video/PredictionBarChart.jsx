@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../../../ui/Card";
-import { BarChart2 } from "lucide-react";
+import { BarChart2, Activity } from "lucide-react";
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -31,18 +31,42 @@ const CustomTooltip = ({ active, payload, label }) => {
         >
           Fake Score: {data.score.toFixed(1)}% ({data.prediction})
         </p>
-        {data.average && <p>Trend: {data.average.toFixed(1)}%</p>}
       </div>
     );
   }
   return null;
 };
+
 export const PredictionBarChart = ({ frames }) => {
-  if (!frames || frames.length === 0) return null;
+  if (!frames || frames.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart2 className="h-5 w-5 text-primary-main" /> Frame Prediction
+            Chart
+          </CardTitle>
+          <CardDescription>
+            Each bar represents a frame, colored by its final prediction (REAL
+            or FAKE).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8 text-light-muted-text dark:text-dark-muted-text">
+            <Activity className="h-12 w-12 mx-auto mb-4" />
+            <p className="text-lg font-semibold">No Frame Data for Chart</p>
+            <p className="mt-2 text-sm">
+              Frame-level prediction data is not available for this model.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const chartData = frames.map((frame) => ({
     index: frame.index,
-    score: frame.score * 100,
+    score: frame.score * 100, // Convert 0-1 score to 0-100 percentage
     prediction: frame.prediction,
   }));
 

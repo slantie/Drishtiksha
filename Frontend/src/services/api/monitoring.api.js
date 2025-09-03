@@ -3,9 +3,9 @@
 import axiosInstance from "../../lib/axios.js";
 
 const MONITORING_ROUTES = {
-  SERVER_STATUS: "/monitoring/server-status",
-  SERVER_HISTORY: "/monitoring/server-history",
-  QUEUE_STATUS: "/monitoring/queue-status",
+  SERVER_STATUS: "/api/v1/monitoring/server-status", // Explicitly include API versioning
+  SERVER_HISTORY: "/api/v1/monitoring/server-history", // Explicitly include API versioning
+  QUEUE_STATUS: "/api/v1/monitoring/queue-status", // Explicitly include API versioning
 };
 
 export const monitoringApi = {

@@ -5,16 +5,13 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { Eye, EyeOff, Mail, Lock, LogIn } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { Router } from "react-router-dom";
+// REMOVED: import { Router } from "react-router-dom"; // No longer needed as navigation is centralized in AuthContext
 
 const LoginForm = ({ onSwitchToSignup }) => {
-  router = Router();
+  // REMOVED: router = Router(); // No longer needed
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoggingIn } = useAuth();
-
-  // REMOVED: The redirect logic is now correctly handled by the <PublicRoute> component.
-  // This simplifies the form's responsibility to just handling login.
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,11 +20,11 @@ const LoginForm = ({ onSwitchToSignup }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // The `login` function from AuthContext is already wrapped in a try/catch
-    // and will show a toast on failure, so we don't need to add it here.
+    // The `login` function from AuthContext is already wrapped in a try/catch,
+    // handles API call, updates local state, shows toasts, and navigates on success.
     login(formData.email, formData.password);
-    // If login is successful, we get redirected to the /dashboard page
-    router.push("/dashboard");
+    // REMOVED: If login is successful, we get redirected to the /dashboard page by AuthContext
+    // REMOVED: router.push("/dashboard");
   };
 
   const passwordToggle = (
@@ -35,8 +32,13 @@ const LoginForm = ({ onSwitchToSignup }) => {
       type="button"
       onClick={() => setShowPassword(!showPassword)}
       aria-label="Toggle password visibility"
+      className="focus:outline-none" // Add focus outline for accessibility
     >
-      {showPassword ? <EyeOff /> : <Eye />}
+      {showPassword ? (
+        <EyeOff className="h-5 w-5" />
+      ) : (
+        <Eye className="h-5 w-5" />
+      )}
     </button>
   );
 
@@ -58,8 +60,8 @@ const LoginForm = ({ onSwitchToSignup }) => {
         onChange={handleChange}
         placeholder="user@domain.com"
         disabled={isLoggingIn}
-        leftIcon={<Mail />}
-        rightIcon={<></>}
+        leftIcon={<Mail className="h-5 w-5" />}
+        rightIcon={null}
       />
       <Input
         name="password"
@@ -69,7 +71,7 @@ const LoginForm = ({ onSwitchToSignup }) => {
         onChange={handleChange}
         placeholder="••••••••"
         disabled={isLoggingIn}
-        leftIcon={<Lock />}
+        leftIcon={<Lock className="h-5 w-5" />}
         rightIcon={passwordToggle}
       />
       <Button
@@ -88,6 +90,7 @@ const LoginForm = ({ onSwitchToSignup }) => {
             type="button"
             onClick={onSwitchToSignup}
             className="font-semibold text-primary-main hover:underline"
+            disabled={isLoggingIn} // Disable button while loading
           >
             Sign Up
           </button>

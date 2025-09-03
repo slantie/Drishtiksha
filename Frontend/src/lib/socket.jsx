@@ -4,89 +4,129 @@ import { io } from "socket.io-client";
 import { queryClient } from "./queryClient";
 import { queryKeys } from "./queryKeys";
 import { toastOrchestrator } from "./toastOrchestrator.jsx";
-
-const VITE_BACKEND_URL =
-    import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+import { config } from "../config/env.js";
 
 class SocketService {
-    socket = null;
+  socket = null;
 
-    connect(token) {
-        if (this.socket) this.disconnect();
-        if (!token) return;
-
-        this.socket = io(VITE_BACKEND_URL, { auth: { token } });
-        this.socket.on("connect", () =>
-            console.log("[Socket] ✅ Connection established:", this.socket.id)
-        );
-        this.socket.on("disconnect", (reason) =>
-            console.log("[Socket] 🔌 Connection disconnected:", reason)
-        );
-        this.socket.on("connect_error", (err) =>
-            console.error("[Socket] ❌ Connection error:", err.message)
-        );
-        this.setupEventListeners();
+  connect(token) {
+    if (this.socket?.connected) {
+      console.log(
+        "[Socket] Already connected, skipping new connection attempt."
+      );
+      return;
+    }
+    if (!token) {
+      console.log("[Socket] No token provided, skipping socket connection.");
+      return;
     }
 
-    disconnect() {
-        if (this.socket) {
-            this.socket.disconnect();
-            this.socket = null;
-        }
+    console.log("[Socket] Attempting to connect...");
+    this.socket = io(config.VITE_BACKEND_URL, { auth: { token } }); // Use validated config
+
+    this.socket.on("connect", () =>
+      console.log("[Socket] ✅ Connection established:", this.socket.id)
+    );
+    this.socket.on("disconnect", (reason) =>
+      console.log("[Socket] 🔌 Connection disconnected:", reason)
+    );
+    this.socket.on("connect_error", (err) =>
+      console.error("[Socket] ❌ Connection error:", err.message)
+    );
+    this.setupEventListeners();
+  }
+
+  disconnect() {
+    if (this.socket) {
+      console.log("[Socket] Forcibly disconnecting...");
+      this.socket.disconnect();
+      this.socket = null;
+    }
+  }
+
+  setupEventListeners() {
+    if (!this.socket) {
+      console.warn("[Socket] No socket instance to setup event listeners.");
+      return;
     }
 
-    setupEventListeners() {
-        if (!this.socket) return;
+    this.socket.off("progress_update"); // Remove old listeners to prevent duplicates
+    this.socket.off("media_update"); // Corrected event name
+    this.socket.off("processing_error");
 
-        this.socket.on("progress_update", (progress) => {
-            console.log("[Socket] 📩 Received 'progress_update' event:", progress);
-            
-            // The backend uses 'videoId' as the key, which is our generic mediaId.
-            const mediaId = progress.videoId || progress.mediaId;
-            const { event, message, data } = progress;
-            
-            if (!mediaId) return;
+    this.socket.on("progress_update", (progress) => {
+      console.log("[Socket] 📩 Received 'progress_update' event:", progress);
 
-            // Delegate all toast logic to the orchestrator
-            toastOrchestrator.handleProgressEvent(mediaId, event, message, data);
+      // The backend events now consistently use 'mediaId'
+      const mediaId = progress.mediaId;
+      const { event, message, data } = progress;
 
-            // Invalidate the specific media item's query to trigger a refetch in the UI
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.media.detail(mediaId),
-            });
-        });
+      if (!mediaId) {
+        console.warn(
+          "[Socket] 'progress_update' event received without mediaId:",
+          progress
+        );
+        return;
+      }
 
-        // REFACTORED: The 'video_update' event now represents a generic media update.
-        this.socket.on("video_update", (media) => {
-            console.log("[Socket] 📩 Received final 'media_update' event:", media);
-            
-            // The backend still calls the event 'video_update', but the payload is a generic media object.
-            const mediaId = media.id;
-            const filename = media.filename || "your media file";
+      // Delegate all toast logic to the orchestrator
+      toastOrchestrator.handleProgressEvent(mediaId, event, message, data);
 
-            toastOrchestrator.resolveVideoProcessing(mediaId, filename, true);
+      // Invalidate the specific media item's query to trigger a refetch in the UI
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.media.detail(mediaId),
+      });
+    });
 
-            // Invalidate both the specific media item and the list of all media
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.media.detail(mediaId),
-            });
-            queryClient.invalidateQueries({
-                queryKey: queryKeys.media.lists(),
-            });
-        });
+    // REFACTORED: Listen for 'media_update' from the backend.
+    this.socket.on("media_update", (media) => {
+      console.log("[Socket] 📩 Received final 'media_update' event:", media);
 
-        this.socket.on("processing_error", (errorData) => {
-            console.error("[Socket] 📩 Received 'processing_error' event:", errorData);
+      // The backend now sends a generic media object with `id`
+      const mediaId = media.id;
+      const filename = media.filename || "your media file";
 
-            const mediaId = errorData.videoId || errorData.mediaId;
-            if (!mediaId) return;
+      toastOrchestrator.resolveMediaProcessing(mediaId, filename, true);
 
-            toastOrchestrator.resolveVideoProcessing(mediaId, "your media file", false, errorData.error);
-            
-            queryClient.invalidateQueries({ queryKey: queryKeys.media.detail(mediaId) });
-            queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
-        });
-    }
+      // Invalidate both the specific media item and the list of all media
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.media.detail(mediaId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.media.lists(),
+      });
+    });
+
+    this.socket.on("processing_error", (errorData) => {
+      console.error(
+        "[Socket] 📩 Received 'processing_error' event:",
+        errorData
+      );
+
+      const mediaId = errorData.mediaId; // Use mediaId consistent with backend
+      const filename = errorData.filename || "your media file"; // Pass filename if available
+
+      if (!mediaId) {
+        console.warn(
+          "[Socket] 'processing_error' event received without mediaId:",
+          errorData
+        );
+        return;
+      }
+
+      toastOrchestrator.resolveMediaProcessing(
+        mediaId,
+        filename,
+        false,
+        errorData.error
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.media.detail(mediaId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
+    });
+  }
 }
 
 export const socketService = new SocketService();

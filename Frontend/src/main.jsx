@@ -1,3 +1,5 @@
+// src/main.jsx
+
 import "./index.css";
 import App from "./App.jsx";
 import ReactDOM from "react-dom/client";
@@ -11,8 +13,8 @@ const projectDesc = import.meta.env.VITE_PROJECT_DESC || "Deepfake Detection";
 document.title = `${projectName} - ${projectDesc}`;
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-    <QueryClientProvider client={queryClient}>
-        <App />
-        <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <App />
+    <ReactQueryDevtools initialIsOpen={false} />
+  </QueryClientProvider>
 );

@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../../../ui/Card";
-import { BarChartHorizontal } from "lucide-react";
+import { BarChartHorizontal, Activity } from "lucide-react";
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -33,8 +33,34 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export const ConfidenceDistributionChart = ({ frames }) => {
-  if (!frames || frames.length === 0) return null;
+  if (!frames || frames.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChartHorizontal className="h-5 w-5 text-primary-main" /> Score
+            Distribution
+          </CardTitle>
+          <CardDescription>
+            Shows how many frames fall into each "fake" score bucket (0-100%).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8 text-light-muted-text dark:text-dark-muted-text">
+            <Activity className="h-12 w-12 mx-auto mb-4" />
+            <p className="text-lg font-semibold">
+              No Frame Data for Distribution
+            </p>
+            <p className="mt-2 text-sm">
+              Detailed frame analysis data is not available for this model.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
+  // Ensure score is converted to percentage for histogram bucketing
   const histogramData = Array.from({ length: 10 }, (_, i) => ({
     name: `${i * 10}-${i * 10 + 10}%`,
     count: frames.filter(
@@ -84,7 +110,7 @@ export const ConfidenceDistributionChart = ({ frames }) => {
               {histogramData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={index < 5 ? "#22c55e" : "#ef4444"}
+                  fill={index < 5 ? "#22c55e" : "#ef4444"} // Color based on range
                   opacity={0.5 + index * 0.05}
                 />
               ))}

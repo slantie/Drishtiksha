@@ -13,6 +13,7 @@ import {
   Cpu,
   Layers,
   RefreshCw,
+  Gauge, // Added Gauge icon for overall status
 } from "lucide-react";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Button } from "../components/ui/Button";
@@ -38,20 +39,26 @@ import {
   Cell,
 } from "recharts";
 
-// --- SUB-COMPONENTS (Refactored for new data props) ---
+// --- SUB-COMPONENTS ---
 
 const formatUptime = (totalSeconds) => {
   if (totalSeconds == null || isNaN(totalSeconds) || totalSeconds < 0)
     return "N/A";
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
-  return `${days}d ${hours}h`;
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`; // Show minutes for shorter uptimes
 };
 
 const RadialProgressChart = ({ percentage, label, color }) => {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
+  // Ensure percentage is clamped between 0 and 100
+  const clampedPercentage = Math.max(0, Math.min(100, percentage));
+  const offset = circumference - (clampedPercentage / 100) * circumference;
+
   return (
     <div className="relative flex-shrink-0 flex items-center justify-center w-28 h-28">
       <svg className="w-full h-full" viewBox="0 0 100 100">
@@ -80,7 +87,9 @@ const RadialProgressChart = ({ percentage, label, color }) => {
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold">{percentage.toFixed(0)}%</span>
+        <span className="text-2xl font-bold">
+          {clampedPercentage.toFixed(0)}%
+        </span>
         <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
           {label}
         </span>
@@ -115,7 +124,7 @@ const ResourceCard = ({ title, icon: Icon, chartData, details }) => (
             <span className="text-light-muted-text dark:text-dark-muted-text">
               {item.label}:
             </span>
-            <span className="font-semibold ">{item.value}</span>
+            <span className="font-semibold ">{item.value || "N/A"}</span>
           </div>
         ))}
       </div>
@@ -137,7 +146,8 @@ const LiveStatusIndicator = ({ serverStatus }) => {
             <AlertTriangle className="h-8 w-8 text-red-500" />
           )}
           <div>
-            <h2 className="font-bold">ML Service Status</h2>
+            <h2 className="font-bold text-lg">ML Service Status</h2>{" "}
+            {/* Consistent title size */}
             <p
               className={`font-semibold ${
                 isHealthy ? "text-green-600" : "text-red-600"
@@ -155,9 +165,11 @@ const LiveStatusIndicator = ({ serverStatus }) => {
             </span>
           </div>
           <div>
-            Response:{" "}
+            Response Time:{" "}
             <span className="font-semibold">
-              {serverStatus?.responseTimeMs}ms
+              {serverStatus?.responseTimeMs
+                ? `${serverStatus.responseTimeMs}ms`
+                : "N/A"}
             </span>
           </div>
         </div>
@@ -170,31 +182,34 @@ const HealthCheckHistoryChart = ({ data }) => {
   if (!data?.length)
     return (
       <Card className="p-6 text-center text-light-muted-text dark:text-dark-muted-text">
-        No health check history available.
+        <Gauge className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+        <p>No health check history available.</p>
       </Card>
     );
 
   const displayData = data
     .map((item) => ({
-      ...item.statsPayload,
-      status: item.status,
+      ...item.statsPayload, // Contains deviceInfo, systemInfo etc from the Python service
+      status: item.status, // Backend's 'HEALTHY', 'UNHEALTHY', etc.
       responseTime: item.responseTimeMs,
+      checkedAt: item.checkedAt,
     }))
-    .reverse()
-    .slice(0, 50);
+    .reverse(); // Display oldest first for time series
 
   const getStatusFillColor = (status) => {
     switch (status?.toUpperCase()) {
       case "HEALTHY":
-        return "#22c55e";
+        return "#22c55e"; // Green
       case "UNHEALTHY":
-        return "#ef4444";
+        return "#ef4444"; // Red
+      case "DEGRADED": // Added from backend schema
+        return "#f59e0b"; // Amber/Yellow
       default:
-        return "#f59e0b";
+        return "#94a3b8"; // Gray
     }
   };
 
-  const CustomTooltip = ({ active, payload }) => {
+  const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload?.[0]) {
       const data = payload[0].payload;
       return (
@@ -203,6 +218,8 @@ const HealthCheckHistoryChart = ({ data }) => {
             Status: {data.status?.toLowerCase()}
           </p>
           <p>Response Time: {data.responseTime}ms</p>
+          <p>Time: {new Date(data.checkedAt).toLocaleTimeString()}</p>{" "}
+          {/* Show time */}
         </div>
       );
     }
@@ -214,7 +231,7 @@ const HealthCheckHistoryChart = ({ data }) => {
       <CardHeader>
         <CardTitle>Health Check History</CardTitle>
         <CardDescription>
-          Response time of the last 50 server health checks.
+          Response time of the last {data.length} server health checks.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -228,7 +245,8 @@ const HealthCheckHistoryChart = ({ data }) => {
               stroke="currentColor"
               className="opacity-10"
             />
-            <XAxis hide={true} />
+            <XAxis hide={true} dataKey="checkedAt" />{" "}
+            {/* Hide but provide dataKey for tooltip */}
             <YAxis unit="ms" tick={{ fill: "currentColor", fontSize: 11 }} />
             <Tooltip
               content={<CustomTooltip />}
@@ -250,20 +268,28 @@ const HealthCheckHistoryChart = ({ data }) => {
 };
 
 const MonitoringSkeleton = () => (
-  <div className="space-y-4">
-    <div className="flex justify-between items-center">
-      <SkeletonCard className="h-10 w-64" />
-      <SkeletonCard className="h-10 w-32" />
-    </div>
-    <SkeletonCard className="h-20" />
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="lg:col-span-2 space-y-8">
-        <SkeletonCard className="h-64" />
-        <SkeletonCard className="h-80" />
+  <div className="space-y-6 w-full max-w-full mx-auto">
+    {" "}
+    {/* Consistent spacing, full width */}
+    <SkeletonCard className="h-24 w-full" /> {/* PageHeader skeleton */}
+    <SkeletonCard className="h-20 w-full" />{" "}
+    {/* LiveStatusIndicator skeleton */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {" "}
+      {/* Consistent gap */}
+      <div className="lg:col-span-2 space-y-6">
+        {" "}
+        {/* Consistent vertical spacing */}
+        <SkeletonCard className="h-64" />{" "}
+        {/* HealthCheckHistoryChart skeleton */}
+        <SkeletonCard className="h-80" /> {/* DataTable skeleton */}
       </div>
-      <div className="lg:col-span-1 space-y-4">
-        <SkeletonCard className="h-48" />
-        <SkeletonCard className="h-48" />
+      <div className="lg:col-span-1 space-y-6">
+        {" "}
+        {/* Consistent vertical spacing */}
+        <SkeletonCard className="h-48" /> {/* ResourceCard skeleton */}
+        <SkeletonCard className="h-48" /> {/* ResourceCard skeleton */}
+        <SkeletonCard className="h-48" /> {/* ResourceCard skeleton */}
       </div>
     </div>
   </div>
@@ -278,7 +304,7 @@ const Monitoring = () => {
     refetch: refetchStatus,
   } = useServerStatusQuery();
   const { data: history = [], refetch: refetchHistory } = useServerHistoryQuery(
-    { limit: 50 }
+    { limit: 50 } // Pass limit to hook
   );
   const { data: queueStatus, refetch: refetchQueue } = useQueueStatusQuery();
 
@@ -292,7 +318,9 @@ const Monitoring = () => {
 
   if (serverStatusError) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6 w-full max-w-full mx-auto">
+        {" "}
+        {/* Consistent spacing, full width */}
         <PageHeader
           title="System Monitoring"
           description="Live status and performance metrics for the analysis services."
@@ -307,19 +335,20 @@ const Monitoring = () => {
           <AlertTitle>Service Unavailable</AlertTitle>
           <AlertDescription>
             {serverStatusError.message ||
-              "The monitoring service is currently unreachable."}
+              "The monitoring service is currently unreachable. Please ensure the ML backend is running."}
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  // REFACTOR: The columns are now simpler and match the new `models_info` schema.
   const modelColumns = [
     {
       key: "name",
       header: "Model Name",
       render: (item) => <span className="font-semibold">{item.name}</span>,
+      sortable: true,
+      filterable: true,
     },
     {
       key: "loaded",
@@ -336,18 +365,38 @@ const Monitoring = () => {
             Not Loaded
           </span>
         ),
+      sortable: true,
+      filterable: true,
     },
     {
-      key: "media_type",
-      header: "Type",
-      render: (item) => (item.isAudio ? "Audio" : "Video/Image"),
+      key: "mediaType", // Derived from is_audio/is_video
+      header: "Media Type",
+      render: (item) => {
+        if (item.is_audio && item.is_video) return "Audio & Video";
+        if (item.is_audio) return "Audio Only";
+        if (item.is_video) return "Video/Image Only";
+        return "N/A";
+      },
+      sortable: true,
+      filterable: true,
     },
     {
       key: "device",
       header: "Device",
       render: (item) => (
-        <span className="font-mono uppercase">{item.device}</span>
+        <span className="font-mono uppercase">{item.device || "N/A"}</span>
       ),
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "version",
+      header: "Version",
+      render: (item) => (
+        <span className="font-mono">{item.version || "N/A"}</span>
+      ),
+      sortable: true,
+      filterable: false,
     },
   ];
 
@@ -355,7 +404,9 @@ const Monitoring = () => {
     serverStatus || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full mx-auto">
+      {" "}
+      {/* Consistent vertical spacing, full width */}
       <PageHeader
         title="System Monitoring"
         description="Live status and performance metrics for the analysis services."
@@ -364,32 +415,41 @@ const Monitoring = () => {
             onClick={handleRefreshAll}
             isLoading={statusRefetching}
             variant="outline"
+            aria-label="Refresh all monitoring data"
           >
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
           </Button>
         }
       />
-
       <LiveStatusIndicator serverStatus={serverStatus} />
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {" "}
+        {/* Consistent gap */}
         <div className="lg:col-span-2 space-y-6">
+          {" "}
+          {/* Consistent vertical spacing */}
           <HealthCheckHistoryChart data={history} />
           <DataTable
             title="Loaded AI Models"
+            description="Currently loaded models in the ML service and their capabilities."
             columns={modelColumns}
             data={serverStatus?.models_info || []}
             loading={statusRefetching}
             showPagination={false}
+            showSearch={true}
+            searchPlaceholder="Search models..."
           />
         </div>
         <div className="lg:col-span-1 space-y-6">
+          {" "}
+          {/* Consistent vertical spacing */}
           {deviceInfo && (
             <ResourceCard
               title={deviceInfo.type === "cuda" ? "GPU Vitals" : "CPU Vitals"}
               icon={Cpu}
               chartData={
-                deviceInfo.type === "cuda"
+                deviceInfo.type === "cuda" &&
+                deviceInfo.memory_usage_percent !== undefined
                   ? {
                       percentage: deviceInfo.memory_usage_percent,
                       label: "VRAM",
@@ -401,7 +461,7 @@ const Monitoring = () => {
                 { label: "Name", value: deviceInfo.name },
                 ...(deviceInfo.type === "cuda"
                   ? [
-                      { label: "CUDA", value: deviceInfo.cuda_version },
+                      { label: "CUDA Version", value: deviceInfo.cuda_version },
                       {
                         label: "Used VRAM",
                         value: `${deviceInfo.used_memory?.toFixed(2)} GB`,
@@ -410,8 +470,24 @@ const Monitoring = () => {
                         label: "Total VRAM",
                         value: `${deviceInfo.total_memory?.toFixed(2)} GB`,
                       },
+                      {
+                        label: "GPU Temp",
+                        value: deviceInfo.temperature
+                          ? `${deviceInfo.temperature}°C`
+                          : "N/A",
+                      },
                     ]
-                  : []),
+                  : [
+                      // CPU specific details
+                      { label: "Cores", value: deviceInfo.core_count },
+                      { label: "Threads", value: deviceInfo.thread_count },
+                      {
+                        label: "CPU Usage",
+                        value: deviceInfo.cpu_usage_percent
+                          ? `${deviceInfo.cpu_usage_percent.toFixed(1)}%`
+                          : "N/A",
+                      },
+                    ]),
               ]}
             />
           )}
@@ -419,13 +495,18 @@ const Monitoring = () => {
             <ResourceCard
               title="System Resources"
               icon={Server}
-              chartData={{
-                percentage: systemInfo.ram_usage_percent,
-                label: "RAM",
-                color: "text-indigo-500",
-              }}
+              chartData={
+                systemInfo.ram_usage_percent !== undefined
+                  ? {
+                      percentage: systemInfo.ram_usage_percent,
+                      label: "RAM",
+                      color: "text-indigo-500",
+                    }
+                  : null
+              }
               details={[
                 { label: "Platform", value: systemInfo.platform },
+                { label: "OS", value: systemInfo.os_type }, // Assuming os_type exists
                 { label: "Python", value: systemInfo.python_version },
                 {
                   label: "Used RAM",
@@ -435,6 +516,12 @@ const Monitoring = () => {
                   label: "Total RAM",
                   value: `${systemInfo.total_ram?.toFixed(2)} GB`,
                 },
+                {
+                  label: "CPU Load",
+                  value: systemInfo.cpu_load_percent
+                    ? `${systemInfo.cpu_load_percent.toFixed(1)}%`
+                    : "N/A",
+                },
               ]}
             />
           )}
@@ -443,10 +530,10 @@ const Monitoring = () => {
               title="Processing Queue"
               icon={Layers}
               details={[
-                { label: "Pending", value: queueStatus.pending },
-                { label: "Active", value: queueStatus.active },
-                { label: "Completed", value: queueStatus.completed },
-                { label: "Failed", value: queueStatus.failed },
+                { label: "Pending Jobs", value: queueStatus.pending },
+                { label: "Active Jobs", value: queueStatus.active },
+                { label: "Completed Jobs", value: queueStatus.completed },
+                { label: "Failed Jobs", value: queueStatus.failed },
               ]}
             />
           )}

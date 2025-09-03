@@ -14,9 +14,8 @@ import Authentication from "./pages/Authentication";
 import Profile from "./pages/Profile.jsx";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
-import DetailedAnalysis from "./pages/Analysis.jsx";
+import DetailedAnalysisPage from "./pages/Analysis.jsx";
 import Monitoring from "./pages/Monitoring.jsx";
-// import DetailedAnalysis from "./pages/DetailedAnalysis";
 
 function App() {
   return (
@@ -76,21 +75,11 @@ function App() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <DetailedAnalysis />
+                  <DetailedAnalysisPage />
                 </Layout>
               </ProtectedRoute>
             }
           />
-          {/* <Route
-            path="/results/legacy/:mediaId/:analysisId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DetailedAnalysis />
-                </Layout>
-              </ProtectedRoute>
-            }
-          /> */}
           <Route
             path="/monitor"
             element={

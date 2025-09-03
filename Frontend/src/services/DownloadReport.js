@@ -1,11 +1,17 @@
 // src/services/DownloadReport.js
 
 import html2pdf from "html2pdf.js";
+import { showToast } from "../utils/toast.js"; // Import toast for user feedback
+import {
+  formatBytes,
+  formatDate,
+  formatProcessingTime,
+} from "../utils/formatters.js"; // Centralize formatters
 
 /**
  * @file Service for generating and downloading video analysis reports.
  * This version focuses on creating a high-fidelity, A4-formatted report
- * that looks professional both on-screen and when printed.
+ * that looks professional both on-screen and when printed, aligning with the new backend schema.
  */
 
 //================================================================================================
@@ -13,107 +19,105 @@ import html2pdf from "html2pdf.js";
 //================================================================================================
 
 const ReportConfig = {
-    brandName: "Drishtiksha",
-    mainTitle: "Video Analysis Report",
-    // Icons
-    icons: {
-        real: "✅",
-        fake: "⚠️",
-        info: "ℹ️",
-        summary: "📊",
-        details: "🔍",
-        error: "⚠️",
-    },
-    // Colors
-    colors: {
-        primary: "#1d4ed8",
-        authentic: "#16a34a",
-        deepfake: "#dc2626",
-        textPrimary: "#111827",
-        textSecondary: "#374151",
-        textMuted: "#6b7280",
-        background: "#f9fafb",
-        border: "#e5e7eb",
-        pageBackground: "#f0f2f5",
-    },
+  brandName: "Drishtiksha",
+  mainTitle: "Media Analysis Report", // Changed to Media Analysis
+  // Icons
+  icons: {
+    real: "✅",
+    fake: "⚠️",
+    info: "ℹ️",
+    summary: "📊",
+    details: "🔍",
+    error: "❌", // Updated icon for error
+  },
+  // Colors
+  colors: {
+    primary: "#8155c6", // Match new primary color
+    authentic: "#16a34a",
+    deepfake: "#dc2626",
+    textPrimary: "#1B1B1F", // Match dark mode primary text
+    textSecondary: "#3C3C43", // Match light mode primary text
+    textMuted: "#67676C", // Match light mode muted text
+    background: "#FFFFFF",
+    border: "#EBEBEF", // Match light mode secondary border
+    pageBackground: "#f9fafb", // Slightly off-white
+  },
 };
 
 //================================================================================================
 // PRIVATE HELPERS & DATA PROCESSING
 //================================================================================================
 
-const formatters = {
-    bytes: (bytes) =>
-        bytes ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : "N/A",
-    date: (dateString) => {
-        if (!dateString) return "N/A";
-        return new Date(dateString).toLocaleString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    },
-    processingTime: (timeInSeconds) => {
-        if (timeInSeconds === null || typeof timeInSeconds === "undefined")
-            return "N/A";
-        if (timeInSeconds < 60) return `${timeInSeconds.toFixed(1)}s`;
-        const minutes = Math.floor(timeInSeconds / 60);
-        const seconds = (timeInSeconds % 60).toFixed(1);
-        return `${minutes}m ${seconds}s`;
-    },
-};
+const prepareReportData = (media, user) => {
+  // Media object from frontend will have analysisRuns
+  const latestAnalysisRun = media.analysisRuns?.[0]; // Get the latest run
 
-const prepareReportData = (video) => {
-    const completedAnalyses =
-        video.analyses?.filter((a) => a.status === "COMPLETED") || [];
-    const realDetections = completedAnalyses.filter(
-        (a) => a.prediction === "REAL"
-    ).length;
-    const fakeDetections = completedAnalyses.filter(
-        (a) => a.prediction === "FAKE"
-    ).length;
+  let completedAnalyses = [];
+  let failedAnalyses = [];
+  if (latestAnalysisRun) {
+    completedAnalyses =
+      latestAnalysisRun.analyses?.filter((a) => a.status === "COMPLETED") || [];
+    failedAnalyses =
+      latestAnalysisRun.analyses?.filter((a) => a.status === "FAILED") || [];
+  }
 
-    let overallAssessment = "Inconclusive";
-    let assessmentColor = ReportConfig.colors.textMuted;
-    if (fakeDetections > realDetections) {
-        overallAssessment = "Likely Deepfake";
-        assessmentColor = ReportConfig.colors.deepfake;
-    } else if (realDetections > fakeDetections) {
-        overallAssessment = "Likely Authentic";
-        assessmentColor = ReportConfig.colors.authentic;
-    }
+  const realDetections = completedAnalyses.filter(
+    (a) => a.prediction === "REAL"
+  ).length;
+  const fakeDetections = completedAnalyses.filter(
+    (a) => a.prediction === "FAKE"
+  ).length;
+  const totalAnalyses = completedAnalyses.length + failedAnalyses.length;
 
-    return {
-        ...video,
-        completedAnalyses,
-        realDetections,
-        fakeDetections,
-        overallAssessment,
-        assessmentColor,
-    };
+  let overallAssessment = "Inconclusive";
+  let assessmentColor = ReportConfig.colors.textMuted;
+  if (fakeDetections > realDetections) {
+    overallAssessment = "Likely Deepfake";
+    assessmentColor = ReportConfig.colors.deepfake;
+  } else if (realDetections > fakeDetections) {
+    overallAssessment = "Likely Authentic";
+    assessmentColor = ReportConfig.colors.authentic;
+  } else if (totalAnalyses === 0 && media.status === "FAILED") {
+    overallAssessment = "Analysis Failed";
+    assessmentColor = ReportConfig.colors.deepfake;
+  } else if (totalAnalyses === 0 && media.status === "QUEUED") {
+    overallAssessment = "Pending Analysis";
+    assessmentColor = ReportConfig.colors.textMuted;
+  }
+
+  return {
+    ...media,
+    user, // Include user for 'Generated By' section
+    latestAnalysisRun,
+    completedAnalyses,
+    failedAnalyses,
+    realDetections,
+    fakeDetections,
+    totalAnalyses,
+    overallAssessment,
+    assessmentColor,
+  };
 };
 
 //================================================================================================
 // HTML STYLING (CSS)
 //================================================================================================
 
-const getReportStyles = (data) => `
+const getReportStyles = () => `
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
         @page { size: A4; margin: 0; }
 
         body {
             -webkit-print-color-adjust: exact;
             color-adjust: exact;
             background-color: ${ReportConfig.colors.pageBackground};
-            font-family: 'Inter', sans-serif;
-            font-size: 11pt;
-            line-height: 1.6;
+            font-family: 'Poppins', sans-serif;
+            font-size: 10pt; /* Slightly smaller base font for A4 */
+            line-height: 1.5;
             color: ${ReportConfig.colors.textPrimary};
             margin: 0;
-            padding: 2rem 0;
+            padding: 1.5rem 0; /* Reduced padding */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -122,95 +126,107 @@ const getReportStyles = (data) => `
         .page {
             width: 210mm;
             min-height: 297mm;
-            padding: 20mm 18mm;
+            padding: 18mm 16mm; /* Reduced padding */
             background: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Lighter shadow */
+            margin-bottom: 1.5rem; /* Reduced margin */
             page-break-after: always;
+            box-sizing: border-box; /* Ensure padding is included in width/height */
         }
         .page:last-of-type {
             page-break-after: auto;
             margin-bottom: 0;
         }
 
-        h1, h2, h3 { font-weight: 700; color: ${ReportConfig.colors.textPrimary}; line-height: 1.2; }
-        h1 { font-size: 24pt; margin-bottom: 0.5em; }
+        h1, h2, h3, h4 { font-weight: 600; color: ${ReportConfig.colors.textPrimary}; line-height: 1.2; margin-bottom: 0.5em; }
+        h1 { font-size: 20pt; margin-top: 0; } /* Smaller H1 */
         h2 {
-            font-size: 18pt;
-            border-bottom: 2px solid ${ReportConfig.colors.border};
-            padding-bottom: 0.5rem;
-            /* Use padding-top instead of margin-top to avoid page-break issues */
-            padding-top: 2.5rem;
-            margin-bottom: 1.5rem;
+            font-size: 15pt;
+            border-bottom: 1px solid ${ReportConfig.colors.border}; /* Lighter border */
+            padding-bottom: 0.4rem;
+            padding-top: 1.5rem; /* Reduced top padding */
+            margin-bottom: 1rem;
+            color: ${ReportConfig.colors.primary}; /* Highlight section titles */
         }
-        h3 { font-size: 14pt; }
-        .section { break-inside: avoid; }
+        h3 { font-size: 12pt; margin-bottom: 0.75rem; color: ${ReportConfig.colors.textSecondary}; }
+        h4 { font-size: 11pt; margin-bottom: 0.5rem; }
+
+        .section { break-inside: avoid-page; margin-bottom: 1.5rem; } /* Ensures sections stay together */
 
         .report-header {
             display: flex; justify-content: space-between; align-items: flex-start;
-            padding-bottom: 1.5rem; border-bottom: 3px solid ${ReportConfig.colors.primary}; margin-bottom: 2rem;
+            padding-bottom: 1rem; border-bottom: 2px solid ${ReportConfig.colors.primary}; margin-bottom: 1.5rem;
         }
         .report-header .title-block { max-width: 65%; }
-        .report-header .brand { font-weight: 600; color: ${ReportConfig.colors.primary}; font-size: 12pt; }
-        .report-header .meta-block { text-align: right; font-size: 10pt; color: ${ReportConfig.colors.textMuted}; }
+        .report-header .brand { font-weight: 700; color: ${ReportConfig.colors.primary}; font-size: 11pt; }
+        .report-header .meta-block { text-align: right; font-size: 9pt; color: ${ReportConfig.colors.textMuted}; }
         .meta-block strong { color: ${ReportConfig.colors.textSecondary}; }
-        .meta-block > div { margin-bottom: 0.25rem; }
+        .meta-block > div { margin-bottom: 0.15rem; }
 
-        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; } /* 3 columns */
         .summary-card {
             background-color: ${ReportConfig.colors.background}; border: 1px solid ${ReportConfig.colors.border};
-            border-top: 4px solid; border-radius: 8px; padding: 1.25rem;
+            border-top: 3px solid; border-radius: 6px; padding: 1rem; text-align: center;
         }
-        .summary-card .label { font-size: 11pt; font-weight: 500; color: ${ReportConfig.colors.textSecondary}; margin-bottom: 0.5rem; }
-        .summary-card .value { font-size: 24pt; font-weight: 700; }
-        .summary-card.overall { grid-column: 1 / -1; border-top-color: ${data.assessmentColor}; }
-        .summary-card.overall .value { color: ${data.assessmentColor}; font-size: 20pt; }
+        .summary-card .label { font-size: 9pt; font-weight: 500; color: ${ReportConfig.colors.textMuted}; margin-bottom: 0.4rem; }
+        .summary-card .value { font-size: 18pt; font-weight: 700; line-height: 1.2; }
+        .summary-card.overall { grid-column: 1 / -1; border-top-color: ${ReportConfig.colors.primary}; padding: 1.25rem; }
+        .summary-card.overall .label { font-size: 10pt; }
+        .summary-card.overall .value { color: ${ReportConfig.colors.primary}; font-size: 20pt; }
         .summary-card.authentic { border-top-color: ${ReportConfig.colors.authentic}; }
         .summary-card.authentic .value { color: ${ReportConfig.colors.authentic}; }
         .summary-card.deepfake { border-top-color: ${ReportConfig.colors.deepfake}; }
         .summary-card.deepfake .value { color: ${ReportConfig.colors.deepfake}; }
-        
-        .details-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        .details-table td { padding: 0.75rem 0; border-bottom: 1px solid ${ReportConfig.colors.border}; vertical-align: top; }
+
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 0.8rem; font-size: 10pt; }
+        .details-table td { padding: 0.5rem 0; border-bottom: 1px solid ${ReportConfig.colors.border}; vertical-align: top; }
         .details-table tr:last-child td { border-bottom: none; }
-        .details-table .property-cell { font-weight: 600; color: ${ReportConfig.colors.textSecondary}; width: 30%; }
+        .details-table .property-cell { font-weight: 500; color: ${ReportConfig.colors.textSecondary}; width: 28%; }
+        .details-table .value-cell { color: ${ReportConfig.colors.textPrimary}; }
 
         .analysis-card {
-            border: 1px solid ${ReportConfig.colors.border}; border-radius: 8px;
-            margin-bottom: 1.5rem; break-inside: avoid; overflow: hidden;
+            border: 1px solid ${ReportConfig.colors.border}; border-radius: 6px;
+            margin-bottom: 1rem; break-inside: avoid-page; overflow: hidden;
+            background-color: ${ReportConfig.colors.background};
         }
         .analysis-card-header {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 1rem 1.25rem; background-color: ${ReportConfig.colors.background};
+            padding: 0.8rem 1rem; background-color: ${ReportConfig.colors.pageBackground}; /* Lighter header */
             border-bottom: 1px solid ${ReportConfig.colors.border};
         }
-        .analysis-card-header .model-name { font-size: 14pt; font-weight: 600; }
-        .prediction-badge { padding: 0.4rem 1rem; border-radius: 999px; font-weight: 600; color: white; font-size: 10pt; }
+        .analysis-card-header .model-name { font-size: 11pt; font-weight: 600; }
+        .prediction-badge { padding: 0.3rem 0.8rem; border-radius: 999px; font-weight: 600; color: white; font-size: 8pt; }
         .prediction-badge.real { background-color: ${ReportConfig.colors.authentic}; }
         .prediction-badge.fake { background-color: ${ReportConfig.colors.deepfake}; }
+        .prediction-badge.failed { background-color: ${ReportConfig.colors.deepfake}; } /* For failed analyses */
 
-        .analysis-card-body { display: grid; grid-template-columns: 1fr 1fr; padding: 1.5rem 1.25rem; align-items: center; }
-        .confidence-display { text-align: center; }
-        .confidence-display .label { font-size: 11pt; color: ${ReportConfig.colors.textMuted}; margin-bottom: 0.25rem; }
-        .confidence-display .value { font-size: 40pt; font-weight: 700; line-height: 1; }
-        .confidence-display .value.real { color: ${ReportConfig.colors.authentic}; }
-        .confidence-display .value.fake { color: ${ReportConfig.colors.deepfake}; }
+        .analysis-card-body { padding: 1rem; }
+        .analysis-card-body .confidence-display { text-align: center; margin-bottom: 0.8rem; }
+        .analysis-card-body .confidence-display .label { font-size: 9pt; color: ${ReportConfig.colors.textMuted}; margin-bottom: 0.15rem; }
+        .analysis-card-body .confidence-display .value { font-size: 28pt; font-weight: 700; line-height: 1; }
+        .analysis-card-body .confidence-display .value.real { color: ${ReportConfig.colors.authentic}; }
+        .analysis-card-body .confidence-display .value.fake { color: ${ReportConfig.colors.deepfake}; }
+        .analysis-card-body .confidence-display .value.failed { color: ${ReportConfig.colors.deepfake}; }
+
+        .analysis-card-body .error-message { color: ${ReportConfig.colors.deepfake}; font-size: 9pt; text-align: center; margin-top: 0.5rem; }
+
 
         .no-analysis-placeholder {
-            text-align: center; padding: 4rem 2rem; background-color: ${ReportConfig.colors.background};
-            border: 2px dashed ${ReportConfig.colors.border}; border-radius: 8px; color: ${ReportConfig.colors.textMuted};
+            text-align: center; padding: 3rem 1.5rem; background-color: ${ReportConfig.colors.background};
+            border: 1px dashed ${ReportConfig.colors.border}; border-radius: 6px; color: ${ReportConfig.colors.textMuted};
         }
 
         .report-footer {
-            margin-top: auto; /* Push footer to the bottom of the page */
-            padding-top: 2rem;
+            margin-top: auto;
+            padding-top: 1rem;
             border-top: 1px solid ${ReportConfig.colors.border};
-            text-align: center; font-size: 9pt; color: ${ReportConfig.colors.textMuted};
+            text-align: center; font-size: 8pt; color: ${ReportConfig.colors.textMuted};
+            display: flex; justify-content: space-between;
         }
 
         @media print {
             body { background-color: white; padding: 0; display: block; }
-            .page { box-shadow: none; margin: 0; padding: 15mm 18mm; min-height: 0; }
+            .page { box-shadow: none; margin: 0; padding: 15mm 16mm; min-height: 0; }
         }
     </style>
 `;
@@ -219,33 +235,39 @@ const getReportStyles = (data) => `
 // HTML COMPONENT RENDERERS
 //================================================================================================
 
-const renderHeader = (data, user) => `
+const renderHeader = (data) => `
     <div class="report-header">
         <div class="title-block">
             <div class="brand">${ReportConfig.brandName}</div>
             <h1>${ReportConfig.mainTitle}</h1>
-            <div>File: ${data.filename} - <a href="${data.url.replace(
-    "/upload/",
-    "/upload/f_auto,q_auto/"
-)}">View</a></div>
+            <div>${data.mediaType} File: ${data.filename}</div>
+            ${
+              data.url
+                ? `<div><a href="${data.url.replace(
+                    "/upload/",
+                    "/upload/f_auto,q_auto/"
+                  )}" style="font-size: 9pt; color: ${
+                    ReportConfig.colors.primary
+                  }; text-decoration: none;">View Original Media (Online)</a></div>`
+                : ""
+            }
         </div>
         <div class="meta-block">
-            <div><strong>Report Date:</strong> ${new Date().toLocaleDateString(
-                "en-US"
-            )}</div>
-            <div style="margin-top: 1rem;"><strong>File:</strong> ${
-                data.filename
-            }</div>
+            <div><strong>Report Date:</strong> ${formatDate(new Date())}</div>
             ${
-                user
-                    ? `
-                <div style="margin-top: 1rem;"><strong>Generated By:</strong></div>
-                <div>${user.firstName || "N/A"} ${user.lastName || ""} (${
-                          user.email || "N/A"
-                      })</div>
+              data.user
+                ? `
+                <div style="margin-top: 0.5rem;"><strong>Generated By:</strong></div>
+                <div>${data.user.firstName || "N/A"} ${
+                    data.user.lastName || ""
+                  }</div>
+                <div style="font-size: 8pt;">(${data.user.email || "N/A"})</div>
             `
-                    : ""
+                : ""
             }
+            <div style="margin-top: 0.5rem;"><strong>Media ID:</strong> ${
+              data.id
+            }</div>
         </div>
     </div>
 `;
@@ -266,34 +288,55 @@ const renderSummary = (data) => `
                 <div class="label">Deepfake Detections</div>
                 <div class="value">${data.fakeDetections}</div>
             </div>
+             <div class="summary-card">
+                <div class="label">Total Models Run</div>
+                <div class="value">${
+                  data.completedAnalyses.length + data.failedAnalyses.length
+                }</div>
+            </div>
+             <div class="summary-card">
+                <div class="label">Latest Run Status</div>
+                <div class="value" style="color: ${
+                  data.latestAnalysisRun?.status === "FAILED"
+                    ? ReportConfig.colors.deepfake
+                    : ReportConfig.colors.primary
+                };">${data.latestAnalysisRun?.status || "N/A"}</div>
+            </div>
+             <div class="summary-card">
+                <div class="label">Upload Date</div>
+                <div class="value">${formatDate(data.createdAt)}</div>
+            </div>
         </div>
     </div>
 `;
 
-const renderVideoInfo = (data) => `
+const renderMediaInfo = (data) => `
     <div class="section">
-        <h2>${ReportConfig.icons.info} Video Information</h2>
+        <h2>${ReportConfig.icons.info} Media Information</h2>
         <table class="details-table">
             <tbody>
-                <tr><td class="property-cell">Filename</td><td>${
-                    data.filename
+                <tr><td class="property-cell">Filename</td><td class="value-cell">${
+                  data.filename
                 }</td></tr>
-                <tr><td class="property-cell">File Size</td><td>${formatters.bytes(
-                    data.size
-                )}</td></tr>
-                <tr><td class="property-cell">Format</td><td>${
-                    data.mimetype?.split("/")[1]?.toUpperCase() || "N/A"
+                <tr><td class="property-cell">Media Type</td><td class="value-cell">${
+                  data.mediaType
                 }</td></tr>
-                <tr><td class="property-cell">Upload Date</td><td>${formatters.date(
-                    data.createdAt
+                <tr><td class="property-cell">File Size</td><td class="value-cell">${formatBytes(
+                  data.size
                 )}</td></tr>
-                <tr><td class="property-cell">Video Status</td><td>${
-                    data.status
+                <tr><td class="property-cell">MIME Type</td><td class="value-cell">${
+                  data.mimetype || "N/A"
+                }</td></tr>
+                <tr><td class="property-cell">Upload Date</td><td class="value-cell">${formatDate(
+                  data.createdAt
+                )}</td></tr>
+                <tr><td class="property-cell">Current Status</td><td class="value-cell">${
+                  data.status
                 }</td></tr>
                 ${
-                    data.description
-                        ? `<tr><td class="property-cell">Description</td><td>${data.description}</td></tr>`
-                        : ""
+                  data.description
+                    ? `<tr><td class="property-cell">Description</td><td class="value-cell">${data.description}</td></tr>`
+                    : ""
                 }
             </tbody>
         </table>
@@ -301,59 +344,103 @@ const renderVideoInfo = (data) => `
 `;
 
 const renderAnalysisCard = (analysis) => {
-    const isReal = analysis.prediction === "REAL";
-    const confidence = (analysis.confidence * 100).toFixed(1);
-    const badgeClass = isReal ? "real" : "fake";
+  // Access prediction, confidence, processingTime from resultPayload
+  const resultPayload = analysis.resultPayload || {};
+  const prediction = analysis.prediction; // Use top-level prediction for simplicity
+  const confidence = analysis.confidence; // Use top-level confidence
+  const processingTime =
+    resultPayload.processing_time || resultPayload.processingTime || null; // Backend might use different keys
 
-    return `
+  const isReal = prediction === "REAL";
+  const isFailed = analysis.status === "FAILED";
+  const confidenceDisplay = isFailed
+    ? "N/A"
+    : `${(confidence * 100).toFixed(1)}%`;
+  const badgeClass = isFailed ? "failed" : isReal ? "real" : "fake";
+  const valueClass = isFailed ? "failed" : isReal ? "real" : "fake";
+
+  return `
         <div class="analysis-card">
             <div class="analysis-card-header">
-                <div class="model-name">${analysis.model} Model</div>
-                <div class="prediction-badge ${badgeClass}">${
-        isReal ? "Authentic" : "Deepfake"
-    }</div>
+                <div class="model-name">${analysis.modelName}</div>
+                <div class="prediction-badge ${badgeClass}">
+                    ${isFailed ? "Failed" : isReal ? "Authentic" : "Deepfake"}
+                </div>
             </div>
             <div class="analysis-card-body">
                 <div class="confidence-display">
                     <div class="label">Confidence Score</div>
-                    <div class="value ${badgeClass}">${confidence}%</div>
+                    <div class="value ${valueClass}">${confidenceDisplay}</div>
                 </div>
-                <table class="details-table">
-                    <tr><td class="property-cell">Prediction</td><td>${
-                        analysis.prediction
-                    }</td></tr>
-                    <tr><td class="property-cell">Analysis Date</td><td>${formatters.date(
-                        analysis.createdAt
-                    )}</td></tr>
-                    <tr><td class="property-cell">Processing Time</td><td>${formatters.processingTime(
-                        analysis.processingTime
-                    )}</td></tr>
-                </table>
+                ${
+                  isFailed
+                    ? `
+                    <p class="error-message">${ReportConfig.icons.error} ${
+                        analysis.errorMessage || "Analysis failed unexpectedly."
+                      }</p>
+                `
+                    : `
+                    <table class="details-table">
+                        <tr><td class="property-cell">Prediction</td><td class="value-cell">${prediction}</td></tr>
+                        <tr><td class="property-cell">Analysis Date</td><td class="value-cell">${formatDate(
+                          analysis.createdAt
+                        )}</td></tr>
+                        <tr><td class="property-cell">Processing Time</td><td class="value-cell">${formatProcessingTime(
+                          processingTime
+                        )}</td></tr>
+                    </table>
+                `
+                }
             </div>
         </div>
     `;
 };
 
-const renderDetailedAnalyses = (data) => `
-    <div class="section">
-        <h2>${ReportConfig.icons.details} Detailed Analysis</h2>
-        ${data.analyses.map(renderAnalysisCard).join("")}
-    </div>
-`;
+const renderDetailedAnalyses = (data) => {
+  if (
+    !data.latestAnalysisRun ||
+    (data.completedAnalyses.length === 0 && data.failedAnalyses.length === 0)
+  ) {
+    return renderNoAnalysesPlaceholder(data.latestAnalysisRun?.status);
+  }
 
-const renderNoAnalysesPlaceholder = () => `
-    <div class="section">
-        <h2>${ReportConfig.icons.details} Analysis Results</h2>
-        <div class="no-analysis-placeholder">
-            <h3>No Analysis Completed</h3>
-            <p>This video is pending analysis or could not be processed.</p>
+  const allAnalyses = [...data.completedAnalyses, ...data.failedAnalyses].sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  );
+
+  return `
+        <div class="section">
+            <h2>${ReportConfig.icons.details} Detailed Analysis Results (Run #${
+    data.latestAnalysisRun.runNumber
+  })</h2>
+            ${allAnalyses.map(renderAnalysisCard).join("")}
         </div>
-    </div>
-`;
+    `;
+};
 
-const renderFooter = (pageNumber, VideoID) => `
+const renderNoAnalysesPlaceholder = (status) => {
+  let message = "This media is pending analysis or could not be processed.";
+  if (status === "QUEUED")
+    message = "This media is queued and awaiting analysis.";
+  if (status === "PROCESSING") message = "Analysis is currently in progress.";
+  if (status === "FAILED") message = "The analysis run failed to complete.";
+
+  return `
+        <div class="section">
+            <h2>${ReportConfig.icons.details} Analysis Results</h2>
+            <div class="no-analysis-placeholder">
+                <h3>No Analysis Completed</h3>
+                <p>${message}</p>
+            </div>
+        </div>
+    `;
+};
+
+const renderFooter = (pageNumber, mediaId) => `
     <div class="report-footer">
-        ${ReportConfig.brandName} | Page ${pageNumber} | ${VideoID}
+        <span>${ReportConfig.brandName} - Media Analysis Report</span>
+        <span>Page ${pageNumber} of {totalPages}</span>
+        <span>Media ID: ${mediaId}</span>
     </div>
 `;
 
@@ -361,46 +448,60 @@ const renderFooter = (pageNumber, VideoID) => `
 // MAIN HTML GENERATOR
 //================================================================================================
 
-const generateReportHTML = (video, user) => {
-    const data = prepareReportData(video);
+const generateReportHTML = (media, user) => {
+  const data = prepareReportData(media, user);
 
-    const mainContent = `
-        ${renderHeader(data, user)}
-        ${renderSummary(data)}
-        ${renderVideoInfo(data)}
-    `;
+  let htmlPages = [];
 
-    const detailContent =
-        data.analyses?.length > 0
-            ? renderDetailedAnalyses(data)
-            : renderNoAnalysesPlaceholder();
+  // Page 1: Header, Executive Summary, Media Information
+  htmlPages.push(`
+        <div class="page" style="display: flex; flex-direction: column;">
+            ${renderHeader(data)}
+            ${renderSummary(data)}
+            ${renderMediaInfo(data)}
+            <div class="report-footer">
+                <span>${ReportConfig.brandName} - Media Analysis Report</span>
+                <span>Page 1 of {totalPages}</span>
+                <span>Media ID: ${data.id}</span>
+            </div>
+        </div>
+    `);
 
-    return `
+  // Page 2 (if analyses exist): Detailed Analyses
+  if (
+    data.latestAnalysisRun &&
+    (data.completedAnalyses.length > 0 || data.failedAnalyses.length > 0)
+  ) {
+    htmlPages.push(`
+            <div class="page" style="display: flex; flex-direction: column;">
+                ${renderDetailedAnalyses(data)}
+                <div class="report-footer">
+                    <span>${
+                      ReportConfig.brandName
+                    } - Media Analysis Report</span>
+                    <span>Page 2 of {totalPages}</span>
+                    <span>Media ID: ${data.id}</span>
+                </div>
+            </div>
+        `);
+  }
+
+  const finalHtml = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>Video Analysis Report - ${data.filename}</title>
-            ${getReportStyles(data)}
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${ReportConfig.mainTitle} - ${data.filename}</title>
+            ${getReportStyles()}
         </head>
         <body>
-            <div class="page" style="display: flex; flex-direction: column;">
-                ${mainContent}
-                ${renderFooter(1, data.id)}
-            </div>
-            ${
-                data.analyses?.length > 0
-                    ? `
-            <div class="page" style="display: flex; flex-direction: column;">
-                ${detailContent}
-                ${renderFooter(2, data.id)}
-            </div>
-            `
-                    : ""
-            }
+            ${htmlPages.join("")}
         </body>
         </html>
     `;
+
+  return finalHtml.replace(/{totalPages}/g, htmlPages.length); // Replace placeholder
 };
 
 //================================================================================================
@@ -408,121 +509,138 @@ const generateReportHTML = (video, user) => {
 //================================================================================================
 
 export const DownloadService = {
-    async generateAndDownloadPDF(video, user) {
-        try {
-            const htmlContent = generateReportHTML(video, user);
-            const element = document.createElement("div");
-            element.innerHTML = htmlContent;
-            const body = element.querySelector("body");
+  async generateAndDownloadPDF(media, user) {
+    try {
+      const htmlContent = generateReportHTML(media, user);
+      const element = document.createElement("div");
+      element.innerHTML = htmlContent; // Use innerHTML to parse HTML string
+      const bodyContent = element.querySelector("body");
 
-            const options = {
-                margin: 0,
-                filename: `${video.filename.replace(
-                    /\.[^/.]+$/,
-                    ""
-                )}_report.pdf`,
-                image: { type: "jpeg", quality: 0.98 },
-                html2canvas: {
-                    scale: 2,
-                    useCORS: true,
-                    letterRendering: true,
-                    backgroundColor: null,
-                },
-                jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-            };
+      const options = {
+        margin: [0, 0, 0, 0], // Margins set in CSS now
+        filename: `${media.filename.replace(/\.[^/.]+$/, "")}_report.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2, // Higher scale for better resolution
+          useCORS: true,
+          letterRendering: true,
+          // Remove backgroundColor from html2canvas if body has it
+          // backgroundColor: null,
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        // Enable multi-page rendering for html2pdf
+        pagebreak: { mode: ["css", "legacy"] }, // Respect CSS page-break properties first
+      };
 
-            await html2pdf().from(body).set(options).save();
-        } catch (error) {
-            console.error("Error generating PDF with html2pdf:", error);
-            await this.generateeAndDownloadPDFPrint(video, user);
-        }
-    },
+      showToast.loading("Generating PDF report...", {
+        id: "pdf-gen-toast",
+        duration: Infinity,
+      });
+      await html2pdf().from(bodyContent).set(options).save();
+      showToast.success("PDF report generated successfully!", {
+        id: "pdf-gen-toast",
+      });
+    } catch (error) {
+      console.error("Error generating PDF with html2pdf:", error);
+      showToast.error("Failed to generate PDF report. Trying print view...", {
+        id: "pdf-gen-toast",
+      });
+      // Fallback to print dialog if html2pdf fails
+      await this.generateAndDownloadPDFPrint(media, user);
+    }
+  },
 
-    async generateAndDownloadPDFPrint(video, user) {
-        try {
-            const htmlContent = generateReportHTML(video, user);
-            const printWindow = window.open("", "_blank");
-            if (!printWindow) {
-                alert(
-                    "Popup blocked. Please allow popups to generate the report."
-                );
-                throw new Error("Popup blocked by browser.");
-            }
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-                setTimeout(() => {
-                    if (!printWindow.closed) printWindow.close();
-                }, 2000);
-            }, 750);
-        } catch (error) {
-            console.error("Error generating PDF via print dialog:", error);
-            alert(`Failed to generate PDF report: ${error.message}`);
-        }
-    },
+  async generateAndDownloadPDFPrint(media, user) {
+    try {
+      const htmlContent = generateReportHTML(media, user);
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        showToast.error(
+          "Popup blocked. Please allow popups to generate the report.",
+          { id: "pdf-gen-toast" }
+        );
+        throw new Error("Popup blocked by browser.");
+      }
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      // Allow a brief moment for the browser to render the content before printing
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        setTimeout(() => {
+          if (!printWindow.closed) printWindow.close();
+        }, 2000); // Close after 2 seconds if not already
+      }, 750); // Give browser 750ms to render
+      showToast.success("Report opened in print view. Please print to PDF.", {
+        id: "pdf-gen-toast",
+      });
+    } catch (error) {
+      console.error("Error generating PDF via print dialog:", error);
+      showToast.error(`Failed to generate PDF report: ${error.message}`, {
+        id: "pdf-gen-toast",
+      });
+    }
+  },
 
-    async downloadVideo(videoUrl, filename) {
-        try {
-            if (!videoUrl) throw new Error("Video URL is missing.");
+  async downloadMedia(mediaUrl, filename) {
+    try {
+      if (!mediaUrl) {
+        showToast.error("Media URL is missing for download.");
+        throw new Error("Media URL is missing.");
+      }
 
-            // 1. Create a new URL object to safely manipulate it.
-            const url = new URL(videoUrl);
+      // Assume Cloudinary URL based on file structure
+      const url = new URL(mediaUrl);
+      const parts = url.pathname.split("/upload/");
 
-            // 2. Remove any existing format transformations (like f_auto) and add flags
-            //    to force the format to mp4 and trigger a download attachment.
-            const parts = url.pathname.split("/upload/");
-            if (parts.length > 1) {
-                const transformations = parts[1].split("/");
-                // Filter out existing transformations to start fresh
-                const publicIdAndFormat = transformations.slice(1).join("/");
+      if (parts.length > 1) {
+        // Ensure we get the full public ID which includes subfolders and original filename base
+        const publicIdPath = parts[1].split("/").slice(1).join("/"); // Remove 'f_auto,q_auto' or similar
+        const baseCloudinaryPath = parts[0];
 
-                // 3. Construct the new download URL
-                // fl_attachment: Tells the browser to download the file with the given filename.
-                // f_mp4: Forces the video format to be MP4, ensuring consistency.
-                url.pathname = `${parts[0]}/upload/fl_attachment,f_mp4/${publicIdAndFormat}`;
-            } else {
-                throw new Error("Invalid Cloudinary URL structure.");
-            }
+        // Construct the new download URL with fl_attachment and f_auto (for optimal format conversion)
+        const newPathname = `${baseCloudinaryPath}/upload/fl_attachment/${publicIdPath}`;
+        url.pathname = newPathname;
+      } else {
+        // For non-Cloudinary or local paths, attempt direct download
+        console.warn(
+          "Non-Cloudinary URL structure detected for download. Attempting direct download."
+        );
+        // Simply use the provided URL if it's not a Cloudinary transformed URL
+      }
 
-            // 4. Create a temporary link and click it to trigger the browser's native download manager.
-            //    This is far more reliable than using fetch/blob for large files.
-            const link = document.createElement("a");
-            link.href = url.href;
+      const link = document.createElement("a");
+      link.href = url.href;
+      link.download = filename || "download_file"; // Ensure filename is provided or default
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast.success(`Downloading "${filename}"...`);
+    } catch (error) {
+      console.error("Error preparing media download:", error);
+      showToast.error(`Failed to download media: ${error.message}`);
+    }
+  },
 
-            // Use the provided filename or default to a sensible name.
-            link.download = filename || "download.mp4";
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (error) {
-            console.error("Error preparing video download link:", error);
-            // showToast.error(`Failed to download video: ${error.message}`);
-        }
-    },
-
-    async downloadHTMLReport(video, user) {
-        try {
-            const htmlContent = generateReportHTML(video, user);
-            const blob = new Blob([htmlContent], {
-                type: "text/html;charset=utf-8",
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${video.filename.replace(
-                /\.[^/.]+$/,
-                ""
-            )}_analysis_report.html`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error("Error downloading HTML report:", error);
-            alert(`Failed to generate HTML report: ${error.message}`);
-        }
-    },
+  async downloadHTMLReport(media, user) {
+    try {
+      const htmlContent = generateReportHTML(media, user);
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${media.filename.replace(
+        /\.[^/.]+$/,
+        ""
+      )}_analysis_report.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast.success("HTML report downloaded successfully!");
+    } catch (error) {
+      console.error("Error downloading HTML report:", error);
+      showToast.error(`Failed to generate HTML report: ${error.message}`);
+    }
+  },
 };

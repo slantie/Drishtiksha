@@ -1,6 +1,6 @@
 // src/components/layout/Header.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // Added useRef
 import { NavLink, useNavigate } from "react-router-dom";
 import { User, LogOut, Menu, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,7 +11,8 @@ import { config } from "../../config/env.js";
 
 const projectName = config.VITE_PROJECT_NAME || "Drishtiksha";
 
-const navItems = [];
+// Define navigation items. Could be moved to a separate config file if more complex.
+const navItems = []; // Public routes, e.g., { path: "/about", label: "About" }
 
 const authenticatedNavItems = [
   { path: "/dashboard", label: "Dashboard" },
@@ -19,35 +20,51 @@ const authenticatedNavItems = [
 ];
 
 function Header() {
-  // REFACTOR: All state and hooks are preserved.
   const { isAuthenticated, user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
-  // REFACTOR: Added a scroll effect for a more dynamic header.
+  const userMenuRef = useRef(null); // Ref for user dropdown menu
+  const mobileMenuRef = useRef(null); // Ref for mobile menu panel
+
+  // Handle scroll effect for sticky header
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Handle click outside for closing menus
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showUserMenu && !event.target.closest(".user-menu-container"))
+      // Close user menu if click is outside
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
-      if (showMobileMenu && !event.target.closest(".mobile-menu-container"))
+      }
+      // Close mobile menu if click is outside its panel
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target)
+      ) {
         setShowMobileMenu(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showUserMenu, showMobileMenu]);
+  }, []); // Depend on nothing to attach once
 
   const handleProfileClick = () => {
     setShowUserMenu(false);
     setShowMobileMenu(false);
     navigate("/profile");
+  };
+
+  const handleLogoutClick = () => {
+    setShowUserMenu(false);
+    setShowMobileMenu(false);
+    logout(); // Trigger logout from AuthContext
   };
 
   const dropdownVariants = {
@@ -66,6 +83,34 @@ function Header() {
     },
   };
 
+  // Avatar display logic
+  const renderUserAvatar = () => {
+    if (!user) return null; // Should not happen if isAuthenticated is true
+
+    let initials = "";
+    if (user.firstName && user.lastName) {
+      initials = `${user.firstName.charAt(0)}${user.lastName.charAt(
+        0
+      )}`.toUpperCase();
+    } else if (user.email) {
+      initials = user.email.charAt(0).toUpperCase();
+    }
+
+    return (
+      <div className="w-10 h-10 bg-primary-main/10 rounded-full flex items-center justify-center text-primary-main font-bold text-lg">
+        {user.avatar ? (
+          <img
+            src={user.avatar}
+            alt="User Avatar"
+            className="w-full h-full rounded-full object-cover"
+          />
+        ) : (
+          initials
+        )}
+      </div>
+    );
+  };
+
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 border-b-2 border-light-noisy-background/40 dark:border-dark-muted-background ${
@@ -80,6 +125,7 @@ function Header() {
           <div
             className="flex items-center space-x-3 cursor-pointer"
             onClick={() => navigate("/")}
+            aria-label={`${projectName} Home`}
           >
             <img src="/Logo.svg" alt="Logo" className="w-10 h-10" />
             <span className="text-xl font-bold tracking-tight">
@@ -110,22 +156,22 @@ function Header() {
           <div className="hidden lg:flex items-center space-x-3">
             <ThemeToggle />
             {isAuthenticated && user ? (
-              <div className="relative user-menu-container">
+              <div className="relative" ref={userMenuRef}>
+                {" "}
+                {/* Attach ref here */}
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-main rounded-full"
+                  aria-haspopup="menu"
+                  aria-expanded={showUserMenu ? "true" : "false"}
+                  aria-label="User menu"
                 >
-                  <div className="w-10 h-10 bg-primary-main/10 rounded-full flex items-center justify-center text-primary-main font-bold">
-                    {user.avatar ? (
-                      <img
-                        src={user.avatar}
-                        alt="User Avatar"
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      user.firstName?.charAt(0).toUpperCase()
-                    )}
-                  </div>
+                  {renderUserAvatar()}
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      showUserMenu ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 <AnimatePresence>
                   {showUserMenu && (
@@ -153,7 +199,7 @@ function Header() {
                           <User className="h-4 w-4" /> Profile{" "}
                         </button>
                         <button
-                          onClick={logout}
+                          onClick={handleLogoutClick}
                           className="w-full text-left flex items-center gap-2 p-2 rounded-md hover:bg-light-hover dark:hover:bg-dark-hover text-red-500"
                         >
                           {" "}
@@ -186,9 +232,9 @@ function Header() {
               variant="ghost"
               size="icon"
               onClick={() => setShowMobileMenu(true)}
-              className="mobile-menu-container"
+              aria-label="Open mobile menu"
             >
-              <Menu />
+              <Menu className="h-6 w-6" />
             </Button>
           </div>
         </div>
@@ -201,9 +247,10 @@ function Header() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="lg:hidden fixed inset-0 bg-black/50 z-50"
-            onClick={() => setShowMobileMenu(false)}
+            onClick={() => setShowMobileMenu(false)} // Close when clicking outside overlay
           >
             <motion.div
+              ref={mobileMenuRef}
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -213,7 +260,7 @@ function Header() {
                 damping: 30,
               }}
               className="absolute top-0 right-0 h-full w-80 bg-light-background dark:bg-dark-background p-6"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside panel
             >
               <div className="flex justify-between items-center mb-8">
                 <span className="text-lg font-bold">{projectName}</span>
@@ -221,8 +268,9 @@ function Header() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowMobileMenu(false)}
+                  aria-label="Close mobile menu"
                 >
-                  <X />
+                  <X className="h-6 w-6" />
                 </Button>
               </div>
               <nav className="flex flex-col space-y-4">
@@ -243,6 +291,47 @@ function Header() {
                       {item.label}
                     </NavLink>
                   )
+                )}
+                {/* Add login/signup buttons for mobile if not authenticated */}
+                {!isAuthenticated && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start mt-4"
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        navigate("/auth?view=login");
+                      }}
+                    >
+                      Login
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        navigate("/auth?view=signup");
+                      }}
+                    >
+                      Sign Up
+                    </Button>
+                  </>
+                )}
+                {/* Add profile/logout for mobile if authenticated */}
+                {isAuthenticated && (
+                  <div className="mt-4 pt-4 border-t border-light-secondary dark:border-dark-secondary">
+                    <button
+                      onClick={handleProfileClick}
+                      className="w-full text-left flex items-center gap-2 p-2 rounded-md hover:bg-light-hover dark:hover:bg-dark-hover text-md font-semibold"
+                    >
+                      <User className="h-5 w-5" /> Profile
+                    </button>
+                    <button
+                      onClick={handleLogoutClick}
+                      className="w-full text-left flex items-center gap-2 p-2 rounded-md hover:bg-light-hover dark:hover:bg-dark-hover text-red-500 text-md font-semibold"
+                    >
+                      <LogOut className="h-5 w-5" /> Sign Out
+                    </button>
+                  </div>
                 )}
               </nav>
             </motion.div>

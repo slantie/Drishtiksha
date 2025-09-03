@@ -5,8 +5,25 @@ import { Card } from "../../ui/Card";
 import { CheckCircle, AlertCircle } from "lucide-react";
 
 export const OverallResultCard = ({ result }) => {
+  // `result` here is expected to be an object like: { prediction: "REAL"|"FAKE", confidence: 0.X }
+  if (
+    !result ||
+    typeof result.prediction === "undefined" ||
+    typeof result.confidence === "undefined"
+  ) {
+    return (
+      <Card className="text-center p-6 border-yellow-500/30">
+        <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-4" />
+        <h2 className="text-xl font-bold mb-2">No Overall Result</h2>
+        <p className="text-sm text-light-muted-text dark:text-dark-muted-text">
+          Prediction or confidence score not available.
+        </p>
+      </Card>
+    );
+  }
+
   const isReal = result.prediction === "REAL";
-  const confidence = result.confidence * 100;
+  const confidence = result.confidence * 100; // Convert to percentage
 
   return (
     <Card

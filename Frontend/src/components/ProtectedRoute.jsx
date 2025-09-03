@@ -26,7 +26,8 @@ const ProtectedRoute = ({ children, roles = [] }) => {
   }
 
   // If the route requires specific roles and the user doesn't have one, redirect.
-  if (roles.length > 0 && !roles.includes(user?.role)) {
+  // Note: user.role is expected to be defined if isAuthenticated is true.
+  if (roles.length > 0 && user && !roles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

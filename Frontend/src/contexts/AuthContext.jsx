@@ -1,6 +1,12 @@
 // src/contexts/AuthContext.jsx
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import {
   useLoginMutation,
   useSignupMutation,
@@ -11,6 +17,7 @@ import { socketService } from "../lib/socket.jsx";
 import { showToast } from "../utils/toast.js";
 import { authStorage } from "../utils/authStorage.js";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 export const AuthContext = createContext(null);
 
@@ -21,8 +28,11 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(authStorage.get().token);
   const queryClient = useQueryClient();
+  const navigate = useNavigate(); // Initialize useNavigate
+
+  // Manage local token state which will drive socket connection
+  const [localToken, setLocalToken] = useState(authStorage.get().token);
 
   const loginMutation = useLoginMutation();
   const signupMutation = useSignupMutation();
@@ -33,45 +43,97 @@ export const AuthProvider = ({ children }) => {
     isLoading: isProfileLoading,
     isError: isProfileError,
     isSuccess: isProfileSuccess,
-  } = useProfileQuery();
+    refetch: refetchProfile, // Add refetch function
+  } = useProfileQuery(localToken); // Pass localToken to enable/disable query
 
+  // --- Effect to manage localToken state from authStorage changes ---
   useEffect(() => {
     const handleStorageChange = () => {
       const currentToken = authStorage.get().token;
-      setToken(currentToken);
+      if (currentToken !== localToken) {
+        setLocalToken(currentToken);
+        if (!currentToken) {
+          // If token is cleared from storage, also clear profile data in cache
+          queryClient.setQueryData(queryKeys.auth.profile(), null);
+        }
+      }
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [localToken, queryClient]);
 
+  // --- Effect to connect/disconnect socket based on localToken ---
   useEffect(() => {
-    if (token) {
-      socketService.connect(token);
+    if (localToken) {
+      socketService.connect(localToken);
     } else {
       socketService.disconnect();
     }
+    // Cleanup on unmount or token change
     return () => socketService.disconnect();
-  }, [token]);
+  }, [localToken]);
 
+  // --- Effect to handle profile query errors (e.g., expired session) ---
   useEffect(() => {
-    if (isProfileError) {
+    if (isProfileError && localToken) {
+      // Only show error if a token was present
       showToast.error("Your session may have expired. Please log in again.");
       authStorage.clear();
-      setToken(null);
-      queryClient.clear();
+      setLocalToken(null); // Clear local token state
+      queryClient.clear(); // Clear all cache data
+      navigate("/auth?session_expired=true", { replace: true }); // Redirect to auth page
     }
-  }, [isProfileError, queryClient]);
+  }, [isProfileError, localToken, queryClient, navigate]);
 
-  const login = (email, password) =>
-    loginMutation.mutateAsync({ email, password });
-  const signup = (signupData) => signupMutation.mutateAsync(signupData);
-  const logout = () => logoutMutation.mutate();
+  // --- Authentication Actions (Memoized for stability) ---
+  const login = useCallback(
+    async (email, password) => {
+      try {
+        const response = await loginMutation.mutateAsync({ email, password });
+        const { token: newToken, user: newUser } = response.data;
+        authStorage.set({ token: newToken, user: newUser, rememberMe: true });
+        setLocalToken(newToken); // Update local token state
+        queryClient.setQueryData(queryKeys.auth.profile(), newUser); // Optimistically update cache
+        showToast.success("Login successful!");
+        navigate("/dashboard"); // Centralize navigation
+      } catch (error) {
+        // Error handling is already in useLoginMutation
+      }
+    },
+    [loginMutation, queryClient, navigate]
+  );
+
+  const signup = useCallback(
+    async (signupData) => {
+      try {
+        await signupMutation.mutateAsync(signupData);
+        showToast.success("Account created! Please log in to continue.");
+        // No token is returned on signup, so no localToken update here
+        navigate("/auth?view=login"); // Redirect to login after signup
+      } catch (error) {
+        // Error handling is already in useSignupMutation
+      }
+    },
+    [signupMutation, navigate]
+  );
+
+  const logout = useCallback(() => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        authStorage.clear();
+        setLocalToken(null); // Clear local token state
+        queryClient.clear(); // Clear all cache data
+        showToast.success("You have been logged out.");
+        navigate("/auth", { replace: true }); // Centralize navigation
+      },
+    });
+  }, [logoutMutation, queryClient, navigate]);
 
   const value = {
     user: isProfileSuccess ? user : null,
-    token,
-    isAuthenticated: !!token && isProfileSuccess,
-    isLoading: isProfileLoading && !!token,
+    token: localToken, // Expose localToken
+    isAuthenticated: !!localToken && isProfileSuccess,
+    isLoading: isProfileLoading && !!localToken,
     login,
     signup,
     logout,
