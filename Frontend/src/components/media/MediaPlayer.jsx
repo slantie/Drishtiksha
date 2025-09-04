@@ -6,6 +6,7 @@ import {
   Pause,
   Volume2,
   VolumeX,
+  XCircle,
   Maximize,
   Minimize, // Added Minimize icon for fullscreen toggle
   Loader2,
@@ -20,6 +21,7 @@ import {
   DropdownMenuItem,
 } from "../ui/DropdownMenu";
 import { Button } from "../ui/Button";
+import showToast from "../../utils/toast";
 
 const formatTime = (timeInSeconds) => {
   if (isNaN(timeInSeconds) || timeInSeconds < 0 || !isFinite(timeInSeconds))

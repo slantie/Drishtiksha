@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../services/api/auth.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
-import { showToast } from "../utils/toast.js";
+import { showToast } from "../utils/toast.jsx";
 import { authStorage } from "../utils/authStorage.js";
 
 export const useLoginMutation = () => {

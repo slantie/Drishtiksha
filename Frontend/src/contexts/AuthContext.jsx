@@ -14,7 +14,7 @@ import {
   useProfileQuery,
 } from "../hooks/useAuthQuery.js";
 import { socketService } from "../lib/socket.jsx";
-import { showToast } from "../utils/toast.js";
+import { showToast } from "../utils/toast.jsx";
 import { authStorage } from "../utils/authStorage.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom"; // Import useNavigate

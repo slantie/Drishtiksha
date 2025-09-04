@@ -1,7 +1,7 @@
 // src/lib/toastOrchestrator.jsx
 
 import React from "react";
-import { showToast } from "../utils/toast.js";
+import { showToast } from "../utils/toast.jsx";
 import { ToastProgress } from "../components/ui/ToastProgress.jsx";
 
 class ToastOrchestrator {

@@ -61,7 +61,7 @@ const LoginForm = ({ onSwitchToSignup }) => {
         placeholder="user@domain.com"
         disabled={isLoggingIn}
         leftIcon={<Mail className="h-5 w-5" />}
-        rightIcon={null}
+        rightIcon={<></>}
       />
       <Input
         name="password"

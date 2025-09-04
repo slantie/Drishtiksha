@@ -27,7 +27,7 @@ import {
 import { DataTable } from "../components/ui/DataTable";
 import { SkeletonCard } from "../components/ui/SkeletonCard";
 import { Alert, AlertTitle, AlertDescription } from "../components/ui/Alert";
-import { showToast } from "../utils/toast.js";
+import { showToast } from "../utils/toast.jsx";
 import {
   BarChart,
   Bar,

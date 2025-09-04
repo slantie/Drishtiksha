@@ -4,8 +4,6 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-// Removed: DotsSpinner component is being unified into LoadingSpinner for consistency.
-
 const sizeClasses = {
   sm: "h-4 w-4",
   md: "h-6 w-6",

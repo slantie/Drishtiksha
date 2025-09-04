@@ -1,4 +1,4 @@
-// src/components/analysis/charts/video/TrendlineAnalysisChart.jsx
+// src/components/analysis/charts/video/TrendLineAnalysisChart.jsx
 
 import React from "react";
 import {

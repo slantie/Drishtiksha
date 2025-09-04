@@ -14,7 +14,7 @@ import { Film as VideoIcon, Activity } from "lucide-react"; // Changed LineChart
 // Import dedicated video chart components
 import { ConfidenceAreaChart } from "./ConfidenceAreaChart";
 import { PredictionBarChart } from "./PredictionBarChart";
-import { TrendlineAnalysisChart } from "./TrendlineAnalysisChart";
+import { TrendlineAnalysisChart } from "./TrendLineAnalysisChart.jsx";
 import { TemporalHeatmap } from "./TemporalHeatmap";
 import { ConfidenceDistributionChart } from "./ConfidenceDistributionChart"; // New component for distribution
 

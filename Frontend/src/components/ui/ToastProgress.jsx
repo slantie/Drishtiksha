@@ -1,6 +1,7 @@
 // src/components/ui/ToastProgress.jsx
 
 import React from "react";
+import { cn } from "../../lib/utils";
 import { Loader2, BrainCircuit } from "lucide-react"; // Reintroduced Loader2, added BrainCircuit for model-specific context
 
 /**

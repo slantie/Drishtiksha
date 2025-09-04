@@ -12,7 +12,7 @@ import {
 import { Button } from "../ui/Button.jsx";
 import { Input } from "../ui/Input.jsx";
 import { Modal } from "../ui/Modal.jsx";
-import { showToast } from "../../utils/toast.js";
+import { showToast } from "../../utils/toast.jsx";
 import { useUploadMediaMutation } from "../../hooks/useMediaQuery.jsx";
 import { config } from "../../config/env.js"; // Import config for max file size
 

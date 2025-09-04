@@ -32,8 +32,8 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-9 px-3 rounded-md", // Fixed to rounded-md as per original intent for sm size
-        lg: "h-11 px-8 rounded-md", // Fixed to rounded-md as per original intent for lg size
+        sm: "h-9 px-3 rounded-md",
+        lg: "h-11 px-8 rounded-md",
         icon: "h-10 w-10",
       },
     },
@@ -71,22 +71,22 @@ const Button = React.forwardRef(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={isLoading || props.disabled} // Combine with existing disabled prop
+        disabled={isLoading || props.disabled}
         {...props}
       >
-        {/* REFACTOR: Encapsulated loading state within the button. */}
-        {isLoading && (
-          <Loader2 className={cn("h-5 w-5 animate-spin", children && "mr-2")} />
-        )}{" "}
-        {/* Add margin if children exist */}
-        {children && (
-          <span className={cn(isLoading && "sr-only")}>{children}</span>
-        )}{" "}
-        {/* Visually hide text but keep for screen readers */}
-        {!children && isLoading && (
-          <span className="sr-only">Loading...</span>
-        )}{" "}
-        {/* Fallback for icon-only buttons */}
+        {isLoading ? (
+          // Render a single span containing both loader and (optionally hidden) text
+          <>
+            <Loader2 className={cn("h-5 w-5 animate-spin", children && "mr-2")} />
+            {children && (
+              <span className={cn(isLoading && "sr-only")}>{children}</span>
+            )}
+            {!children && <span className="sr-only">Loading...</span>}
+          </>
+        ) : (
+          // Render children directly when not loading
+          children
+        )}
       </Comp>
     );
   }

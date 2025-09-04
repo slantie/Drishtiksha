@@ -1,7 +1,7 @@
 // src/services/DownloadReport.js
 
 import html2pdf from "html2pdf.js";
-import { showToast } from "../utils/toast.js"; // Import toast for user feedback
+import { showToast } from "../utils/toast.jsx"; // Import toast for user feedback
 import {
   formatBytes,
   formatDate,

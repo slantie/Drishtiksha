@@ -5,7 +5,7 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { Eye, EyeOff, Mail, Lock, User, UserPlus } from "lucide-react"; // Added UserPlus for signup button
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { showToast } from "../../utils/toast.js"; // Import toast for client-side feedback
+import { showToast } from "../../utils/toast.jsx"; // Import toast for client-side feedback
 
 const SignupForm = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
@@ -98,7 +98,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
           placeholder="First Name"
           disabled={isSigningUp}
           leftIcon={<User className="h-5 w-5" />}
-          rightIcon={null}
+          rightIcon={<></>}
         />
         <Input
           name="lastName"
@@ -109,7 +109,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
           placeholder="Last Name"
           disabled={isSigningUp}
           leftIcon={<User className="h-5 w-5" />}
-          rightIcon={null}
+          rightIcon={<></>}
         />
       </div>
 
@@ -122,7 +122,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
         placeholder="john@example.com"
         disabled={isSigningUp}
         leftIcon={<Mail className="h-5 w-5" />}
-        rightIcon={null}
+        rightIcon={<></>}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

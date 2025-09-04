@@ -1,157 +1,63 @@
-// src/hooks/useMediaQuery.jsx
+// src/hooks/useMediaProgess.js
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { mediaApi } from "../services/api/media.api.js";
-import { queryKeys } from "../lib/queryKeys.js";
-import { showToast } from "../utils/toast.js";
+import { useState, useEffect, useRef } from "react"; // Added useRef
+import { socketService } from "../lib/socket.jsx"; // Ensure correct path and .jsx extension
 
-export const useMediaQuery = () => {
-  return useQuery({
-    queryKey: queryKeys.media.lists(),
-    queryFn: mediaApi.getAll,
-    select: (response) => response.data,
-  });
-};
+/**
+ * A React hook to track real-time media processing progress via WebSockets.
+ * It listens for 'progress_update' events and filters them by mediaId.
+ *
+ * @param {string} mediaId - The ID of the media item to track.
+ * @returns {{latestProgress: object|null, progressEvents: object[]}} - An object containing
+ *   the latest progress event and an array of all received progress events for this mediaId.
+ */
+export const useMediaProgress = (mediaId) => {
+  const [progressEvents, setProgressEvents] = useState([]);
+  const isMounted = useRef(true); // To prevent state updates on unmounted component
 
-export const useMediaItemQuery = (mediaId, options = {}) => {
-  return useQuery({
-    queryKey: queryKeys.media.detail(mediaId),
-    queryFn: () => mediaApi.getById(mediaId),
-    enabled: !!mediaId,
-    select: (response) => response.data,
-    ...options,
-  });
-};
+  useEffect(() => {
+    isMounted.current = true;
+    setProgressEvents([]); // Clear events when mediaId changes or component mounts
 
-export const useUploadMediaMutation = () => {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-
-  return useMutation({
-    mutationFn: mediaApi.upload,
-    onSuccess: (response) => {
-      const newMedia = response.data;
-      showToast.success(
-        `Upload complete! "${newMedia.filename}" queued for analysis.`
-      );
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
-      navigate(`/results/${newMedia.id}`);
-    },
-    onError: (error) => {
-      showToast.error(error.message || "Upload failed. Please try again.");
-    },
-  });
-};
-
-export const useUpdateMediaMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ mediaId, updateData }) =>
-      mediaApi.update(mediaId, updateData),
-    onSuccess: (response, { mediaId }) => {
-      // response contains the updated media object
-      showToast.success(`Media "${response.data.filename || "item"}" updated.`);
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.media.detail(mediaId),
-      });
-    },
-    onError: (error) => {
-      showToast.error(error.message || "Failed to update media details.");
-    },
-  });
-};
-
-export const useDeleteMediaMutation = () => {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-
-  return useMutation({
-    mutationFn: mediaApi.delete,
-    onSuccess: (_, mediaId) => {
-      // No data in response from delete
-      showToast.success("Media deleted successfully.");
-      queryClient.removeQueries({ queryKey: queryKeys.media.detail(mediaId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });
-      navigate("/dashboard");
-    },
-    onError: (error) => {
-      showToast.error(error.message || "Failed to delete media.");
-    },
-  });
-};
-
-export const useRerunAnalysisMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (mediaId) => mediaApi.rerunAnalysis(mediaId),
-    onSuccess: (response, mediaId) => {
-      // response contains the updated media with new run
-      showToast.info(
-        `New analysis run for "${
-          response.data.filename || "media"
-        }" has been queued.`
-      );
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.media.detail(mediaId),
-      });
-    },
-    onError: (error) => {
-      showToast.error(error.message || "Failed to start new analysis.");
-    },
-  });
-};
-
-export const useMediaStats = () => {
-  const { data: mediaItems = [], isLoading, error } = useMediaQuery();
-
-  const stats = useMemo(() => {
-    if (!Array.isArray(mediaItems)) {
-      return {
-        total: 0,
-        realDetections: 0,
-        fakeDetections: 0,
-        totalAnalyses: 0,
-        processing: 0,
-        analyzed: 0,
-        failed: 0,
-      };
+    if (!socketService.socket || !mediaId) {
+      console.log(`[useMediaProgress] Skipping setup: socket not ready or mediaId missing (mediaId: ${mediaId})`);
+      return;
     }
-    return mediaItems.reduce(
-      (acc, media) => {
-        acc.total++;
-        const latestRun = media.analysisRuns?.[0]; // Runs are sorted desc by runNumber
 
-        // Update status counts based on overall media status
-        if (media.status === "PROCESSING" || media.status === "QUEUED")
-          acc.processing++;
-        else if (media.status === "ANALYZED") acc.analyzed++;
-        else if (media.status === "FAILED") acc.failed++;
-
-        if (latestRun) {
-          const completedAnalyses =
-            latestRun.analyses?.filter((a) => a.status === "COMPLETED") || [];
-          acc.totalAnalyses += completedAnalyses.length;
-          completedAnalyses.forEach((analysis) => {
-            if (analysis.prediction === "REAL") acc.realDetections++;
-            if (analysis.prediction === "FAKE") acc.fakeDetections++;
-          });
-        }
-        return acc;
-      },
-      {
-        total: 0,
-        realDetections: 0,
-        fakeDetections: 0,
-        totalAnalyses: 0,
-        processing: 0,
-        analyzed: 0,
-        failed: 0,
+    const handleProgress = (data) => {
+      // The forwarded Python event has 'media_id'. We check if it matches.
+      // Backend now sends 'mediaId' directly in event payload, as confirmed in Batch 3 (socket.jsx).
+      if (isMounted.current && data.mediaId === mediaId) { // Use 'mediaId'
+        // console.log(`[useMediaProgress] Received relevant progress for ${mediaId}:`, data);
+        setProgressEvents((prevEvents) => [...prevEvents, data]);
+      } else {
+        // console.log(`[useMediaProgress] Received irrelevant progress (target: ${mediaId}, event mediaId: ${data.mediaId})`, data);
       }
-    );
-  }, [mediaItems]);
+    };
 
-  return { stats, isLoading, error };
+    // Ensure we only subscribe if the socket is connected and authenticated
+    if (socketService.socket.connected) {
+      socketService.socket.on("progress_update", handleProgress);
+      // console.log(`[useMediaProgress] Subscribed to 'progress_update' for mediaId: ${mediaId}`);
+    } else {
+      // If socket is not connected, try to reconnect or log a warning.
+      // The AuthContext already handles connecting/disconnecting the socket.
+      console.warn(`[useMediaProgress] Socket not connected for mediaId: ${mediaId}. Progress updates may be delayed.`);
+    }
+
+    return () => {
+      if (socketService.socket) {
+        socketService.socket.off("progress_update", handleProgress);
+        // console.log(`[useMediaProgress] Unsubscribed from 'progress_update' for mediaId: ${mediaId}`);
+      }
+      isMounted.current = false;
+    };
+  }, [mediaId]); // Dependency on mediaId ensures re-subscription when tracking a different media item
+
+  const latestProgress =
+    progressEvents.length > 0
+      ? progressEvents[progressEvents.length - 1]
+      : null;
+
+  return { latestProgress, progressEvents };
 };

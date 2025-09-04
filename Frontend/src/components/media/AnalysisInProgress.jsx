@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../ui/Card.jsx";
-import { DotsSpinner } from "../ui/LoadingSpinner.jsx";
+import { LoadingSpinner } from "../ui/LoadingSpinner.jsx";
 import { getMediaType } from "../../utils/media.js";
 
 // Helper component for displaying individual model status
@@ -123,7 +123,7 @@ export const AnalysisInProgress = ({ media }) => {
 
   return (
     <div className="mx-auto text-center max-w-4xl">
-      <DotsSpinner size="lg" />
+      <LoadingSpinner size="md" />
       <h1 className="text-3xl font-bold mt-4">Analysis in Progress</h1>
       <p className="text-lg text-light-muted-text dark:text-dark-muted-text mt-2 mb-8">
         Your file "{media.filename}" is being analyzed. This page will update

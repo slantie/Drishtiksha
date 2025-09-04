@@ -5,89 +5,85 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-// REFACTOR: This entire component has been rebuilt using Radix UI for a fully styleable and accessible dropdown.
-// It now perfectly matches the visual style of the Input and Button components.
-
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
 
 const SelectTrigger = React.forwardRef(
-  ({ className, children, ...props }, ref) => (
-    <SelectPrimitive.Trigger
-      ref={ref}
-      className={cn(
-        "flex h-10 w-full items-center justify-between rounded-full border border-light-secondary dark:border-dark-secondary bg-transparent px-3 py-2 text-sm placeholder:text-light-muted-text dark:placeholder:text-dark-muted-text focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-50",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <SelectPrimitive.Icon asChild>
-        <ChevronDown className="h-4 w-4 text-light-muted-text dark:text-dark-muted-text opacity-70" />{" "}
-        {/* Ensure theme-aware color */}
-      </SelectPrimitive.Icon>
-    </SelectPrimitive.Trigger>
-  )
+    ({ className, children, ...props }, ref) => (
+        <SelectPrimitive.Trigger
+            ref={ref}
+            className={cn(
+                "flex h-10 w-full items-center justify-between rounded-full border border-light-secondary dark:border-dark-secondary bg-transparent px-3 py-2 text-sm placeholder:text-light-muted-text dark:placeholder:text-dark-muted-text focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-50",
+                className
+            )}
+            {...props}
+        >
+            {children}
+            {/* REMOVED asChild prop to resolve React 19 compatibility issue */}
+            <SelectPrimitive.Icon>
+                <ChevronDown className="h-4 w-4 text-light-muted-text dark:text-dark-muted-text opacity-70" />
+            </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+    )
 );
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectContent = React.forwardRef(
-  ({ className, children, position = "popper", ...props }, ref) => (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        ref={ref}
-        sideOffset={4} // Default sideOffset from Radix
-        className={cn(
-          "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-light-background dark:bg-dark-background text-light-text dark:text-dark-text shadow-md animate-in fade-in-80",
-          position === "popper" && "translate-y-1",
-          className
-        )}
-        position={position}
-        {...props}
-      >
-        <SelectPrimitive.Viewport
-          className={cn(
-            "p-1",
-            position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
-          )}
-        >
-          {children}
-        </SelectPrimitive.Viewport>
-      </SelectPrimitive.Content>
-    </SelectPrimitive.Portal>
-  )
+    ({ className, children, position = "popper", ...props }, ref) => (
+        <SelectPrimitive.Portal>
+            <SelectPrimitive.Content
+                ref={ref}
+                sideOffset={4}
+                className={cn(
+                    "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-light-background dark:bg-dark-background text-light-text dark:text-dark-text shadow-md animate-in fade-in-80",
+                    position === "popper" && "translate-y-1",
+                    className
+                )}
+                position={position}
+                {...props}
+            >
+                <SelectPrimitive.Viewport
+                    className={cn(
+                        "p-1",
+                        position === "popper" &&
+                            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+                    )}
+                >
+                    {children}
+                </SelectPrimitive.Viewport>
+            </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+    )
 );
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectItem = React.forwardRef(
-  ({ className, children, ...props }, ref) => (
-    <SelectPrimitive.Item
-      ref={ref}
-      className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-light-hover dark:focus:bg-dark-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className
-      )}
-      {...props}
-    >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-    </SelectPrimitive.Item>
-  )
+    ({ className, children, ...props }, ref) => (
+        <SelectPrimitive.Item
+            ref={ref}
+            className={cn(
+                "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-light-hover dark:focus:bg-dark-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                className
+            )}
+            {...props}
+        >
+            <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                <SelectPrimitive.ItemIndicator>
+                    <Check className="h-4 w-4" />
+                </SelectPrimitive.ItemIndicator>
+            </span>
+            <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+        </SelectPrimitive.Item>
+    )
 );
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
-// Export SelectGroup explicitly if used
 export {
-  Select,
-  SelectGroup, // Ensure this is exported if needed by other components
-  SelectValue,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
+    Select,
+    SelectGroup,
+    SelectValue,
+    SelectTrigger,
+    SelectContent,
+    SelectItem,
 };
