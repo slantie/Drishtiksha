@@ -39,4 +39,5 @@ export { SkeletonCard } from "./SkeletonCard.jsx";
 export { StatCard } from "./StatCard.jsx";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs.jsx";
 export { ToastProgress } from "./ToastProgress.jsx";
+export { AnalysisProgress } from "./AnalysisProgress.jsx";
 export { Modal } from "./Modal.jsx";

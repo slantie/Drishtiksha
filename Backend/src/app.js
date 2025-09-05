@@ -1,4 +1,4 @@
-// src/app.js
+// Backend/src/app.js
 
 import express from "express";
 import cors from "cors";
@@ -23,21 +23,16 @@ app.use(express.json({ limit: "20kb" }));
 app.use(express.urlencoded({ extended: true, limit: "20kb" }));
 app.use(cookieParser());
 
-// REMOVED: The entire `if (config.STORAGE_PROVIDER === 'local')` block is gone.
-// This server's responsibility is now only API logic.
-
 // --- API Routes ---
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/media", mediaRoutes);
 app.use("/api/v1/monitoring", monitoringRoutes);
 
 app.get("/", (req, res) => {
-  res
-    .status(200)
-    .json({
-      success: true,
-      message: "Drishtiksha Backend API is alive and running!",
-    });
+  res.status(200).json({
+    success: true,
+    message: "Drishtiksha Backend API is alive and running!",
+  });
 });
 
 app.use(errorMiddleware);

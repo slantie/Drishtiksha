@@ -127,9 +127,13 @@ class BaseSiglipLSTMDetector(BaseModel):
         self,
         media_path: str,
         frame_scores: List[float],
-        total_frames: int
+        total_frames: int,
+        **kwargs
     ) -> str:
         """Generates a video with an overlay graph of the frame scores."""
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
+        
         cap = cv2.VideoCapture(media_path)
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -142,6 +146,21 @@ class BaseSiglipLSTMDetector(BaseModel):
 
         plt.style.use("dark_background")
         fig, ax = plt.subplots(figsize=(6, 2.5))
+
+        # Publish visualization start event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message="Starting visualization generation",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=0,
+                    total=total_frames,
+                    details={"phase": "visualization"}
+                )
+            ))
 
         try:
             for i in tqdm(range(total_frames), desc="Generating visualization"):
@@ -168,10 +187,23 @@ class BaseSiglipLSTMDetector(BaseModel):
                 plot_h, plot_w, _ = plot_img_bgr.shape
                 new_plot_h = int(frame_height * 0.3)
                 new_plot_w = int(new_plot_h * (plot_w / plot_h))
-                resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
-
-                y_offset, x_offset = 10, frame_width - new_plot_w - 10
-                frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
+                
+                # FIX: Ensure the plot fits within frame boundaries
+                if new_plot_w > frame_width - 20:  # Leave 10px margin on each side
+                    new_plot_w = frame_width - 20
+                    new_plot_h = int(new_plot_w * (plot_h / plot_w))
+                
+                # FIX: Ensure coordinates don't exceed frame boundaries
+                x_offset = max(0, min(frame_width - new_plot_w - 10, frame_width - new_plot_w - 10))
+                y_offset = 10
+                
+                # FIX: Double-check dimensions before assignment
+                if (y_offset + new_plot_h <= frame_height and 
+                    x_offset + new_plot_w <= frame_width and 
+                    new_plot_h > 0 and new_plot_w > 0):
+                    
+                    resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
+                    frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
 
                 green, yellow, red = np.array([0, 255, 0]), np.array([0, 255, 255]), np.array([0, 0, 255])
                 interp = score * 2 if score < 0.5 else (score - 0.5) * 2
@@ -183,10 +215,40 @@ class BaseSiglipLSTMDetector(BaseModel):
                 cv2.putText(frame, f"Live Frame Suspicion: {score:.2f}", (15, frame_height - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
 
                 out.write(frame)
+                
+                # Publish visualization progress updates
+                if (i + 1) % 100 == 0 and video_id and user_id:
+                    event_publisher.publish(ProgressEvent(
+                        media_id=video_id,
+                        user_id=user_id,
+                        event="FRAME_ANALYSIS_PROGRESS",
+                        message=f"Generating visualization: {i + 1}/{total_frames} frames processed",
+                        data=EventData(
+                            model_name=self.config.class_name,
+                            progress=i + 1,
+                            total=total_frames,
+                            details={"phase": "visualization"}
+                        )
+                    ))
         finally:
             cap.release()
             out.release()
             plt.close(fig)
+            
+        # Publish visualization completion event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message="Visualization generation completed",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=total_frames,
+                    total=total_frames,
+                    details={"phase": "visualization_complete"}
+                )
+            ))
 
         return output_path
 
@@ -197,68 +259,137 @@ class BaseSiglipLSTMDetector(BaseModel):
         The single, unified entry point for running a comprehensive analysis.
         """
         start_time = time.time()
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
 
-        # 1. Perform detailed window-by-window analysis to get temporal scores
-        frame_scores, total_frames = self._analyze_video_windows(media_path, **kwargs)
+        # Publish analysis start event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message=f"Starting analysis with {self.config.class_name}",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=0,
+                    total=None,
+                    details={"phase": "initialization"}
+                )
+            ))
 
-        # 2. Get the final, authoritative prediction
-        final_prediction, final_confidence, note = self._get_final_prediction(media_path)
+        try:
+            # 1. Perform detailed window-by-window analysis to get temporal scores
+            frame_scores, total_frames = self._analyze_video_windows(media_path, **kwargs)
 
-        # 3. Handle fallback case if no frames were analyzed
-        if not frame_scores:
+            # 2. Get the final, authoritative prediction
+            final_prediction, final_confidence, note = self._get_final_prediction(media_path)
+
+            # 3. Handle fallback case if no frames were analyzed
+            if not frame_scores:
+                if video_id and user_id:
+                    event_publisher.publish(ProgressEvent(
+                        media_id=video_id,
+                        user_id=user_id,
+                        event="ANALYSIS_COMPLETE",
+                        message=f"Analysis completed with fallback: {final_prediction} (confidence: {final_confidence:.3f})",
+                        data=EventData(
+                            model_name=self.config.class_name,
+                            details={
+                                "prediction": final_prediction,
+                                "confidence": final_confidence,
+                                "processing_time": time.time() - start_time,
+                                "fallback": True
+                            }
+                        )
+                    ))
+                
+                return VideoAnalysisResult(
+                    prediction=final_prediction,
+                    confidence=final_confidence,
+                    processing_time=time.time() - start_time,
+                    note=note or "Could not extract temporal features; result is based on a single analysis.",
+                    frame_count=total_frames,
+                    frames_analyzed=0,
+                    frame_predictions=[],
+                    metrics={},
+                    visualization_path=None
+                )
+
+            # 4. Format frame-by-frame results into the standard schema
+            frame_predictions = [
+                FramePrediction(
+                    index=i,
+                    score=score,
+                    prediction="FAKE" if score > 0.5 else "REAL"
+                ) for i, score in enumerate(frame_scores)
+            ]
+
+            # 5. Calculate rolling averages and other metrics
+            rolling_avg_scores = []
+            if hasattr(self.config, 'rolling_window_size'):
+                rolling_window = deque(maxlen=self.config.rolling_window_size)
+                for score in frame_scores:
+                    rolling_window.append(score)
+                    rolling_avg_scores.append(np.mean(list(rolling_window)))
+
+            metrics = {
+                "rolling_average_scores": rolling_avg_scores,
+                "final_average_score": np.mean(frame_scores),
+                "max_score": max(frame_scores),
+                "min_score": min(frame_scores),
+                "score_variance": np.var(frame_scores),
+                "suspicious_frames_count": sum(1 for s in frame_scores if s > 0.5),
+            }
+
+            # 6. Generate the visualization video
+            visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
+
+            # 7. Publish analysis completion
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="ANALYSIS_COMPLETE",
+                    message=f"Analysis completed: {final_prediction} (confidence: {final_confidence:.3f})",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        details={
+                            "prediction": final_prediction,
+                            "confidence": final_confidence,
+                            "processing_time": time.time() - start_time,
+                            "total_frames": total_frames,
+                            "windows_analyzed": len(frame_scores)
+                        }
+                    )
+                ))
+
+            # 8. Assemble and return the final, comprehensive result object
             return VideoAnalysisResult(
                 prediction=final_prediction,
                 confidence=final_confidence,
                 processing_time=time.time() - start_time,
-                note=note or "Could not extract temporal features; result is based on a single analysis.",
+                note=note,
                 frame_count=total_frames,
-                frames_analyzed=0,
-                frame_predictions=[],
-                metrics={},
-                visualization_path=None
+                frames_analyzed=len(frame_scores),
+                frame_predictions=frame_predictions,
+                metrics=metrics,
+                visualization_path=visualization_path
             )
-
-        # 4. Format frame-by-frame results into the standard schema
-        frame_predictions = [
-            FramePrediction(
-                index=i,
-                score=score,
-                prediction="FAKE" if score > 0.5 else "REAL"
-            ) for i, score in enumerate(frame_scores)
-        ]
-
-        # 5. Calculate rolling averages and other metrics
-        rolling_avg_scores = []
-        if hasattr(self.config, 'rolling_window_size'):
-            rolling_window = deque(maxlen=self.config.rolling_window_size)
-            for score in frame_scores:
-                rolling_window.append(score)
-                rolling_avg_scores.append(np.mean(list(rolling_window)))
-
-        metrics = {
-            "rolling_average_scores": rolling_avg_scores,
-            "final_average_score": np.mean(frame_scores),
-            "max_score": max(frame_scores),
-            "min_score": min(frame_scores),
-            "score_variance": np.var(frame_scores),
-            "suspicious_frames_count": sum(1 for s in frame_scores if s > 0.5),
-        }
-
-        # 6. Generate the visualization video
-        visualization_path = self._generate_visualization(media_path, frame_scores, total_frames)
-
-        # 7. Assemble and return the final, comprehensive result object
-        return VideoAnalysisResult(
-            prediction=final_prediction,
-            confidence=final_confidence,
-            processing_time=time.time() - start_time,
-            note=note,
-            frame_count=total_frames,
-            frames_analyzed=len(frame_scores),
-            frame_predictions=frame_predictions,
-            metrics=metrics,
-            visualization_path=visualization_path
-        )
+            
+        except Exception as e:
+            # Publish analysis failure event
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="ANALYSIS_FAILED",
+                    message=f"Analysis failed: {str(e)}",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        details={"error": str(e), "processing_time": time.time() - start_time}
+                    )
+                ))
+            raise
 
 
 class SiglipLSTMV1(BaseSiglipLSTMDetector):

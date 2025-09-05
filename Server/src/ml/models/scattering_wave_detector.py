@@ -136,51 +136,106 @@ class ScatteringWaveV1(BaseModel):
     def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
         """The single, unified entry point for running a comprehensive audio analysis."""
         start_time = time.time()
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
 
-        # 1. Process audio. This will raise IOError/ValueError on failure.
-        tensor, y, sr, channels, spec_img_buffer, mel_spec_db = self._extract_and_process_audio(media_path, **kwargs)
+        # Publish analysis start event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message=f"Starting audio analysis with {self.config.class_name}",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=0,
+                    total=None,
+                    details={"phase": "initialization", "media_type": "audio"}
+                )
+            ))
 
-        # 2. Model Inference
-        with torch.no_grad():
-            output = self.model(tensor)
-            prob_real = torch.sigmoid(output).item()
+        try:
+            # 1. Process audio. This will raise IOError/ValueError on failure.
+            tensor, y, sr, channels, spec_img_buffer, mel_spec_db = self._extract_and_process_audio(media_path, **kwargs)
 
-        prob_fake = 1.0 - prob_real
-        prediction = "REAL" if prob_real >= 0.5 else "FAKE"
-        confidence = prob_real if prediction == "REAL" else prob_fake
+            # 2. Model Inference
+            with torch.no_grad():
+                output = self.model(tensor)
+                prob_real = torch.sigmoid(output).item()
 
-        # 3. Calculate Audio Metrics
-        pitch_values, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
-        valid_pitch_values = pitch_values[~np.isnan(pitch_values)]
-        mean_pitch = float(np.mean(valid_pitch_values)) if len(valid_pitch_values) > 0 else None
-        pitch_std_dev = float(np.std(valid_pitch_values)) if len(valid_pitch_values) > 1 else 0.0
-        pitch_stability = max(0.0, 1.0 - (pitch_std_dev / 100.0)) if mean_pitch else None
+            prob_fake = 1.0 - prob_real
+            prediction = "REAL" if prob_real >= 0.5 else "FAKE"
+            confidence = prob_real if prediction == "REAL" else prob_fake
 
-        rms_energy = float(np.mean(librosa.feature.rms(y=y)))
-        silent_intervals = librosa.effects.split(y, top_db=40)
-        total_silent_duration = sum((end - start) / sr for start, end in silent_intervals)
-        silence_ratio = 1.0 - (total_silent_duration / self.config.duration_seconds)
+            # 3. Calculate Audio Metrics
+            pitch_values, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
+            valid_pitch_values = pitch_values[~np.isnan(pitch_values)]
+            mean_pitch = float(np.mean(valid_pitch_values)) if len(valid_pitch_values) > 0 else None
+            pitch_std_dev = float(np.std(valid_pitch_values)) if len(valid_pitch_values) > 1 else 0.0
+            pitch_stability = max(0.0, 1.0 - (pitch_std_dev / 100.0)) if mean_pitch else None
 
-        spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
-        spectral_contrast = float(np.mean(librosa.feature.spectral_contrast(y=y, sr=sr)))
+            rms_energy = float(np.mean(librosa.feature.rms(y=y)))
+            silent_intervals = librosa.effects.split(y, top_db=40)
+            total_silent_duration = sum((end - start) / sr for start, end in silent_intervals)
+            silence_ratio = 1.0 - (total_silent_duration / self.config.duration_seconds)
 
-        # 4. Save visualization image and get its local path
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix="spec_") as tmp:
-            tmp.write(spec_img_buffer.getvalue())
-            spectrogram_path = tmp.name
-        spec_img_buffer.close()
-        
-        # 5. Assemble and return the final, comprehensive result object
-        return AudioAnalysisResult(
-            prediction=prediction,
-            confidence=float(confidence),
-            processing_time=time.time() - start_time,
-            properties=AudioProperties(duration_seconds=self.config.duration_seconds, sample_rate=sr, channels=channels),
-            pitch=PitchAnalysis(mean_pitch_hz=mean_pitch, pitch_stability_score=pitch_stability),
-            energy=EnergyAnalysis(rms_energy=rms_energy, silence_ratio=silence_ratio),
-            spectral=SpectralAnalysis(spectral_centroid=spectral_centroid, spectral_contrast=spectral_contrast),
-            visualization=AudioVisualization(
-                spectrogram_url=spectrogram_path, # Return the local file path
-                spectrogram_data=mel_spec_db.tolist()
+            spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+            spectral_contrast = float(np.mean(librosa.feature.spectral_contrast(y=y, sr=sr)))
+
+            # 4. Save visualization image and get its local path
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix="spec_") as tmp:
+                tmp.write(spec_img_buffer.getvalue())
+                spectrogram_path = tmp.name
+            spec_img_buffer.close()
+            
+            # 5. Publish analysis completion
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="ANALYSIS_COMPLETE",
+                    message=f"Audio analysis completed: {prediction} (confidence: {confidence:.3f})",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        details={
+                            "prediction": prediction,
+                            "confidence": confidence,
+                            "processing_time": time.time() - start_time,
+                            "media_type": "audio",
+                            "sample_rate": sr,
+                            "channels": channels,
+                            "mean_pitch": mean_pitch,
+                            "pitch_stability": pitch_stability
+                        }
+                    )
+                ))
+
+            # 6. Assemble and return the final, comprehensive result object
+            return AudioAnalysisResult(
+                prediction=prediction,
+                confidence=float(confidence),
+                processing_time=time.time() - start_time,
+                properties=AudioProperties(duration_seconds=self.config.duration_seconds, sample_rate=sr, channels=channels),
+                pitch=PitchAnalysis(mean_pitch_hz=mean_pitch, pitch_stability_score=pitch_stability),
+                energy=EnergyAnalysis(rms_energy=rms_energy, silence_ratio=silence_ratio),
+                spectral=SpectralAnalysis(spectral_centroid=spectral_centroid, spectral_contrast=spectral_contrast),
+                visualization=AudioVisualization(
+                    spectrogram_url=spectrogram_path, # Return the local file path
+                    spectrogram_data=mel_spec_db.tolist()
+                )
             )
-        )
+            
+        except Exception as e:
+            # Publish analysis failure event
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="ANALYSIS_FAILED",
+                    message=f"Audio analysis failed: {str(e)}",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        details={"error": str(e), "processing_time": time.time() - start_time, "media_type": "audio"}
+                    )
+                ))
+            raise

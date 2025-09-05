@@ -1,4 +1,4 @@
-// assets.server.js
+// Backend/assets.server.js
 
 import express from "express";
 import cors from "cors";
@@ -17,21 +17,23 @@ const __dirname = path.dirname(__filename);
 
 // --- Core Middleware ---
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: config.FRONTEND_URL })); // Allow the frontend to request files
+app.use(cors({ origin: [config.FRONTEND_URL, "http://localhost:3001"] })); // Allow the frontend to request files
 app.use(morgan("dev", { stream: logger.stream }));
 
 // --- Static File Serving Logic ---
 // This is the server's ONLY job.
-const projectRoot = __dirname;
+const projectRoot = path.resolve(__dirname); // Absolute path to Backend directory
 const staticDirPath = path.join(projectRoot, config.LOCAL_STORAGE_PATH);
-const staticUrlPath = config.LOCAL_STORAGE_PATH.replace(/^public\//, "");
 
-// Mount the static directory
-app.use(`/${staticUrlPath}`, express.static(staticDirPath));
+// Create a URL path segment from the storage path (e.g., 'public/media' -> '/media')
+const urlPath = config.LOCAL_STORAGE_PATH.split("/").slice(1).join("/");
 
 logger.info(
-  `Asset server will serve files from URL '/${staticUrlPath}' mapped to directory '${staticDirPath}'`
+  `Asset server will serve files from URL '/${urlPath}' mapped to directory '${staticDirPath}'`
 );
+
+// Mount the static directory
+app.use(`/${urlPath}`, express.static(staticDirPath));
 
 // --- Start the Server ---
 app.listen(PORT, () => {

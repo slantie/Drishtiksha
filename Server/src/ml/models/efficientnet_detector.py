@@ -140,6 +140,21 @@ class EfficientNetB7Detector(BaseModel):
         all_face_predictions: List[float] = []
         per_frame_scores: List[float] = []
 
+        # Publish initial frame count
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message=f"Starting frame analysis for {total_frames} frames",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=0,
+                    total=total_frames,
+                    details={"phase": "frame_processing_start"}
+                )
+            ))
+
         try:
             for i in tqdm(range(total_frames), desc=f"Analyzing frames for {self.config.class_name}"):
                 ret, frame = cap.read()
@@ -154,16 +169,22 @@ class EfficientNetB7Detector(BaseModel):
                 all_face_predictions.extend(face_preds)
                 per_frame_scores.append(max(face_preds) if face_preds else 0.0)
 
-                if (i + 1) % 10 == 0 and video_id and user_id:
+                # More frequent progress updates for better real-time feedback
+                if (i + 1) % 5 == 0 and video_id and user_id:
                     event_publisher.publish(ProgressEvent(
                         media_id=video_id,
                         user_id=user_id,
                         event="FRAME_ANALYSIS_PROGRESS",
-                        message=f"Processed window {i + 1}/{total_frames}",
+                        message=f"Analyzed {i + 1}/{total_frames} frames, detected {len(all_face_predictions)} faces",
                         data=EventData(
                             model_name=self.config.class_name,
                             progress=i + 1,
-                            total=total_frames
+                            total=total_frames,
+                            details={
+                                "phase": "frame_processing",
+                                "faces_detected_so_far": len(all_face_predictions),
+                                "current_frame_faces": len(faces)
+                            }
                         )
                     ))
                     
@@ -177,8 +198,11 @@ class EfficientNetB7Detector(BaseModel):
 
         return per_frame_scores, all_face_predictions, total_frames, note
 
-    def _generate_visualization(self, media_path: str, frame_scores: List[float], total_frames: int) -> str:
+    def _generate_visualization(self, media_path: str, frame_scores: List[float], total_frames: int, **kwargs) -> str:
         """Generates a video with an overlay graph of the frame scores."""
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
+        
         cap = cv2.VideoCapture(media_path)
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -191,6 +215,21 @@ class EfficientNetB7Detector(BaseModel):
 
         plt.style.use("dark_background")
         fig, ax = plt.subplots(figsize=(6, 2.5))
+
+        # Publish visualization start event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message="Starting visualization generation",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=0,
+                    total=total_frames,
+                    details={"phase": "visualization"}
+                )
+            ))
 
         try:
             for i in tqdm(range(total_frames), desc="Generating visualization"):
@@ -213,10 +252,23 @@ class EfficientNetB7Detector(BaseModel):
                 plot_h, plot_w, _ = plot_img_bgr.shape
                 new_plot_h = int(frame_height * 0.3)
                 new_plot_w = int(new_plot_h * (plot_w / plot_h))
-                resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
                 
-                y_offset, x_offset = 10, frame_width - new_plot_w - 10
-                frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
+                # FIX: Ensure the plot fits within frame boundaries
+                if new_plot_w > frame_width - 20:  # Leave 10px margin on each side
+                    new_plot_w = frame_width - 20
+                    new_plot_h = int(new_plot_w * (plot_h / plot_w))
+                
+                # FIX: Ensure coordinates don't exceed frame boundaries
+                x_offset = max(0, min(frame_width - new_plot_w - 10, frame_width - new_plot_w - 10))
+                y_offset = 10
+                
+                # FIX: Double-check dimensions before assignment
+                if (y_offset + new_plot_h <= frame_height and 
+                    x_offset + new_plot_w <= frame_width and 
+                    new_plot_h > 0 and new_plot_w > 0):
+                    
+                    resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
+                    frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
 
                 score_color = np.array([0, 0, 255]) * score + np.array([0, 255, 0]) * (1 - score)
                 color = tuple(map(int, score_color))
@@ -226,10 +278,41 @@ class EfficientNetB7Detector(BaseModel):
                 cv2.putText(frame, f"Frame Suspicion: {score:.2f}", (15, frame_height - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
                 
                 out.write(frame)
+                
+                # Publish visualization progress updates
+                if (i + 1) % 50 == 0 and video_id and user_id:
+                    event_publisher.publish(ProgressEvent(
+                        media_id=video_id,
+                        user_id=user_id,
+                        event="FRAME_ANALYSIS_PROGRESS",
+                        message=f"Generating visualization: {i + 1}/{total_frames} frames processed",
+                        data=EventData(
+                            model_name=self.config.class_name,
+                            progress=i + 1,
+                            total=total_frames,
+                            details={"phase": "visualization"}
+                        )
+                    ))
         finally:
             cap.release()
             out.release()
             plt.close(fig)
+            
+        # Publish visualization completion event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message="Visualization generation completed",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=total_frames,
+                    total=total_frames,
+                    details={"phase": "visualization_complete"}
+                )
+            ))
+            
         return output_path
 
     # --- Public API Method ---
@@ -237,43 +320,112 @@ class EfficientNetB7Detector(BaseModel):
     def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
         """The single, unified entry point for running a comprehensive analysis."""
         start_time = time.time()
+        video_id = kwargs.get("video_id")
+        user_id = kwargs.get("user_id")
 
-        # 1. Get temporal scores and metadata
-        frame_scores, all_face_scores, total_frames, note = self._get_frame_scores(media_path, **kwargs)
-        
-        # 2. Calculate final prediction using the aggregation strategy
-        final_prob_fake = self._confident_strategy(all_face_scores)
-        prediction = "FAKE" if final_prob_fake > 0.5 else "REAL"
-        confidence = final_prob_fake if prediction == "FAKE" else 1 - final_prob_fake
+        # Publish analysis start event
+        if video_id and user_id:
+            event_publisher.publish(ProgressEvent(
+                media_id=video_id,
+                user_id=user_id,
+                event="FRAME_ANALYSIS_PROGRESS",
+                message=f"Starting analysis with {self.config.class_name}",
+                data=EventData(
+                    model_name=self.config.class_name,
+                    progress=0,
+                    total=None,
+                    details={"phase": "initialization"}
+                )
+            ))
 
-        # 3. Format frame-by-frame predictions
-        frame_predictions = [
-            FramePrediction(
-                index=i,
-                score=score,
-                prediction="FAKE" if score > 0.5 else "REAL"
-            ) for i, score in enumerate(frame_scores)
-        ]
+        try:
+            # 1. Get temporal scores and metadata
+            frame_scores, all_face_scores, total_frames, note = self._get_frame_scores(media_path, **kwargs)
+            
+            # Publish frame analysis completion
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="FRAME_ANALYSIS_PROGRESS",
+                    message=f"Frame analysis completed. Processing {len(all_face_scores)} face detections",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        progress=total_frames,
+                        total=total_frames,
+                        details={"phase": "frame_analysis_complete", "faces_detected": len(all_face_scores)}
+                    )
+                ))
+            
+            # 2. Calculate final prediction using the aggregation strategy
+            final_prob_fake = self._confident_strategy(all_face_scores)
+            prediction = "FAKE" if final_prob_fake > 0.5 else "REAL"
+            confidence = final_prob_fake if prediction == "FAKE" else 1 - final_prob_fake
 
-        # 4. Calculate metrics
-        metrics = {
-            "total_faces_detected": len(all_face_scores),
-            "average_face_score": np.mean(all_face_scores) if all_face_scores else 0.0,
-            "suspicious_frames_count": sum(1 for s in frame_scores if s > 0.5),
-        }
+            # 3. Format frame-by-frame predictions
+            frame_predictions = [
+                FramePrediction(
+                    index=i,
+                    score=score,
+                    prediction="FAKE" if score > 0.5 else "REAL"
+                ) for i, score in enumerate(frame_scores)
+            ]
 
-        # 5. Generate visualization
-        visualization_path = self._generate_visualization(media_path, frame_scores, total_frames)
+            # 4. Calculate metrics
+            metrics = {
+                "total_faces_detected": len(all_face_scores),
+                "average_face_score": np.mean(all_face_scores) if all_face_scores else 0.0,
+                "suspicious_frames_count": sum(1 for s in frame_scores if s > 0.5),
+            }
 
-        # 6. Assemble and return the final result
-        return VideoAnalysisResult(
-            prediction=prediction,
-            confidence=confidence,
-            processing_time=time.time() - start_time,
-            note=note,
-            frame_count=total_frames,
-            frames_analyzed=len(frame_scores),
-            frame_predictions=frame_predictions,
-            metrics=metrics,
-            visualization_path=visualization_path
-        )
+            # 5. Generate visualization
+            visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
+
+            # 6. Publish analysis completion
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="ANALYSIS_COMPLETE",
+                    message=f"Analysis completed: {prediction} (confidence: {confidence:.3f})",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        progress=total_frames,
+                        total=total_frames,
+                        details={
+                            "prediction": prediction,
+                            "confidence": confidence,
+                            "processing_time": time.time() - start_time,
+                            "total_frames": total_frames,
+                            "faces_detected": len(all_face_scores)
+                        }
+                    )
+                ))
+
+            # 7. Assemble and return the final result
+            return VideoAnalysisResult(
+                prediction=prediction,
+                confidence=confidence,
+                processing_time=time.time() - start_time,
+                note=note,
+                frame_count=total_frames,
+                frames_analyzed=len(frame_scores),
+                frame_predictions=frame_predictions,
+                metrics=metrics,
+                visualization_path=visualization_path
+            )
+            
+        except Exception as e:
+            # Publish analysis failure event
+            if video_id and user_id:
+                event_publisher.publish(ProgressEvent(
+                    media_id=video_id,
+                    user_id=user_id,
+                    event="ANALYSIS_FAILED",
+                    message=f"Analysis failed: {str(e)}",
+                    data=EventData(
+                        model_name=self.config.class_name,
+                        details={"error": str(e), "processing_time": time.time() - start_time}
+                    )
+                ))
+            raise

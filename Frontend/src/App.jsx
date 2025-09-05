@@ -8,6 +8,7 @@ import AuthLayout from "./components/layout/AuthLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import ToastProvider from "./providers/ToastProvider";
+import { useToastOrchestrator } from "./lib/toastOrchestrator.jsx";
 import Error from "./components/Error";
 import Home from "./pages/Home.jsx";
 import Authentication from "./pages/Authentication";
@@ -18,6 +19,9 @@ import DetailedAnalysisPage from "./pages/Analysis.jsx";
 import Monitoring from "./pages/Monitoring.jsx";
 
 function App() {
+  // Initialize the toast orchestrator
+  useToastOrchestrator();
+
   return (
     <Router>
       <AuthProvider>
