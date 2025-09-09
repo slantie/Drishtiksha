@@ -43,5 +43,4 @@ dist/
 .pytest_cache/
 htmlcov/
 .coverage
-assets/
 models/
