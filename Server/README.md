@@ -167,22 +167,7 @@ The server's design is guided by a set of core software engineering principles t
 
 Understanding how the server processes an analysis request reveals its non-blocking, multi-layered, and resilient design. The entire process is orchestrated to maximize performance while ensuring stability.
 
-<!--
-  DIAGRAM PLACEHOLDER: Request Lifecycle
-  SUGGESTED VISUAL: A sequence diagram or flowchart.
-  DESCRIPTION: A diagram tracing a `POST /analyze` request through the server.
-  - An icon for "Client" initiates the request.
-  - Arrow "1. HTTP POST /analyze" points to "FastAPI Application".
-  - Inside FastAPI, an arrow "2. Security Dependency (`get_api_key`)" shows authentication. Logs failed attempts.
-  - Arrow "3. Media Dependency (`process_media_request`)" shows the file being streamed to a secure temporary path.
-  - Arrow "4. Endpoint Logic (`routers/analysis.py`)" receives the request data.
-  - Arrow "5. `ModelManager.get_model()`" points to the `ModelManager` cache, which instantly returns a pre-loaded model instance.
-  - Arrow "6. `asyncio.to_thread(model.analyze, ...)`" shows the call being moved to a separate worker thread pool. This box is labeled "Non-Blocking Operation".
-  - Arrow "7. `analyze()`" points to the "Model Instance", where preprocessing, inference, and post-processing occur. This box can note "Heavy Computation (CPU/GPU)".
-  - An arrow from the Model Instance points to the Redis icon, labeled "8. Emits Progress Events".
-  - Arrows trace the return path: "9. Pydantic Result Object (`Video/AudioAnalysisResult`)" -> "10. Router constructs APIResponse & Visualization URL" -> "11. JSON Response" back to the Client.
-  - A separate box labeled "Exception Handlers" is shown wrapping the endpoint logic, catching errors and formatting them into `APIError` JSON responses.
--->
+![Containerization](https://raw.githubusercontent.com/slantie/Drishtiksha/main/Server/assets/Request-Lifecycle.png)
 
 1.  **API Layer & Authentication**: A request first hits the `POST /analyze` endpoint defined in `src/app/routers/analysis.py`. The `X-API-Key` is immediately extracted from the headers and verified by the `get_api_key` security dependency. Invalid or missing keys are logged, and a `401 Unauthorized` response is sent immediately.
 
@@ -204,19 +189,7 @@ Understanding how the server processes an analysis request reveals its non-block
 
 The `ModelManager` (`src/ml/registry.py`) is the central component of the ML architecture, designed for automation and robustness. It acts as a **Registry** and **Factory** for all models.
 
-<!--
-  DIAGRAM PLACEHOLDER: Model Management at Startup
-  SUGGESTED VISUAL: A flowchart.
-  DESCRIPTION: A diagram showing the server's model initialization sequence.
-  - Box "1. Server Starts".
-  - Arrow to "2. `ModelManager` Initialized".
-  - Arrow from `ModelManager` to "3. `_discover_models()`". This box should show a magnifying glass over the `src/ml/models/` directory, listing found classes like `SiglipLSTMV4`, `ScatteringWaveV1`, etc. This process populates an internal `_registry`.
-  - Arrow to "4. `load_models()` Called by Lifespan Manager".
-  - `load_models()` box points to "`config.yaml` & `.env`" with an arrow labeled "Reads `ACTIVE_MODELS`".
-  - A loop/iteration over `ACTIVE_MODELS`:
-    - For each model name: "Find class in `_registry`", "Instantiate Model", "Call `instance.load()`", "Store instance in `_models` cache".
-  - Arrow to "5. All Active Models Loaded. Server is Ready."
--->
+![Containerization](https://raw.githubusercontent.com/slantie/Drishtiksha/main/Server/assets/Model-Integration.png)
 
 - **Automatic Discovery**: At server startup, the `ModelManager` constructor is called once. Its first action is to perform **automatic discovery**. It programmatically scans the `src/ml/models` directory and inspects each file to find all classes that inherit from our `BaseModel` contract. It builds a registry mapping the class names (e.g., `"SiglipLSTMV4"`) to the actual class objects, eliminating the need for a fragile, manually maintained registration dictionary.
 
@@ -240,18 +213,68 @@ The server is designed to support a diverse suite of models, each targeting diff
 
 The `src/` directory is the heart of the application and is cleanly separated into two main Python packages: `app` for all web server and API-related logic, and `ml` for all machine learning components. This strict separation of concerns makes the codebase easy to navigate, test, and maintain.
 
-<!--
-  DIAGRAM PLACEHOLDER: Codebase Structure
-  SUGGESTED VISUAL: A tree or block diagram.
-  DESCRIPTION: A diagram showing the high-level directory structure.
-  - A root box "Project Root (`/Server`)".
-  - It contains "Configuration (`config.yaml`, `.env`)" and "Containerization (`Dockerfile`, `docker-compose.yml`)".
-  - It also contains the "Source Code (`src/`)" directory.
-  - The `src/` directory branches into two main packages:
-    - "`app/` (Web & API Layer)": Contains sub-boxes for `routers/`, `schemas.py`, `dependencies.py`, `security.py`, `main.py`.
-    - "`ml/` (Machine Learning Core)": Contains sub-boxes for `registry.py`, `base.py`, `architectures/`, `models/`, `utils.py`.
-  - An arrow can show that the `app` layer depends on/uses the `ml` layer, but not vice-versa.
--->
+```bash
+Server/
+├── assets
+│   ├── Containerization.png
+│   ├── Model-Configurations.png
+│   ├── Model-Integration.png
+│   └── Request-Lifecycle.png
+├── configs
+│   └── config.yaml
+├── docker-compose.yml
+├── Dockerfile
+├── models
+│   ├── ColorCues-LSTM-v1.pth
+│   ├── EfficientNet-B7-v1
+│   ├── Face-Landmarks.dat
+│   ├── Frontend+Backend.txt
+│   ├── Scattering-Wave-v1.pth
+│   └── SigLip-LSTM-v4.pth
+├── pyproject.toml
+├── README.md
+├── scripts
+│   ├── convert_weights.py
+│   └── predict.py
+├── src
+│   ├── app
+│   │   ├── dependencies.py
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── routers
+│   │   │   ├── analysis.py
+│   │   │   ├── __init__.py
+│   │   │   └── status.py
+│   │   ├── schemas.py
+│   │   └── security.py
+│   ├── config.py
+│   ├── __init__.py
+│   ├── ml
+│   │   ├── architectures
+│   │   │   ├── color_cues_lstm.py
+│   │   │   ├── efficientnet.py
+│   │   │   ├── eyeblink_cnn_lstm.py
+│   │   │   ├── __init__.py
+│   │   │   ├── scattering_wave_classifier.py
+│   │   │   └── siglip_lstm.py
+│   │   ├── base.py
+│   │   ├── event_publisher.py
+│   │   ├── exceptions.py
+│   │   ├── __init__.py
+│   │   ├── models
+│   │   │   ├── color_cues_detector.py
+│   │   │   ├── efficientnet_detector.py
+│   │   │   ├── eyeblink_detector.py
+│   │   │   ├── __init__.py
+│   │   │   ├── scattering_wave_detector.py
+│   │   │   └── siglip_lstm_detector.py
+│   │   ├── registry.py
+│   │   ├── schemas.py
+│   │   ├── system_info.py
+│   │   └── utils.py
+│   └── training
+└── uv.lock
+```
 
 ### 4.1. Directory Deep Dive
 
@@ -285,20 +308,13 @@ The file `src/ml/base.py` defines an Abstract Base Class (`BaseModel`) that all 
 
 ## 5. Configuration System
 
+![Containerization](https://raw.githubusercontent.com/slantie/Drishtiksha/main/Server/assets/Model-Configurations.png)
+
 The server employs a sophisticated, multi-layered, and self-validating configuration system designed for flexibility, clarity, and robustness. It ensures that the application is always in a valid state before it even begins to load models, preventing a wide class of runtime errors.
 
 ### 5.1. The Configuration Hierarchy
 
 Configuration is loaded from three distinct sources, with a clear order of precedence. Settings from a higher level will always override settings from a lower level, allowing for powerful and granular control across different environments.
-
-<!--
-  DIAGRAM PLACEHOLDER: Configuration Hierarchy
-  SUGGESTED VISUAL: A simple pyramid or layered diagram.
-  DESCRIPTION: A three-level pyramid.
-  - Top Level (Highest Priority): "System Environment Variables" (e.g., `export DEVICE=cpu`). Ideal for container orchestration systems like Kubernetes or Docker.
-  - Middle Level: "`.env` File" (e.g., `DEVICE=cuda`). Ideal for local development secrets and overrides.
-  - Bottom Level (Lowest Priority): "`config.yaml` File". The base configuration for all models and project settings. This file should be committed to version control.
--->
 
 1.  **System Environment Variables (Highest Priority)**: These are read directly from the host environment. This is the standard method for configuring applications in containerized deployments (e.g., passing variables in `docker-compose.yml` or a Kubernetes deployment manifest).
 2.  **`.env` File (Medium Priority)**: This file is used for local development and contains environment-specific settings (like `API_KEY`) and overrides for the base configuration. This file should **never** be committed to version control.
@@ -439,16 +455,7 @@ The server is designed from the ground up to be deployed as a containerized micr
 
 The project includes a `docker-compose.yml` file that defines the complete, multi-service application stack. This is the recommended way to run the application for both development and production.
 
-<!--
-  DIAGRAM PLACEHOLDER: Docker Compose Architecture
-  SUGGESTED VISUAL: A simple box-and-arrow diagram.
-  DESCRIPTION: A diagram showing the containerized environment.
-  - A large box labeled "Docker Host".
-  - Inside, a box labeled "`app` Service (drishtiksha-server container)". This box contains "FastAPI App" and "Models". Port 8000 is shown being exposed to the host.
-  - Inside, another box labeled "`redis` Service (drishtiksha-redis container)". Port 6379 is exposed.
-  - An arrow from the `app` Service to the `redis` Service, labeled "Connects via `redis://redis:6379`".
-  - The two service boxes are inside another larger box labeled "Docker Network", showing they can communicate via service names.
--->
+![Containerization](https://raw.githubusercontent.com/slantie/Drishtiksha/main/Server/assets/Containerization.png)
 
 The Compose file orchestrates two main services:
 
