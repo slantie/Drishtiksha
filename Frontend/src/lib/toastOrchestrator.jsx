@@ -41,35 +41,13 @@ class ToastOrchestrator {
 
       // This is the key event that was missing!
       case "FRAME_ANALYSIS_PROGRESS":
-      case "ANALYSIS_STARTED": // Also handle analysis started
-        if (data?.model_name || data?.modelName) {
-          const modelName = data.model_name || data.modelName;
-          this.updateModelProgress(
-            mediaId,
-            modelName,
-            message,
-            data.progress,
-            data.total,
-            data
-          );
-        }
-        break;
-
-      case "WINDOW_PROCESSING_PROGRESS":
-        if (data?.model_name || data?.modelName) {
-          const modelName = data.model_name || data.modelName;
-          this.updateModelProgress(
-            mediaId,
-            modelName,
-            message,
-            data.progress,
-            data.total,
-            data
-          );
-        }
-        break;
-
+      case "ANALYSIS_STARTED":
       case "VISUALIZATION_GENERATION_PROGRESS":
+      case "WINDOW_PROCESSING_PROGRESS":
+      case "AUDIO_EXTRACTION_START":
+      case "AUDIO_EXTRACTION_COMPLETE":
+      case "SPECTROGRAM_GENERATION_START":
+      case "SPECTROGRAM_GENERATION_COMPLETE":
         if (data?.model_name || data?.modelName) {
           const modelName = data.model_name || data.modelName;
           this.updateModelProgress(
@@ -78,7 +56,7 @@ class ToastOrchestrator {
             message,
             data.progress,
             data.total,
-            data
+            data // Pass the full data object to include details
           );
         }
         break;
@@ -100,63 +78,6 @@ class ToastOrchestrator {
             modelName,
             false,
             data.error_message || data.error || "Analysis failed"
-          );
-        }
-        break;
-
-      // Audio processing events
-      case "AUDIO_EXTRACTION_START":
-        if (data?.model_name || data?.modelName) {
-          const modelName = data.model_name || data.modelName;
-          this.updateModelProgress(
-            mediaId,
-            modelName,
-            "Extracting audio from media file...",
-            null,
-            null,
-            { phase: "audio_extraction" }
-          );
-        }
-        break;
-
-      case "AUDIO_EXTRACTION_COMPLETE":
-        if (data?.model_name || data?.modelName) {
-          const modelName = data.model_name || data.modelName;
-          this.updateModelProgress(
-            mediaId,
-            modelName,
-            "Audio extraction completed",
-            null,
-            null,
-            { phase: "audio_extracted" }
-          );
-        }
-        break;
-
-      case "SPECTROGRAM_GENERATION_START":
-        if (data?.model_name || data?.modelName) {
-          const modelName = data.model_name || data.modelName;
-          this.updateModelProgress(
-            mediaId,
-            modelName,
-            "Generating spectrogram visualization...",
-            null,
-            null,
-            { phase: "spectrogram_generation" }
-          );
-        }
-        break;
-
-      case "SPECTROGRAM_GENERATION_COMPLETE":
-        if (data?.model_name || data?.modelName) {
-          const modelName = data.model_name || data.modelName;
-          this.updateModelProgress(
-            mediaId,
-            modelName,
-            "Spectrogram generation completed",
-            null,
-            null,
-            { phase: "spectrogram_complete" }
           );
         }
         break;

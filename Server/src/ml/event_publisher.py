@@ -4,15 +4,11 @@ import os
 import redis
 import logging
 from typing import Optional
+from src.config import settings
 
 from src.ml.schemas import ProgressEvent
 
 logger = logging.getLogger(__name__)
-
-# --- Configuration ---
-REDIS_URL = os.getenv("REDIS_URL")
-# REFACTOR: Provide a default channel name to prevent crashes if the .env variable is not set.
-MEDIA_PROGRESS_CHANNEL = os.getenv("MEDIA_PROGRESS_CHANNEL_NAME", "media-progress-events")
 
 class EventPublisher:
     _instance = None
@@ -21,9 +17,9 @@ class EventPublisher:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(EventPublisher, cls).__new__(cls)
-            if REDIS_URL:
+            if settings.redis_url:
                 # Log the channel name being used for clarity.
-                logger.info(f"Redis event publisher will use channel: '{MEDIA_PROGRESS_CHANNEL}'")
+                logger.info(f"Redis event publisher will use channel: '{settings.media_progress_channel_name}'")
                 cls._instance._connect()
             else:
                 logger.warning("REDIS_URL is not set. Event publishing is disabled.")
@@ -32,10 +28,10 @@ class EventPublisher:
     # ... (rest of the file is unchanged) ...
     def _connect(self):
         """Initializes the Redis client and connection pool."""
-        logger.info(f"Attempting to connect to Redis for event publishing at: {REDIS_URL}")
+        logger.info(f"Attempting to connect to Redis for event publishing at: {settings.redis_url}")
         try:
             pool = redis.ConnectionPool.from_url(
-                REDIS_URL,
+                settings.redis_url,
                 decode_responses=True,
                 health_check_interval=30,
                 socket_connect_timeout=5,
@@ -59,7 +55,7 @@ class EventPublisher:
 
         try:
             payload = event.model_dump_json()
-            self._redis_client.publish(MEDIA_PROGRESS_CHANNEL, payload)
+            self._redis_client.publish(settings.media_progress_channel_name, payload)
             logger.debug(f"🚀 Published event '{event.event}' (mediaId: {event.media_id}) to Redis.")
         except redis.exceptions.ConnectionError as e:
             logger.error(f"❌ Could not publish to Redis, connection lost: {e}. Will attempt to reconnect on next publish.")

@@ -17,12 +17,20 @@ const __dirname = path.dirname(__filename);
 
 // --- Core Middleware ---
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: [config.FRONTEND_URL, "http://localhost:5173"] })); // Allow the frontend to request files
+app.use(
+  cors({
+    origin: [
+      config.SERVER_URL,
+      config.FRONTEND_URL,
+      "http://localhost:8000",
+      "http://localhost:5173",
+    ],
+  })
+); // Allow frontend & server origins
 app.use(morgan("dev", { stream: logger.stream }));
 
 // --- Static File Serving Logic ---
-// This is the server's ONLY job.
-const projectRoot = path.resolve(__dirname); // Absolute path to Backend directory
+const projectRoot = path.resolve(__dirname);
 const staticDirPath = path.join(projectRoot, config.LOCAL_STORAGE_PATH);
 
 // Create a URL path segment from the storage path (e.g., 'public/media' -> '/media')

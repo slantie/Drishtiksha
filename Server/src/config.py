@@ -4,7 +4,7 @@ import os
 import yaml
 import logging
 from pathlib import Path
-from typing import Dict, Tuple, Union, Annotated, Literal, List, Any
+from typing import Dict, Tuple, Union, Annotated, Literal, List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import (
@@ -131,6 +131,12 @@ class Settings(BaseSettings):
     project_name: str
     models: Dict[str, ModelConfig]
 
+    assets_base_url: str = Field(..., alias="ASSETS_BASE_URL")
+    storage_path: Path = Field(..., alias="STORAGE_PATH")
+    
+    redis_url: Optional[str] = Field(None, alias="REDIS_URL")
+    media_progress_channel_name: str = Field("media-progress-events", alias="MEDIA_PROGRESS_CHANNEL_NAME")
+    
     model_config = SettingsConfigDict(
         env_file='.env',
         env_file_encoding='utf-8',
@@ -142,14 +148,27 @@ class Settings(BaseSettings):
         if not self.active_models: return []
         return [model.strip() for model in self.active_models.split(',') if model.strip()]
         
+    @property
+    def active_model_list(self) -> List[str]:
+        if not self.active_models: return []
+        return [model.strip() for model in self.active_models.split(',') if model.strip()]
+        
     @model_validator(mode='after')
-    def validate_default_model_is_active(self) -> 'Settings':
+    def validate_paths_and_models(self) -> 'Settings':
+        # Validate default model
         active_list = self.active_model_list
         if active_list and self.default_model_name not in active_list:
             raise ValueError(
-                f"Configuration error: The default model '{self.default_model_name}' "
-                f"is not in the list of ACTIVE_MODELS ({active_list})."
+                f"Config error: Default model '{self.default_model_name}' not in ACTIVE_MODELS."
             )
+        
+        # Validate and create storage path
+        if not self.storage_path.exists():
+            logger.info(f"Storage path '{self.storage_path}' not found. Creating it.")
+            self.storage_path.mkdir(parents=True, exist_ok=True)
+        elif not self.storage_path.is_dir():
+            raise ValueError(f"Config error: STORAGE_PATH '{self.storage_path}' must be a directory.")
+        
         return self
 
     @classmethod
@@ -159,13 +178,13 @@ class Settings(BaseSettings):
         logger.info(f"🔧 Loaded environment variables from '{env_file}'.")
 
         env_device = os.getenv('DEVICE', 'cpu').lower()
-        logger.info(f"🔧 [High Priority] Device set to '{env_device}' from environment variable.")
+        logger.info(f"🔧 Device set to '{env_device}' from environment.")
 
         try:
             with open(yaml_path, 'r') as file:
                 yaml_data = yaml.safe_load(file) or {}
         except FileNotFoundError:
-            raise RuntimeError(f"FATAL: Configuration file '{yaml_path}' not found.")
+            raise RuntimeError(f"FATAL: Config file '{yaml_path}' not found.")
         except yaml.YAMLError as e:
             raise RuntimeError(f"FATAL: Error parsing YAML file '{yaml_path}': {e}")
         
@@ -174,6 +193,8 @@ class Settings(BaseSettings):
             "default_model_name": os.getenv("DEFAULT_MODEL_NAME"),
             "active_models": os.getenv("ACTIVE_MODELS"),
             "device": env_device,
+            "ASSETS_BASE_URL": os.getenv("ASSETS_BASE_URL"),
+            "STORAGE_PATH": os.getenv("STORAGE_PATH", "../Backend/public/media"),
         }
         
         merged_config = {**yaml_data, **{k: v for k, v in env_data.items() if v is not None}}
@@ -186,27 +207,12 @@ class Settings(BaseSettings):
         active_model_names = [m.strip() for m in (env_data.get("active_models") or "").split(',') if m.strip()]
         
         if 'models' in merged_config:
-            all_configured_models = merged_config['models']
-            filtered_models = {
-                name: config for name, config in all_configured_models.items() if name in active_model_names
+            merged_config['models'] = {
+                name: config for name, config in merged_config['models'].items() if name in active_model_names
             }
-            merged_config['models'] = filtered_models
-
-            configured_set = set(all_configured_models.keys())
-            active_set = set(active_model_names)
-            if active_set - configured_set:
-                 logger.warning(
-                    f"⚠️ Config mismatch: These ACTIVE_MODELS were not found in config.yaml: {list(active_set - configured_set)}"
-                )
-
-        if not merged_config.get('models'):
-            logger.warning("⚠️ No active models are configured to be loaded!")
-        else:
-            logger.info(f"🔧 Loading configurations for active models: {list(merged_config['models'].keys())}")
 
         return cls(**merged_config)
 
-# --- Global Settings Instance (Unchanged) ---
 try:
     settings = Settings.from_yaml_and_env("configs/config.yaml")
 except (RuntimeError, ValueError, ValidationError) as e:

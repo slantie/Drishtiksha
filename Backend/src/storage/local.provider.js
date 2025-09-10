@@ -50,10 +50,12 @@ const localProvider = {
 
     const publicId = path.join(subfolder, uniqueFilename).replace(/\\/g, "/");
 
-    // Construct the full, public URL using the ASSETS_BASE_URL from config
-    // e.g., 'http://localhost:3001' + '/media/' + 'videos/123.mp4'
+    // MODIFIED: Construct the full, public URL using the ASSETS_BASE_URL
+    const urlPathSegment = config.LOCAL_STORAGE_PATH.split("/")
+      .slice(1)
+      .join("/");
     const publicUrl = new URL(
-      `${config.LOCAL_STORAGE_PATH.split("/").slice(1).join("/")}/${publicId}`,
+      `${urlPathSegment}/${publicId}`,
       config.ASSETS_BASE_URL
     ).href;
 
