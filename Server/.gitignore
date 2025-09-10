@@ -44,3 +44,5 @@ dist/
 htmlcov/
 .coverage
 models/
+assets/*.mp3
+assets/*.mp4
