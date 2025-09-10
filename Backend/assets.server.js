@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 
 // --- Core Middleware ---
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: [config.FRONTEND_URL, "http://localhost:3001"] })); // Allow the frontend to request files
+app.use(cors({ origin: [config.FRONTEND_URL, "http://localhost:5173"] })); // Allow the frontend to request files
 app.use(morgan("dev", { stream: logger.stream }));
 
 // --- Static File Serving Logic ---

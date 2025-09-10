@@ -17,6 +17,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../../../ui/Card";
+import { Cell } from "recharts";
 import { BarChart3, Activity } from "lucide-react"; // Added Activity for empty state
 
 const CustomTooltip = ({ active, payload }) => {
@@ -39,6 +40,19 @@ const CustomScatterCell = ({ fill }) => (
 );
 
 export const SpectrogramHeatmapChart = ({ data }) => {
+  // Transform the matrix into a flat array of points suitable for a scatter chart.
+  const chartData = useMemo(
+    () =>
+      data.flatMap((row, freqIndex) =>
+        row.map((value, timeIndex) => ({
+          time: timeIndex,
+          freq: freqIndex,
+          value: value,
+        }))
+      ),
+    [data]
+  );
+
   // `data` is expected to be a 2D array (matrix) of spectrogram values (e.g., in dB)
   if (!data || data.length === 0 || !Array.isArray(data[0])) {
     // Check for valid 2D array
@@ -67,19 +81,6 @@ export const SpectrogramHeatmapChart = ({ data }) => {
       </Card>
     );
   }
-
-  // Transform the matrix into a flat array of points suitable for a scatter chart.
-  const chartData = useMemo(
-    () =>
-      data.flatMap((row, freqIndex) =>
-        row.map((value, timeIndex) => ({
-          time: timeIndex,
-          freq: freqIndex,
-          value: value,
-        }))
-      ),
-    [data]
-  );
 
   // This is a simplified color scale. A more advanced version could use a library.
   const getColor = (value) => {

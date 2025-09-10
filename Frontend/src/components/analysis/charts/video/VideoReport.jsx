@@ -9,18 +9,15 @@ import {
   CardDescription,
 } from "../../../ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../ui/Tabs";
-import { Film as VideoIcon, Activity } from "lucide-react"; // Changed LineChartIcon to Film for video context
+import { Film as VideoIcon, Activity } from "lucide-react";
 
-// Import dedicated video chart components
 import { ConfidenceAreaChart } from "./ConfidenceAreaChart";
 import { PredictionBarChart } from "./PredictionBarChart";
 import { TrendlineAnalysisChart } from "./TrendLineAnalysisChart.jsx";
 import { TemporalHeatmap } from "./TemporalHeatmap";
-import { ConfidenceDistributionChart } from "./ConfidenceDistributionChart"; // New component for distribution
+import { ConfidenceDistributionChart } from "./ConfidenceDistributionChart";
 
 export const VideoReport = ({ result }) => {
-  // `result` here is the analysis.resultPayload
-  // Extract frame predictions and metrics from the resultPayload
   const framePredictions = result.frame_predictions || [];
   const metrics = result.metrics || {};
 
@@ -41,8 +38,7 @@ export const VideoReport = ({ result }) => {
             <Activity className="h-12 w-12 mx-auto mb-4" />
             <p className="text-lg font-semibold">No Frame-by-Frame Data</p>
             <p className="mt-2 text-sm">
-              This model did not provide frame-level predictions, or the media
-              could not be processed for detailed analysis.
+              This model did not provide frame-level predictions.
             </p>
           </div>
         </CardContent>
@@ -50,21 +46,31 @@ export const VideoReport = ({ result }) => {
     );
   }
 
-  // Transform frame predictions to a format suitable for Recharts if needed
-  // Assuming each frame in framePredictions has 'index', 'score', 'prediction'
-  // If backend sends 'confidence' instead of 'score', adjust here:
+  // CORRECTED: Use the 'index' and 'score' keys directly from the API response.
   const chartData = framePredictions.map((frame) => ({
-    index: frame.frame_number, // Or simply 'index' if available
-    score: frame.confidence, // Use 'confidence' if backend sends it
+    index: frame.index,
+    score: frame.score,
     prediction: frame.prediction,
   }));
 
   const realFrames = chartData.filter((f) => f.prediction === "REAL").length;
   const fakeFrames = chartData.filter((f) => f.prediction === "FAKE").length;
-  const avgFakeScore = metrics.final_average_score
-    ? metrics.final_average_score * 100
-    : (chartData.reduce((sum, f) => sum + f.score, 0) / chartData.length) *
-        100 || 0;
+
+  // IMPROVED: More robustly find the average score from the metrics object.
+  const averageScoreKey = Object.keys(metrics).find(
+    (key) =>
+      key.includes("average") &&
+      (key.includes("score") || key.includes("suspicion"))
+  );
+  const backendAvgScore = averageScoreKey ? metrics[averageScoreKey] : null;
+
+  // Use the backend-provided average if available, otherwise calculate it as a fallback.
+  const avgFakeScore =
+    backendAvgScore !== null
+      ? backendAvgScore * 100
+      : (chartData.reduce((sum, f) => sum + f.score, 0) /
+          (chartData.length || 1)) *
+        100;
 
   return (
     <Card>
@@ -90,7 +96,9 @@ export const VideoReport = ({ result }) => {
             <div className="text-xs">Deepfake Frames</div>
           </div>
           <div>
-            <div className="text-2xl font-bold">{chartData.length}</div>
+            <div className="text-2xl font-bold">
+              {result.frames_analyzed || chartData.length}
+            </div>
             <div className="text-xs">Total Analyzed</div>
           </div>
           <div>
