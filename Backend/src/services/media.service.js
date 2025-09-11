@@ -116,14 +116,24 @@ class MediaService {
 
   async _determineCompatibleModels(mediaType) {
     const serverStats = await modelAnalysisService.getServerStatistics();
+    console.log("Server's Sent Data: ", JSON.stringify(serverStats));
+    if (!serverStats?.models_info) return [];
+
     return (
       serverStats.models_info
-        ?.filter(
-          (m) =>
-            m.loaded &&
-            ((mediaType === "AUDIO" && m.isAudio) ||
-              (mediaType !== "AUDIO" && m.isVideo))
-        )
+        .filter((m) => {
+          if (!m.loaded) return false;
+          switch (mediaType) {
+            case "AUDIO":
+              return m.isAudio;
+            case "IMAGE":
+              return m.isImage;
+            case "VIDEO":
+              return m.isVideo;
+            default:
+              return false;
+          }
+        })
         .map((m) => m.name) || []
     );
   }

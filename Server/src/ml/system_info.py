@@ -132,7 +132,7 @@ class SystemMonitor:
             model_infos.append(ModelInfo(
                 name=name, class_name=config.class_name, description=config.description,
                 loaded=(name in loaded_models), device=config.device, model_path=str(config.model_path),
-                isAudio=config.isAudio, isVideo=config.isVideo
+                isAudio=config.isAudio, isVideo=config.isVideo, isImage=config.isImage
             ))
         return model_infos
 
@@ -148,7 +148,6 @@ class SystemMonitor:
             config["torch_version"] = torch.__version__
             config["cuda_available"] = torch.cuda.is_available()
         return config
-
 
 # --- Singleton Instance ---
 # The application will import and use this single instance.

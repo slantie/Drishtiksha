@@ -57,7 +57,7 @@ models:
     rolling_window_size: 10
     isAudio: false
     isVideo: true
-    isImage: true
+    isImage: false
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
       lstm_hidden_size: 512
@@ -170,19 +170,19 @@ models:
     image_size: 256
     # Configuration for the ADM model, as seen in the original repository
     adm_config:
-      attention_resolutions: '32,16,8'
+      attention_resolutions: "32,16,8"
       class_cond: False
       diffusion_steps: 1000
       image_size: 256
       learn_sigma: True
-      noise_schedule: 'linear'
+      noise_schedule: "linear"
       num_channels: 256
       num_head_channels: 64
       num_res_blocks: 2
       resblock_updown: True
       use_fp16: True
       use_scale_shift_norm: True
-      timestep_respacing: 'ddim20'
+      timestep_respacing: "ddim20"
       clip_denoised: True
       use_ddim: True
       num_samples: 1

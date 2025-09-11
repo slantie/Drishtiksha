@@ -42,7 +42,9 @@ dist/
 # ===================================================================
 .pytest_cache/
 htmlcov/
-.coverage
-models/
+models/*.pth
+models/*.pt
+models/*.dat
+models/EfficientNet-B7-v1
 assets/*.mp3
 assets/*.mp4

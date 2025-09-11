@@ -65,6 +65,7 @@ class ModelInfo(BaseModel):
     model_path: str
     isAudio: bool = False
     isVideo: bool = False
+    isImage: bool = False
     memory_usage_mb: Optional[float] = None
     load_time: Optional[float] = None
     inference_count: Optional[int] = 0
