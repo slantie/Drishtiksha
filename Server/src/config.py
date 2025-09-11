@@ -13,6 +13,18 @@ from pydantic import (
 
 logger = logging.getLogger(__name__)
 
+def check_model_dir_exists(path: Path) -> Path:
+    logger.info(f"MFF-MoE-v1 Models Folder Path: {path}")
+    if not path.is_dir():
+        raise ValueError(f"Configuration error: Path is not a directory: '{path}'")
+    weight_file = path / "MFF-MoE-v1.pth"
+    state_file = path / "MFF-MoE-v1.state"
+    if not weight_file.exists() or not state_file.exists():
+        raise ValueError(f"Configuration error: Directory '{path}' must contain 'MFF-MoE-v1.pth' and 'MFF-MoE-v1.state'")
+    return path
+
+ExistingModelDir = Annotated[Path, AfterValidator(check_model_dir_exists)]
+
 def check_path_exists(path: Path) -> Path:
     if not path.exists():
         raise ValueError(f"Configuration error: File path does not exist: '{path}'")
@@ -21,7 +33,6 @@ def check_path_exists(path: Path) -> Path:
     return path
 
 ExistingPath = Annotated[Path, AfterValidator(check_path_exists)]
-
 
 # --- Model Architecture Schemas (Unchanged) ---
 class SiglipArchitectureConfig(BaseModel):
@@ -135,6 +146,14 @@ class DistilDIREv1Config(BaseModelConfig):
     adm_config: Dict[str, Any] = Field(default_factory=dict)
     isImage: bool = True
     isVideo: bool = False
+    
+class MFFMoEV1Config(BaseModelConfig):
+    class_name: Literal["MFFMoEDetectorV1"]
+    model_path: ExistingModelDir
+    video_frames_to_sample: int = 100
+    isImage: bool = True
+    isVideo: bool = True
+    isAudio: bool = False
 
 # A Discriminated Union to validate and parse the correct model config.
 ModelConfig = Annotated[
@@ -148,7 +167,8 @@ ModelConfig = Annotated[
         ScatteringWaveV1Config,
         MelSpectrogramCNNConfig,
         STFTSpectrogramCNNConfig,
-        DistilDIREv1Config
+        DistilDIREv1Config,
+        MFFMoEV1Config
     ],
     Field(discriminator="class_name"),
 ]

@@ -49,7 +49,7 @@ class ModelManager:
         
         # Dynamically import all modules within the `src.ml.models` directory.
         for (_, module_name, _) in pkgutil.iter_modules([str(models_package_path)]):
-            module = importlib.import_module(f"src.ml.models.{module_name}")
+            module = importlib.import_module(f"src.ml.detectors.{module_name}")
             
             # Find all classes within the module that are subclasses of BaseModel.
             for class_name, cls in inspect.getmembers(module, inspect.isclass):

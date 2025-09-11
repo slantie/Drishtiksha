@@ -191,5 +191,6 @@ class ImageAnalysisResult(BaseAnalysisResult):
     media_type: str = "image"
     dimensions: Dict[str, int] = Field(..., description="The width and height of the analyzed image.")
     heatmap_scores: Optional[List[List[float]]] = Field(None, description="A 2D grid of suspicion scores from patch-based analysis.")
+    visualization_path: Optional[str] = Field(None, description="An optional path to a generated visualization, like the DIRE noise map.")
 
 AnalysisResult = Union[VideoAnalysisResult, AudioAnalysisResult, ImageAnalysisResult]

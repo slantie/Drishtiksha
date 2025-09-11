@@ -187,3 +187,12 @@ models:
       use_ddim: True
       num_samples: 1
       real_step: 0
+
+  MFF-MOE-V1:
+    class_name: "MFFMoEDetectorV1"
+    description: "Mixture-of-Experts (MoE) model combining multiple backbones for robust image and video analysis."
+    model_path: "models/MFF-MoE-V1/"
+    isImage: true
+    isVideo: true
+    isAudio: false
+    video_frames_to_sample: 100

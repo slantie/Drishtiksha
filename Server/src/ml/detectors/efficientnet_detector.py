@@ -13,7 +13,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from torchvision.transforms import Normalize
 from facenet_pytorch.models.mtcnn import MTCNN
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 # REFACTOR: Import the base class and NEW unified schemas.
 from src.ml.base import BaseModel, AnalysisResult
