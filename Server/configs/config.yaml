@@ -58,6 +58,7 @@ models:
     # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
     isVideo: true
+    isImage: true
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
       lstm_hidden_size: 512

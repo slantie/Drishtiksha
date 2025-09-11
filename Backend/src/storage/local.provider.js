@@ -3,9 +3,18 @@
 import { promises as fs, existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import ffmpeg from "fluent-ffmpeg";
+import sharp from "sharp";
+import mime from "mime-types";
 import { config } from "../config/env.js";
 import logger from "../utils/logger.js";
 import { ApiError } from "../utils/ApiError.js";
+
+// --- FFMpeg Path Configuration ---
+// If ffmpeg is not in your system's PATH, you need to specify its location.
+// Uncomment the line below and set the correct path if needed.
+// import ffmpegPath from '@ffmpeg-installer/ffmpeg';
+// ffmpeg.setFfmpegPath(ffmpegPath.path);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,31 +35,151 @@ const ensureDirectoryExists = async (dirPath) => {
   }
 };
 
+// ====================================================================
+//  MEDIA CONVERSION HELPERS
+// ====================================================================
+
+/**
+ * Converts any compatible video file to MP4 using ffmpeg.
+ * @param {string} inputPath - The path to the source video file.
+ * @param {string} outputPath - The path to save the converted MP4 file.
+ * @returns {Promise<string>} A promise that resolves with the output path.
+ */
+const convertToMp4 = (inputPath, outputPath) => {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        "-c:v libx264", // H.264 codec for wide compatibility
+        "-preset slow", // Good balance of quality and speed
+        "-crf 23", // Constant Rate Factor for quality (lower is better)
+        "-c:a aac", // AAC audio codec
+        "-b:a 128k", // Audio bitrate
+        "-movflags +faststart", // Optimizes for web streaming
+      ])
+      .toFormat("mp4")
+      .on("end", () => {
+        logger.info(`Video converted successfully to: ${outputPath}`);
+        resolve(outputPath);
+      })
+      .on("error", (err) => {
+        logger.error(`Error converting video: ${err.message}`);
+        reject(new ApiError(500, `Video conversion failed: ${err.message}`));
+      })
+      .save(outputPath);
+  });
+};
+
+/**
+ * Converts any compatible audio file to MP3 using ffmpeg.
+ * @param {string} inputPath - The path to the source audio file.
+ * @param {string} outputPath - The path to save the converted MP3 file.
+ * @returns {Promise<string>} A promise that resolves with the output path.
+ */
+const convertToMp3 = (inputPath, outputPath) => {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .audioCodec("libmp3lame")
+      .audioBitrate("192")
+      .toFormat("mp3")
+      .on("end", () => {
+        logger.info(`Audio converted successfully to: ${outputPath}`);
+        resolve(outputPath);
+      })
+      .on("error", (err) => {
+        logger.error(`Error converting audio: ${err.message}`);
+        reject(new ApiError(500, `Audio conversion failed: ${err.message}`));
+      })
+      .save(outputPath);
+  });
+};
+
+/**
+ * Converts any compatible image file to PNG using sharp.
+ * @param {string} inputPath - The path to the source image file.
+ * @param {string} outputPath - The path to save the converted PNG file.
+ * @returns {Promise<string>} A promise that resolves with the output path.
+ */
+const convertToPng = async (inputPath, outputPath) => {
+  try {
+    await sharp(inputPath).toFormat("png").toFile(outputPath);
+    logger.info(`Image converted successfully to: ${outputPath}`);
+    return outputPath;
+  } catch (error) {
+    logger.error(`Error converting image: ${error.message}`);
+    throw new ApiError(500, `Image conversion failed: ${error.message}`);
+  }
+};
+
+// ====================================================================
+//  REFACTORED LOCAL PROVIDER
+// ====================================================================
+
 const localProvider = {
-  async uploadFile(localFilePath, subfolder = "uploads") {
+  /**
+   * Detects file type, converts to a standard format, and saves it.
+   * @param {string} localFilePath - Path to the temporarily uploaded file.
+   * @param {string} originalFilename - The original name of the file to detect its type.
+   * @param {string} subfolder - The subfolder to store the file in.
+   * @returns {Promise<{url: string, publicId: string}>}
+   */
+  async uploadFile(localFilePath, originalFilename, subfolder = "uploads") {
     const permanentStorageDir = path.join(STORAGE_ROOT, subfolder);
     await ensureDirectoryExists(permanentStorageDir);
 
-    const uniqueFilename = `${Date.now()}-${path.basename(localFilePath)}`;
+    const mimeType =
+      mime.lookup(originalFilename) || "application/octet-stream";
+    const fileType = mimeType.split("/")[0];
+    const timestamp = Date.now();
+    const baseFilename = `${timestamp}-${path.parse(originalFilename).name}`;
+
+    let conversionFn;
+    let targetExtension;
+
+    // Determine the target format and conversion function based on MIME type
+    switch (fileType) {
+      case "video":
+        targetExtension = ".mp4";
+        conversionFn = convertToMp4;
+        break;
+      case "audio":
+        targetExtension = ".mp3";
+        conversionFn = convertToMp3;
+        break;
+      case "image":
+        targetExtension = ".png";
+        conversionFn = convertToPng;
+        break;
+      default:
+        // If the file type is not supported for conversion, we can choose to reject it.
+        await fs.unlink(localFilePath); // Clean up the original temp file
+        throw new ApiError(415, `Unsupported file type: ${mimeType}`);
+    }
+
+    const uniqueFilename = `${baseFilename}${targetExtension}`;
     const destinationPath = path.join(permanentStorageDir, uniqueFilename);
 
     try {
-      await fs.rename(localFilePath, destinationPath);
+      // Perform the conversion and save directly to the destination
+      await conversionFn(localFilePath, destinationPath);
     } catch (error) {
-      if (error.code === "EXDEV") {
-        logger.warn(
-          `fs.rename failed (cross-device), falling back to copy/unlink.`
-        );
-        await fs.copyFile(localFilePath, destinationPath);
+      // If conversion fails, re-throw the specific ApiError from the helper
+      throw error;
+    } finally {
+      // IMPORTANT: Clean up the original temporary file after processing
+      if (existsSync(localFilePath)) {
         await fs.unlink(localFilePath);
-      } else {
-        throw error;
       }
     }
 
-    const publicId = path.join(subfolder, uniqueFilename).replace(/\\/g, "/");
+    // ====================================================================
+    //  CRITICAL FIX: Get stats for the newly converted file
+    // ====================================================================
+    const stats = await fs.stat(destinationPath);
+    const newSize = stats.size;
+    const newMimeType =
+      mime.lookup(destinationPath) || "application/octet-stream";
 
-    // MODIFIED: Construct the full, public URL using the ASSETS_BASE_URL
+    const publicId = path.join(subfolder, uniqueFilename).replace(/\\/g, "/");
     const urlPathSegment = config.LOCAL_STORAGE_PATH.split("/")
       .slice(1)
       .join("/");
@@ -59,7 +188,12 @@ const localProvider = {
       config.ASSETS_BASE_URL
     ).href;
 
-    return { url: publicUrl, publicId: publicId };
+    return {
+      url: publicUrl,
+      publicId: publicId,
+      mimetype: newMimeType, // This was the missing piece of data
+      size: newSize, // This was the other missing piece
+    };
   },
 
   async deleteFile(publicId) {

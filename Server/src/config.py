@@ -49,6 +49,7 @@ class BaseModelConfig(BaseModel):
     device: str = "cuda"
     isAudio: bool = False
     isVideo: bool = True
+    isImage: bool = False
 
 class SiglipLSTMv1Config(BaseModelConfig):
     # FIX: The Literal must match the Python class name from config.yaml

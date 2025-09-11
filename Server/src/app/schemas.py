@@ -183,4 +183,12 @@ class AudioAnalysisData(BaseModel):
     spectral: SpectralAnalysis
     visualization: AudioVisualization
     
-AnalysisResult = Union[VideoAnalysisResult, AudioAnalysisResult]
+class ImageAnalysisResult(BaseAnalysisResult):
+    """
+    A data structure for image analysis results.
+    """
+    media_type: str = "image"
+    dimensions: Dict[str, int] = Field(..., description="The width and height of the analyzed image.")
+    heatmap_scores: Optional[List[List[float]]] = Field(None, description="A 2D grid of suspicion scores from patch-based analysis.")
+
+AnalysisResult = Union[VideoAnalysisResult, AudioAnalysisResult, ImageAnalysisResult]

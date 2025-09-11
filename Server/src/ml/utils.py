@@ -2,13 +2,30 @@
 
 import cv2
 import os
-import numpy as np
 import logging
+import mimetypes
+import numpy as np
 from PIL import Image
 from typing import List, Generator, Optional, Iterable
 
 logger = logging.getLogger(__name__)
 
+def get_media_type(file_path: str) -> str:
+    """
+    Determines the general media type (VIDEO, IMAGE, AUDIO) from a file path.
+    """
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        return "UNKNOWN"
+    
+    if mime_type.startswith("video/"):
+        return "VIDEO"
+    if mime_type.startswith("image/"):
+        return "IMAGE"
+    if mime_type.startswith("audio/"):
+        return "AUDIO"
+        
+    return "UNKNOWN"
 
 class VideoCaptureManager:
     """
