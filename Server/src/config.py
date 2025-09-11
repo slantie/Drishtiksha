@@ -4,7 +4,7 @@ import os
 import yaml
 import logging
 from pathlib import Path
-from typing import Dict, Tuple, Union, Annotated, Literal, List, Optional
+from typing import Dict, Tuple, Union, Annotated, Literal, List, Optional, Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import (
@@ -108,6 +108,33 @@ class ScatteringWaveV1Config(BaseModelConfig):
     duration_seconds: float
     image_size: Tuple[int, int]
 
+class MelSpectrogramCNNConfig(BaseModelConfig):
+    class_name: Literal["MelSpectrogramCNNV1"]
+    sampling_rate: int
+    n_fft: int
+    hop_length: int
+    n_mels: int
+    dpi: int
+    chunk_duration_s: float
+
+class STFTSpectrogramCNNConfig(BaseModelConfig):
+    class_name: Literal["STFTSpectrogramCNNV1"]
+    sampling_rate: int
+    n_fft_wide: int
+    n_fft_narrow: int
+    hop_length: int
+    img_height: int
+    img_width: int
+    dpi: int
+    chunk_duration_s: float
+
+class DistilDIREv1Config(BaseModelConfig):
+    class_name: Literal["DistilDIREDetectorV1"]
+    adm_model_path: ExistingPath
+    image_size: int = 256
+    adm_config: Dict[str, Any] = Field(default_factory=dict)
+    isImage: bool = True
+    isVideo: bool = False
 
 # A Discriminated Union to validate and parse the correct model config.
 ModelConfig = Annotated[
@@ -118,7 +145,10 @@ ModelConfig = Annotated[
         SiglipLSTMv4Config,
         EfficientNetB7Config,
         EyeblinkModelConfig,
-        ScatteringWaveV1Config
+        ScatteringWaveV1Config,
+        MelSpectrogramCNNConfig,
+        STFTSpectrogramCNNConfig,
+        DistilDIREv1Config
     ],
     Field(discriminator="class_name"),
 ]
@@ -188,10 +218,12 @@ class Settings(BaseSettings):
             raise RuntimeError(f"FATAL: Config file '{yaml_path}' not found.")
         except yaml.YAMLError as e:
             raise RuntimeError(f"FATAL: Error parsing YAML file '{yaml_path}': {e}")
+
+        default_model_name_env = os.getenv("DEFAULT_MODEL_NAME")
         
         env_data = {
             "api_key": os.getenv("API_KEY"),
-            "default_model_name": os.getenv("DEFAULT_MODEL_NAME"),
+            "default_model_name": default_model_name_env.strip() if default_model_name_env else None,
             "active_models": os.getenv("ACTIVE_MODELS"),
             "device": env_device,
             "ASSETS_BASE_URL": os.getenv("ASSETS_BASE_URL"),

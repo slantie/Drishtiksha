@@ -39,7 +39,10 @@ const ALLOWED_MIME_TYPES = new Set([
 
 export const upload = multer({
   storage: storage,
+
   fileFilter: (req, file, cb) => {
+   file.mimetype = file.mimetype === "application/mp4" ? "video/mp4" : file.mimetype;
+   
     if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
       cb(null, true);
       console.log("Some File type");

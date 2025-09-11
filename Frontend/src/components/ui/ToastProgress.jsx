@@ -67,7 +67,7 @@ export const ToastProgress = ({
   const speed = calculateSpeed();
 
   return (
-    <div className="flex items-start space-x-3 text-white min-w-0 flex-grow">
+    <div className="flex items-start space-x-3 text-light-text dark:text-dark-text min-w-0 flex-grow">
       <div className="flex-grow min-w-0">
         {/* Header with model name and elapsed time */}
         {modelName && (

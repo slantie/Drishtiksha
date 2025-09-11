@@ -161,7 +161,7 @@ class ColorCuesLSTMV1(BaseModel):
         output_temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         output_path = output_temp_file.name
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+        out = cv2.VideoWriter(output_path, fourcc, (frame_width, frame_height))
 
         plt.style.use("dark_background")
         fig, ax = plt.subplots(figsize=(6, 2.5))
@@ -197,10 +197,22 @@ class ColorCuesLSTMV1(BaseModel):
                 plot_h, plot_w, _ = plot_img_bgr.shape
                 new_plot_h = int(frame_height * 0.3)
                 new_plot_w = int(new_plot_h * (plot_w / plot_h))
-                resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
+                
+                # FIX: Add safety check to ensure the resized plot fits within the frame width.
+                if new_plot_w > frame_width - 20:
+                    new_plot_w = frame_width - 20
+                    new_plot_h = int(new_plot_w * (plot_h / plot_w))
 
                 y_offset, x_offset = 10, frame_width - new_plot_w - 10
-                frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
+                
+                # FIX: Add boundary checks before attempting to overlay the plot.
+                if (y_offset + new_plot_h <= frame_height and 
+                    x_offset + new_plot_w <= frame_width and 
+                    new_plot_h > 0 and new_plot_w > 0):
+                    
+                    resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
+                    frame[y_offset:y_offset + new_plot_h, x_offset:x_offset + new_plot_w] = resized_plot
+                
                 out.write(frame)
         finally:
             cap.release()

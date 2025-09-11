@@ -21,8 +21,8 @@ models:
     model_path: "models/SigLip-LSTM-v1.pth"
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
-    # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
+    isImage: false
     isVideo: true
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
@@ -38,8 +38,8 @@ models:
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     rolling_window_size: 10
-    # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
+    isImage: false
     isVideo: true
     model_definition:
       base_model_path: "google/siglip-base-patch16-224"
@@ -55,7 +55,6 @@ models:
     processor_path: "google/siglip-base-patch16-224"
     num_frames: 120
     rolling_window_size: 10
-    # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
     isVideo: true
     isImage: true
@@ -72,9 +71,9 @@ models:
     description: "ColorCues LSTM detector using R-G color histogram analysis for deepfake detection."
     model_path: "models/ColorCues-LSTM-v1.pth"
     dlib_model_path: "models/Face-Landmarks.dat"
-    # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
     isVideo: true
+    isImage: false
     sequence_length: 32
     frames_per_video: 50
     histogram_bins: 32
@@ -90,14 +89,14 @@ models:
     model_path: "models/EfficientNet-B7-v1"
     encoder: "tf_efficientnet_b7.ns_jft_in1k"
     input_size: 380
-    # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
+    isImage: false
     isVideo: true
 
   EYEBLINK-CNN-LSTM-V1:
     # CHANGE: Must match the Python class name `EyeblinkDetectorV1`
     class_name: "EyeblinkDetectorV1"
-    description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN+LSTM architecture."
+    description: "Detects deepfakes by analyzing sequences of eye blinks using a CNN LSTM architecture."
     model_path: "models/EyeBlink-CNN-LSTM-v1.pth"
     dlib_model_path: "models/Face-Landmarks.dat"
     sequence_length: 10
@@ -105,6 +104,7 @@ models:
     consecutive_frames: 2
     # REMOVED: `isDetailed` is no longer needed.
     isAudio: false
+    isImage: false
     isVideo: true
     model_definition:
       base_model_name: "legacy_xception"
@@ -119,7 +119,71 @@ models:
     model_path: "models/Scattering-Wave-v1.pth"
     # REMOVED: `isDetailed` is no longer needed.
     isAudio: true
+    isImage: false
     isVideo: false
     sampling_rate: 16000
     duration_seconds: 2.0
     image_size: [256, 256]
+
+  MEL-SPECTROGRAM-CNN-V1:
+    class_name: "MelSpectrogramCNNV1"
+    description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
+    model_path: "models/MEL-Spectrogram-CNN-v1.pth"
+    isAudio: true
+    isImage: false
+    isVideo: false
+    # --- Method-specific parameters ---
+    sampling_rate: 16000
+    n_fft: 2048
+    hop_length: 512
+    n_mels: 256
+    dpi: 100
+    chunk_duration_s: 1.0
+
+  STFT-SPECTROGRAM-CNN-V1:
+    class_name: "STFTSpectrogramCNNV1"
+    description: "Audio deepfake detector using stacked wideband and narrowband STFT spectrograms."
+    model_path: "models/STFT-Spectrogram-CNN-v1.pth"
+    isAudio: true
+    isImage: false
+    isVideo: false
+    # --- Method-specific parameters ---
+    sampling_rate: 16000
+    n_fft_wide: 512
+    n_fft_narrow: 2048
+    hop_length: 160
+    img_height: 512
+    img_width: 256
+    dpi: 100
+    chunk_duration_s: 1.0
+
+  DISTIL-DIRE-V1:
+    class_name: "DistilDIREDetectorV1"
+    description: "Image deepfake detector using Diffusion Reconstruction Error (DIRE) and a ResNet backbone."
+    # The main detector model checkpoint
+    model_path: "models/DistilDIRE-v1.pth"
+    # The required ADM diffusion model for noise generation
+    adm_model_path: "models/ADM-256x256-DistilDIRE.pt"
+    isImage: true
+    isAudio: false
+    isVideo: false
+    image_size: 256
+    # Configuration for the ADM model, as seen in the original repository
+    adm_config:
+      attention_resolutions: '32,16,8'
+      class_cond: False
+      diffusion_steps: 1000
+      image_size: 256
+      learn_sigma: True
+      noise_schedule: 'linear'
+      num_channels: 256
+      num_head_channels: 64
+      num_res_blocks: 2
+      resblock_updown: True
+      use_fp16: True
+      use_scale_shift_norm: True
+      timestep_respacing: 'ddim20'
+      clip_denoised: True
+      use_ddim: True
+      num_samples: 1
+      real_step: 0

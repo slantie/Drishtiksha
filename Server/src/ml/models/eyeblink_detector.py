@@ -214,11 +214,23 @@ class EyeblinkDetectorV1(BaseModel):
                 plot_img_bgr = cv2.cvtColor(plot_img_rgba, cv2.COLOR_RGBA2BGR)
                 
                 plot_h, plot_w, _ = plot_img_bgr.shape
-                new_h, new_w = int(frame_height * 0.3), int(int(frame_height * 0.3) * (plot_w / plot_h))
-                resized_plot = cv2.resize(plot_img_bgr, (new_w, new_h))
+                new_plot_h = int(frame_height * 0.3)
+                new_plot_w = int(new_plot_h * (plot_w / plot_h))
                 
-                y_off, x_off = 10, frame_width - new_w - 10
-                frame[y_off:y_off + new_h, x_off:x_off + new_w] = resized_plot
+                # FIX: Add safety check to ensure the resized plot fits within the frame width.
+                if new_plot_w > frame_width - 20:
+                    new_plot_w = frame_width - 20
+                    new_plot_h = int(new_plot_w * (plot_h / plot_w))
+
+                y_off, x_off = 10, frame_width - new_plot_w - 10
+                
+                # FIX: Add boundary checks before attempting to overlay the plot.
+                if (y_off + new_plot_h <= frame_height and 
+                    x_off + new_plot_w <= frame_width and 
+                    new_plot_h > 0 and new_plot_w > 0):
+                    
+                    resized_plot = cv2.resize(plot_img_bgr, (new_plot_w, new_plot_h))
+                    frame[y_off:y_off + new_plot_h, x_off:x_off + new_plot_w] = resized_plot
                 
                 score_color = np.array([0, 0, 255]) * score + np.array([0, 255, 0]) * (1 - score)
                 color = tuple(map(int, score_color))

@@ -128,7 +128,13 @@ const localProvider = {
 
     const mimeType =
       mime.lookup(originalFilename) || "application/octet-stream";
-    const fileType = mimeType.split("/")[0];
+    let fileType = mimeType.split("/")[0];
+
+    // special case: sometimes .mp4 is labeled as application/mp4
+    if (mimeType === "application/mp4") {
+      fileType = "video";
+    }
+
     const timestamp = Date.now();
     const baseFilename = `${timestamp}-${path.parse(originalFilename).name}`;
 

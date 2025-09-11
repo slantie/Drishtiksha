@@ -39,4 +39,7 @@ dependencies = [
     "opencv-python>=4.12.0.88",
     "py-cpuinfo>=9.0.0",
     "uv>=0.2.14",
+    "soundfile>=0.13.1",
+    "blobfile>=3.1.0",
+    "mpi4py>=4.1.0",
 ]
