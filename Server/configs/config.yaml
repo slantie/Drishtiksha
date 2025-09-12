@@ -196,3 +196,77 @@ models:
     isVideo: true
     isAudio: false
     video_frames_to_sample: 100
+
+  CROSS-EFFICIENT-VIT-GAN:
+    class_name: "CrossEfficientViTDetector"
+    description: "Hybrid EfficientNet-ViT model optimized for detecting GAN-based video deepfakes."
+    model_path: "models/Cross-EfficientNet-ViT/Cross-EfficientNet-ViT-GAN-V1.pth"
+    isImage: false
+    isVideo: true
+    isAudio: false
+    model_definition:
+      image-size: 224
+      num-classes: 1
+      depth: 4
+      sm-dim: 192
+      sm-patch-size: 7
+      sm-enc-depth: 2
+      sm-enc-dim-head: 64
+      sm-enc-heads: 8
+      sm-enc-mlp-dim: 2048
+      lg-dim: 384
+      lg-patch-size: 56
+      lg-enc-depth: 3
+      lg-enc-dim-head: 64
+      lg-enc-heads: 8
+      lg-enc-mlp-dim: 2048
+      cross-attn-depth: 2
+      cross-attn-dim-head: 64
+      cross-attn-heads: 8
+      lg-channels: 24
+      sm-channels: 1280
+      dropout: 0.15
+      emb-dropout: 0.15
+
+  CROSS-EFFICIENT-VIT-IMG:
+    class_name: "CrossEfficientViTDetector"
+    description: "Hybrid EfficientNet-ViT model optimized for detecting diffusion-based image deepfakes."
+    model_path: "models/Cross-EfficientNet-ViT/Cross-EfficientNet-ViT-IMG-V1.pth"
+    isImage: true
+    isVideo: false
+    isAudio: false
+    model_definition:
+      image-size: 224
+      num-classes: 1
+      depth: 4
+      sm-dim: 192
+      sm-patch-size: 7
+      sm-enc-depth: 2
+      sm-enc-dim-head: 64
+      sm-enc-heads: 8
+      sm-enc-mlp-dim: 2048
+      lg-dim: 384
+      lg-patch-size: 56
+      lg-enc-depth: 3
+      lg-enc-dim-head: 64
+      lg-enc-heads: 8
+      lg-enc-mlp-dim: 2048
+      cross-attn-depth: 2
+      cross-attn-dim-head: 64
+      cross-attn-heads: 8
+      lg-channels: 24
+      sm-channels: 1280
+      dropout: 0.15
+      emb-dropout: 0.15
+
+  LIP-FD-V1:
+    class_name: "LipFDetectorV1"
+    description: "Audio-Visual model detecting temporal inconsistencies in lip-sync deepfakes."
+    model_path: "models/LipFD-v1.pth"
+    isImage: false
+    isVideo: true
+    isAudio: false
+    model_definition:
+      arch: "CLIP:ViT-L/14"
+      n_extract: 200
+      window_len: 5

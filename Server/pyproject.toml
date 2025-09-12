@@ -42,4 +42,9 @@ dependencies = [
     "soundfile>=0.13.1",
     "blobfile>=3.1.0",
     "mpi4py>=4.1.0",
+    "einops>=0.8.1",
+    "moviepy==1.0.3",
+    "albumentations>=2.0.8",
+    "ftfy>=6.3.1",
+    "regex>=2025.9.1",
 ]

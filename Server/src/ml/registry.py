@@ -45,17 +45,19 @@ class ModelManager:
         model file, and the registry will find it automatically.
         """
         registry: Dict[str, Type[BaseModel]] = {}
-        models_package_path = Path(__file__).parent / "models"
-        
-        # Dynamically import all modules within the `src.ml.models` directory.
-        for (_, module_name, _) in pkgutil.iter_modules([str(models_package_path)]):
+        detectors_package_path = Path(__file__).parent / "detectors"
+
+        # Dynamically import all modules within the `src.ml.detectors` directory.
+        for (_, module_name, _) in pkgutil.iter_modules([str(detectors_package_path)]):
+            if module_name == "__init__":
+                continue
+            
             module = importlib.import_module(f"src.ml.detectors.{module_name}")
             
             # Find all classes within the module that are subclasses of BaseModel.
             for class_name, cls in inspect.getmembers(module, inspect.isclass):
                 if issubclass(cls, BaseModel) and cls is not BaseModel:
                     logger.debug(f"Discovered model class: {class_name}")
-                    # The key is the class name string, which must match `class_name` in config.yaml
                     registry[class_name] = cls
                     
         return registry

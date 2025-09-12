@@ -50,6 +50,34 @@ class EyeblinkArchitectureConfig(BaseModel):
     dropout_rate: float
     img_size: Tuple[int, int]
 
+class CrossEfficientViTArchConfig(BaseModel):
+    image_size: int = Field(..., alias='image-size')
+    num_classes: int = Field(..., alias='num-classes')
+    depth: int
+    sm_dim: int = Field(..., alias='sm-dim')
+    sm_patch_size: int = Field(..., alias='sm-patch-size')
+    sm_enc_depth: int = Field(..., alias='sm-enc-depth')
+    sm_enc_dim_head: int = Field(..., alias='sm-enc-dim-head')
+    sm_enc_heads: int = Field(..., alias='sm-enc-heads')
+    sm_enc_mlp_dim: int = Field(..., alias='sm-enc-mlp-dim')
+    lg_dim: int = Field(..., alias='lg-dim')
+    lg_patch_size: int = Field(..., alias='lg-patch-size')
+    lg_enc_depth: int = Field(..., alias='lg-enc-depth')
+    lg_enc_dim_head: int = Field(..., alias='lg-enc-dim-head')
+    lg_enc_heads: int = Field(..., alias='lg-enc-heads')
+    lg_enc_mlp_dim: int = Field(..., alias='lg-enc-mlp-dim')
+    cross_attn_depth: int = Field(..., alias='cross-attn-depth')
+    cross_attn_dim_head: int = Field(..., alias='cross-attn-dim-head')
+    cross_attn_heads: int = Field(..., alias='cross-attn-heads')
+    lg_channels: int = Field(..., alias='lg-channels')
+    sm_channels: int = Field(..., alias='sm-channels')
+    dropout: float
+    emb_dropout: float = Field(..., alias='emb-dropout')
+
+class LipFDv1ArchConfig(BaseModel):
+    arch: str
+    n_extract: int
+    window_len: int
 
 # --- Main Model Configuration Schemas ---
 
@@ -155,6 +183,14 @@ class MFFMoEV1Config(BaseModelConfig):
     isVideo: bool = True
     isAudio: bool = False
 
+class CrossEfficientViTConfig(BaseModelConfig):
+    class_name: Literal["CrossEfficientViTDetector"]
+    model_definition: CrossEfficientViTArchConfig
+
+class LipFDv1Config(BaseModelConfig):
+    class_name: Literal["LipFDetectorV1"]
+    model_definition: LipFDv1ArchConfig
+
 # A Discriminated Union to validate and parse the correct model config.
 ModelConfig = Annotated[
     Union[
@@ -168,7 +204,9 @@ ModelConfig = Annotated[
         MelSpectrogramCNNConfig,
         STFTSpectrogramCNNConfig,
         DistilDIREv1Config,
-        MFFMoEV1Config
+        MFFMoEV1Config,
+        CrossEfficientViTConfig,
+        LipFDv1Config
     ],
     Field(discriminator="class_name"),
 ]

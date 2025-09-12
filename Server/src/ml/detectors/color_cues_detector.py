@@ -161,7 +161,7 @@ class ColorCuesLSTMV1(BaseModel):
         output_temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         output_path = output_temp_file.name
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(output_path, fourcc, (frame_width, frame_height))
+        out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
         plt.style.use("dark_background")
         fig, ax = plt.subplots(figsize=(6, 2.5))
