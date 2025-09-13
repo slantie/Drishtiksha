@@ -50,7 +50,7 @@ async def analyze_media(
     model_manager: ModelManager = Depends(get_model_manager),
     proc_data: tuple = MediaProcessingDeps,
     media_id: str = Form(None, alias="mediaId"),
-    user_id: str = Form(None),
+    user_id: str = Form(None, alias="userId"),
 ):
     """The new, single entry point for all analysis with robust error handling."""
     model_name, temp_media_path = proc_data

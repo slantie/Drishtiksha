@@ -337,7 +337,7 @@ class MFF_Expert_EffB4(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
         self.name = 'Effnet'
-        self.baseline_extractor = timm.create_model('tf_efficientnet_b4_ns', pretrained=pretrained, num_classes=2)
+        self.baseline_extractor = timm.create_model('tf_efficientnet_b4.ns_jft_in1k', pretrained=pretrained, num_classes=2)
 
     def forward(self, x):
         x = self.baseline_extractor.forward_features(x)
@@ -352,7 +352,7 @@ class MFF_Expert_EffB5(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
         self.name = 'Effnet'
-        self.baseline_extractor = timm.create_model('tf_efficientnet_b5_ns', pretrained=pretrained, num_classes=2)
+        self.baseline_extractor = timm.create_model('tf_efficientnet_b5.ns_jft_in1k', pretrained=pretrained, num_classes=2)
 
     def forward(self, x):
         x = self.baseline_extractor.forward_features(x)
@@ -367,7 +367,7 @@ class MFF_Expert_EffB6(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
         self.name = 'Effnet'
-        self.baseline_extractor = timm.create_model('tf_efficientnet_b6_ns', pretrained=pretrained, num_classes=2)
+        self.baseline_extractor = timm.create_model('tf_efficientnet_b6.ns_jft_in1k', pretrained=pretrained, num_classes=2)
 
     def forward(self, x):
         x = self.baseline_extractor.forward_features(x)
@@ -418,7 +418,8 @@ class MFF_MoE(nn.Module):
         try:
             self.load_state_dict(filtered_state_dict, strict=True)
         except RuntimeError as e:
-            logger.warning(f"Strict loading failed: {e}. Trying with strict=False")
+            logger.warning("Strict loading failed.")
+            logger.info("Trying with `strict=False`")
             self.load_state_dict(filtered_state_dict, strict=False)
 
         # load ema weights
