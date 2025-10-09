@@ -70,8 +70,7 @@ app = FastAPI(
     lifespan=lifespan,
     description="A high-performance inference server for deepfake detection models.",
     contact={
-        "name": "Zaptrix",
-        "email": "zaptrix.io@gmail.com",
+        "name": "Slantie",
     },
 )
 

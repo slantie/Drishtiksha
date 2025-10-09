@@ -62,46 +62,88 @@ class ModelManager:
                     
         return registry
 
+    def load_model(self, model_name: str) -> BaseModel:
+        """
+        Lazy loads a single model on-demand.
+        
+        If the model is already loaded, returns the cached instance.
+        If not loaded, loads it into memory and caches it.
+        
+        Args:
+            model_name: The name of the model to load (e.g., "EFFICIENTNET-B7-V1")
+            
+        Returns:
+            The loaded model instance
+            
+        Raises:
+            ModelRegistryError: If model config not found or loading fails
+        """
+        # Return cached model if already loaded
+        if model_name in self._models:
+            logger.debug(f"Model '{model_name}' already loaded, returning cached instance.")
+            return self._models[model_name]
+        
+        # Check if model is configured
+        if model_name not in self.model_configs:
+            available = list(self.model_configs.keys())
+            raise ModelRegistryError(
+                f"Model '{model_name}' not found in configuration. "
+                f"Available models: {available}"
+            )
+        
+        # Load the model
+        model_config = self.model_configs[model_name]
+        class_name = model_config.class_name
+        
+        model_class = self._registry.get(class_name)
+        if not model_class:
+            raise ModelRegistryError(
+                f"Model class '{class_name}' for model '{model_name}' not found in the registry. "
+                f"Ensure the class name in config.yaml matches the Python class name."
+            )
+        
+        try:
+            logger.info(f"🔄 Lazy loading model '{model_name}' (Class: {class_name})...")
+            start_time = time.monotonic()
+            
+            instance = model_class(model_config)
+            instance.load()  # Load weights into GPU/CPU memory
+            
+            self._models[model_name] = instance
+            
+            load_time = time.monotonic() - start_time
+            logger.info(f"✅ Successfully loaded '{model_name}' in {load_time:.2f}s.")
+            
+            return instance
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load model '{model_name}'.", exc_info=True)
+            raise ModelRegistryError(f"Could not load model '{model_name}'.") from e
+    
     def load_models(self):
         """
-        Eagerly loads all models specified as "active" in the configuration.
-
-        This method is called once at server startup to ensure all models are
-        loaded into memory and ready for inference before the server starts
-        accepting traffic, preventing a "cold start" delay for the first user.
+        Eagerly loads all models specified in the configuration.
+        
+        This method is used by the web server for startup preloading.
+        CLI should NOT call this - it should use lazy loading via get_model() instead.
         """
-        logger.info("Starting eager loading of all active models...")
-        for model_name, model_config in self.model_configs.items():
+        logger.info("Starting eager loading of all configured models...")
+        for model_name in self.model_configs.keys():
             try:
-                start_time = time.monotonic()
-                class_name = model_config.class_name
-                
-                model_class = self._registry.get(class_name)
-                if not model_class:
-                    raise ModelRegistryError(
-                        f"Model class '{class_name}' for model '{model_name}' not found in the registry. "
-                        f"Ensure the class name in config.yaml matches the Python class name."
-                    )
-                
-                logger.info(f"Loading model '{model_name}' (Class: {class_name})...")
-                instance = model_class(model_config)
-                instance.load() # This is the call that loads weights into GPU/CPU memory.
-                
-                self._models[model_name] = instance
-                
-                load_time = time.monotonic() - start_time
-                logger.info(f"✅ Successfully loaded '{model_name}' in {load_time:.2f}s.")
-                
+                self.load_model(model_name)
             except Exception as e:
-                # If any model fails to load, it's a critical error.
+                # For server startup, model load failures are critical
                 logger.critical(f"❌ FATAL: Failed to load model '{model_name}'. Server startup will be aborted.", exc_info=True)
                 raise ModelRegistryError(f"Could not load model '{model_name}'.") from e
         
-        logger.info(f"✅ All {len(self._models)} active models have been loaded successfully.")
+        logger.info(f"✅ All {len(self._models)} models have been loaded successfully.")
 
     def get_model(self, name: str) -> BaseModel:
         """
-        Retrieves a pre-loaded model instance from the cache.
+        Retrieves a model instance, loading it lazily if not already loaded.
+        
+        This enables on-demand loading - models are only loaded when actually needed.
+        Perfect for CLI usage where you don't want to load all models upfront.
 
         Args:
             name: The name of the model to retrieve (e.g., "SIGLIP-LSTM-V3").
@@ -110,13 +152,9 @@ class ModelManager:
             An instance of a BaseModel subclass.
 
         Raises:
-            KeyError: If the requested model is not loaded (i.e., not active or failed to load).
+            ModelRegistryError: If the requested model config is not found or loading fails.
         """
-        if name not in self._models:
-            raise KeyError(
-                f"Model '{name}' is not loaded. It might not be in ACTIVE_MODELS or it failed to load at startup."
-            )
-        return self._models[name]
+        return self.load_model(name)
 
     def get_available_models(self) -> list[str]:
         """Returns a list of all ACTIVE model names from the config."""
@@ -125,6 +163,20 @@ class ModelManager:
     def get_loaded_model_names(self) -> list[str]:
         """Returns a list of names of models currently loaded in memory."""
         return list(self._models.keys())
+    
+    def is_model_loaded(self, name: str) -> bool:
+        """
+        Check if a model is currently loaded in memory.
+        
+        This does NOT trigger loading - just checks the cache.
+        
+        Args:
+            name: The model name to check
+            
+        Returns:
+            True if the model is loaded, False otherwise
+        """
+        return name in self._models
     
     def get_active_model_configs(self) -> Dict[str, ModelConfig]:
         """Returns the configuration objects for all active models."""

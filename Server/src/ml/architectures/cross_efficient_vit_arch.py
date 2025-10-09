@@ -167,7 +167,9 @@ class ImageEmbedder(nn.Module):
     ):
         super().__init__()
         assert image_size % patch_size == 0, 'Image dimensions must be divisible by the patch size.'
-        self.efficient_net = EfficientNet.from_pretrained('efficientnet-b0')
+        # Use from_name instead of from_pretrained to avoid downloading weights
+        # The full model weights will be loaded from the checkpoint
+        self.efficient_net = EfficientNet.from_name('efficientnet-b0')
         self.efficient_net.delete_blocks(efficient_block)
         self.efficient_block = efficient_block
         

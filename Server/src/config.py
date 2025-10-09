@@ -304,6 +304,55 @@ class Settings(BaseSettings):
 
         return cls(**merged_config)
 
+    @classmethod
+    def from_yaml_and_env_cli(cls, yaml_path: str, env_file: str = '.env') -> "Settings":
+        """
+        Load settings for CLI mode - includes ALL models from config.yaml,
+        not just ACTIVE_MODELS. This allows CLI to access all configured models.
+        """
+        from dotenv import load_dotenv
+        load_dotenv(env_file)
+        logger.info(f"🔧 [CLI MODE] Loaded environment variables from '{env_file}'.")
+
+        env_device = os.getenv('DEVICE', 'cpu').lower()
+        logger.info(f"🔧 [CLI MODE] Device set to '{env_device}' from environment.")
+
+        try:
+            with open(yaml_path, 'r') as file:
+                yaml_data = yaml.safe_load(file) or {}
+        except FileNotFoundError:
+            raise RuntimeError(f"FATAL: Config file '{yaml_path}' not found.")
+        except yaml.YAMLError as e:
+            raise RuntimeError(f"FATAL: Error parsing YAML file '{yaml_path}': {e}")
+
+        # For CLI, use first model as default if not specified
+        default_model_name_env = os.getenv("DEFAULT_MODEL_NAME")
+        if not default_model_name_env and yaml_data.get('models'):
+            default_model_name_env = list(yaml_data['models'].keys())[0]
+            logger.info(f"🔧 [CLI MODE] No DEFAULT_MODEL_NAME set, using first model: {default_model_name_env}")
+        
+        env_data = {
+            "api_key": os.getenv("API_KEY", "cli-mode-key"),  # CLI doesn't need API key
+            "default_model_name": default_model_name_env.strip() if default_model_name_env else None,
+            "active_models": ",".join(yaml_data.get('models', {}).keys()),  # ALL models
+            "device": env_device,
+            "ASSETS_BASE_URL": os.getenv("ASSETS_BASE_URL", "http://localhost:3000"),
+            "STORAGE_PATH": os.getenv("STORAGE_PATH", "./storage"),
+        }
+        
+        merged_config = {**yaml_data, **{k: v for k, v in env_data.items() if v is not None}}
+        
+        # Set device for all models
+        if merged_config.get('models'):
+            for model_name in merged_config['models']:
+                if isinstance(merged_config['models'][model_name], dict):
+                    merged_config['models'][model_name]['device'] = env_device
+
+        # CLI MODE: Include ALL models, not just active ones
+        logger.info(f"🔧 [CLI MODE] Loaded {len(merged_config.get('models', {}))} models from config")
+
+        return cls(**merged_config)
+
 try:
     settings = Settings.from_yaml_and_env("configs/config.yaml")
 except (RuntimeError, ValueError, ValidationError) as e:

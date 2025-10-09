@@ -7,15 +7,6 @@ import { config } from "../../config/env.js";
 
 const projectName = config.VITE_PROJECT_NAME || "Drishtiksha";
 
-// Define social links. Could be moved to a global config or fetched if dynamic.
-const socialLinks = [
-  {
-    name: "GitHub",
-    icon: Github,
-    url: "https://github.com/zaptrixio-cyber/Drishtiksha",
-  },
-];
-
 function Footer() {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
