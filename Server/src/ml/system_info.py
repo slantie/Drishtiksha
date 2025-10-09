@@ -142,7 +142,8 @@ class SystemMonitor:
             "project_name": settings.project_name,
             "device": settings.device,
             "default_model": settings.default_model_name,
-            "active_models": settings.active_model_list,
+            # ✨ CHANGED: Use active_models directly (now a List[str])
+            "active_models": settings.active_models,
         }
         if torch:
             config["torch_version"] = torch.__version__

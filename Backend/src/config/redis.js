@@ -21,6 +21,9 @@ export const redisConnectionOptionsForBullMQ = {
 export const redisSubscriber = new Redis(connectionOptions);
 export const redisPublisher = new Redis(connectionOptions);
 
+// Create a singleton client for general caching operations.
+export const redisCache = new Redis(connectionOptions);
+
 /**
  * An idempotent function to ensure a Redis client is connected.
  * It uses a promise attached to the client instance itself to handle
@@ -63,10 +66,12 @@ export const connectRedisClients = async () => {
     await Promise.all([
         ensureConnected(redisSubscriber, 'Subscriber'),
         ensureConnected(redisPublisher, 'Publisher'),
+        ensureConnected(redisCache, 'Cache'),
     ]);
 };
 
 export const disconnectRedisClients = () => {
     if (redisSubscriber.status === 'ready') redisSubscriber.disconnect();
     if (redisPublisher.status === 'ready') redisPublisher.disconnect();
+    if (redisCache.status === 'ready') redisCache.disconnect();
 };

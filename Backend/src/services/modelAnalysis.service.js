@@ -8,6 +8,11 @@ import { ApiError } from '../utils/ApiError.js';
 import logger from '../utils/logger.js';
 import { config } from '../config/env.js';
 import { mediaRepository } from '../repositories/media.repository.js';
+import { redisCache } from '../config/index.js';
+
+// Cache configuration constants
+const SERVER_STATS_CACHE_KEY = 'ml_server_stats';
+const SERVER_STATS_CACHE_TTL = 60; // seconds
 
 class ModelAnalysisService {
     constructor() {
@@ -31,26 +36,58 @@ class ModelAnalysisService {
         if (!this.isAvailable()) {
             throw new ApiError(503, 'Model service is not configured.');
         }
-        let statsPayload;
+
         try {
+            // 1. Try Redis cache first
+            const cached = await redisCache.get(SERVER_STATS_CACHE_KEY);
+            if (cached) {
+                logger.debug('[ModelAnalysisService] Returning cached ML server stats');
+                return JSON.parse(cached);
+            }
+
+            // 2. Cache miss - fetch from ML server
+            logger.debug('[ModelAnalysisService] Cache miss - fetching ML server stats');
             const startTime = Date.now();
             const response = await axios.get(`${this.serverUrl}/stats`, {
                 timeout: this.healthTimeout,
                 headers: { 'X-API-Key': this.apiKey },
             });
             const responseTimeMs = Date.now() - startTime;
-            statsPayload = { ...response.data, responseTimeMs };
+            
+            const statsPayload = { 
+                ...response.data, 
+                responseTimeMs,
+                cachedAt: new Date().toISOString()
+            };
 
+            // 3. Store in Redis with TTL
+            await redisCache.set(
+                SERVER_STATS_CACHE_KEY,
+                JSON.stringify(statsPayload),
+                'EX',
+                SERVER_STATS_CACHE_TTL
+            );
+            
+            logger.info(`[ModelAnalysisService] ML server stats fetched and cached (${responseTimeMs}ms, TTL: ${SERVER_STATS_CACHE_TTL}s)`);
+
+            // 4. Store in database for historical tracking (background)
             mediaRepository.storeServerHealth(statsPayload).catch(err => {
                 logger.error(`[ModelAnalysisService] Failed to store server health in background: ${err.message}`);
             });
             
             return statsPayload;
         } catch (error) {
-            const errorPayload = { status: 'UNHEALTHY', errorMessage: error.message, responseTimeMs: this.healthTimeout };
+            // On error, don't cache and still try to store error state
+            const errorPayload = { 
+                status: 'UNHEALTHY', 
+                errorMessage: error.message, 
+                responseTimeMs: this.healthTimeout 
+            };
+            
             mediaRepository.storeServerHealth(errorPayload).catch(err => {
                 logger.error(`[ModelAnalysisService] Failed to store FAILED server health in background: ${err.message}`);
             });
+            
             this._handleApiError(error, 'STATS');
         }
     }
@@ -96,6 +133,25 @@ class ModelAnalysisService {
             return response.data;
         } catch (error) {
             this._handleApiError(error, 'VISUALIZATION_DOWNLOAD', filename);
+        }
+    }
+
+    /**
+     * Manually invalidate the ML server stats cache.
+     * Useful for testing or when you know the server state has changed.
+     */
+    async invalidateStatsCache() {
+        try {
+            const result = await redisCache.del(SERVER_STATS_CACHE_KEY);
+            if (result === 1) {
+                logger.info('[ModelAnalysisService] ML server stats cache invalidated successfully');
+            } else {
+                logger.debug('[ModelAnalysisService] No cache to invalidate (already empty)');
+            }
+            return result;
+        } catch (error) {
+            logger.error('[ModelAnalysisService] Failed to invalidate stats cache:', error);
+            throw error;
         }
     }
     

@@ -61,6 +61,14 @@ class SocketService {
     }
   }
 
+  /**
+   * ✨ NEW: Check if socket is currently connected.
+   * Used by smart polling logic to adjust refetch intervals.
+   */
+  isConnected() {
+    return this.socket?.connected || false;
+  }
+
   setupEventListeners() {
     if (!this.socket) {
       console.warn("[Socket] No socket instance to setup event listeners.");
@@ -89,7 +97,24 @@ class SocketService {
       // Delegate all toast logic to the orchestrator
       toastOrchestrator.handleProgressEvent(mediaId, event, message, data);
 
-      // Invalidate the specific media item's query to trigger a refetch in the UI
+      // ✨ NEW: Optimistic update - immediately update cache with progress data
+      queryClient.setQueryData(
+        queryKeys.media.detail(mediaId),
+        (oldData) => {
+          if (!oldData?.data) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              // Update progress if available in the event data
+              progress: data?.progress || oldData.data.progress,
+              // Keep other fields unchanged
+            },
+          };
+        }
+      );
+
+      // Still invalidate to ensure eventual consistency
       queryClient.invalidateQueries({
         queryKey: queryKeys.media.detail(mediaId),
       });
@@ -105,7 +130,29 @@ class SocketService {
 
       toastOrchestrator.resolveMediaProcessing(mediaId, filename, true);
 
-      // Invalidate both the specific media item and the list of all media
+      // ✨ NEW: Optimistic update - immediately update cache with full media object
+      queryClient.setQueryData(
+        queryKeys.media.detail(mediaId),
+        (oldData) => {
+          if (!oldData) return { data: media };
+          return { ...oldData, data: media };
+        }
+      );
+
+      // ✨ NEW: Also update the media lists cache
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.media.lists() },
+        (oldData) => {
+          if (!oldData?.data) return oldData;
+          // Update the specific media item in the list
+          const updatedList = oldData.data.map((item) =>
+            item.id === mediaId ? media : item
+          );
+          return { ...oldData, data: updatedList };
+        }
+      );
+
+      // Invalidate to ensure eventual consistency and trigger background refetch
       queryClient.invalidateQueries({
         queryKey: queryKeys.media.detail(mediaId),
       });

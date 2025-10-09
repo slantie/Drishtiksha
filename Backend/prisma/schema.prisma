@@ -13,7 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 // =============================================================================
 // CORE MODELS
 // =============================================================================
@@ -34,12 +33,11 @@ model User {
   @@map("users")
 }
 
-
 model Media {
   id          String      @id @default(uuid())
   filename    String
   url         String
-  publicId    String      // The ID used by the storage provider (e.g., Cloudinary public_id)
+  publicId    String // The ID used by the storage provider (e.g., Cloudinary public_id)
   mimetype    String
   size        Int
   description String?
@@ -49,7 +47,7 @@ model Media {
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  
+
   // A single media file can have multiple "runs" of the analysis pipeline over time.
   analysisRuns AnalysisRun[]
 
@@ -61,79 +59,85 @@ model Media {
   @@map("media")
 }
 
-
 // =============================================================================
 // ANALYSIS & VERSIONING MODELS
 // =============================================================================
 
 // Represents a single, user-initiated execution of the multi-model analysis workflow.
 model AnalysisRun {
-  id        String   @id @default(uuid())
-  mediaId   String
-  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  
+  id      String @id @default(uuid())
+  mediaId String
+  media   Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
   // A simple, user-facing version number (Run 1, Run 2, etc.).
   runNumber Int
-  
+
   // The overall status of this entire run.
-  status    MediaStatus @default(QUEUED)
-  
+  status MediaStatus @default(QUEUED)
+
   // When this specific run was initiated by the user.
   createdAt DateTime @default(now())
-  
+
   // Each run is composed of multiple individual model analyses.
-  analyses  DeepfakeAnalysis[]
+  analyses DeepfakeAnalysis[]
 
   // A unique constraint to ensure run numbers are sequential per media item.
   @@unique([mediaId, runNumber])
   @@map("analysis_runs")
 }
 
-
 // Represents the result from a SINGLE model for a given AnalysisRun.
 model DeepfakeAnalysis {
-  id              String   @id @default(uuid())
-  analysisRunId   String
-  analysisRun     AnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
-  
+  id            String      @id @default(uuid())
+  analysisRunId String
+  analysisRun   AnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+
   // Top-level, queryable fields for quick access and filtering.
-  modelName       String
-  prediction      String
-  confidence      Float
-  status          AnalysisStatus @default(PENDING)
-  errorMessage    String?
-  
+  modelName    String
+  prediction   String
+  confidence   Float
+  status       AnalysisStatus @default(PENDING)
+  errorMessage String?
+
+  // ✨ NEW: Promoted fields for efficient querying and analytics
+  // These are extracted from resultPayload for database-level filtering/sorting
+  processingTime Float?  @map("processing_time") // Time taken for analysis in seconds
+  mediaType      String? @map("media_type") // Type of media analyzed (video/image/audio)
+
   // The core of our new, decoupled strategy.
   // The entire rich, structured JSON response from the Python server's 'data' field
   // is stored here. This makes the backend future-proof.
-  resultPayload   Json
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  resultPayload Json @map("result_payload")
 
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([analysisRunId])
+  @@index([modelName])
+  @@index([processingTime]) // Enable fast queries by processing time
+  @@index([mediaType]) // Enable fast queries by media type
+  @@index([confidence]) // Enable fast queries by confidence level
   @@map("deepfake_analyses")
 }
-
 
 // =============================================================================
 // MONITORING MODELS
 // =============================================================================
 
 model ServerHealth {
-  id              String   @id @default(uuid())
-  status          String   // e.g., "HEALTHY", "UNHEALTHY"
-  responseTimeMs  Int
-  
+  id             String @id @default(uuid())
+  status         String // e.g., "HEALTHY", "UNHEALTHY"
+  responseTimeMs Int
+
   // The full, rich JSON response from the Python server's /stats endpoint.
   // This allows us to build powerful monitoring dashboards without needing to
   // change the schema every time the server adds a new statistic.
-  statsPayload    Json
-  
-  checkedAt       DateTime @default(now())
+  statsPayload Json
+
+  checkedAt DateTime @default(now())
 
   @@map("server_health")
 }
-
 
 // =============================================================================
 // ENUMS

@@ -100,6 +100,11 @@ export const mediaRepository = {
     // --- Analysis Result Operations ---
     async createAnalysisResult(runId, resultData) {
         const { modelName, prediction, confidence, resultPayload } = resultData;
+        
+        // ✨ Extract promoted fields from resultPayload for efficient querying
+        const processingTime = resultPayload?.processing_time || resultPayload?.processingTime || null;
+        const mediaType = resultPayload?.media_type || resultPayload?.mediaType || null;
+        
         return prisma.deepfakeAnalysis.create({
             data: {
                 analysisRunId: runId,
@@ -107,6 +112,8 @@ export const mediaRepository = {
                 prediction,
                 confidence,
                 status: 'COMPLETED',
+                processingTime,  // ✨ NEW: Promoted field
+                mediaType,       // ✨ NEW: Promoted field
                 resultPayload,
             },
         });
@@ -169,6 +176,146 @@ export const mediaRepository = {
     async getServerHealthHistory(limit = 50) {
         return prisma.serverHealth.findMany({
             orderBy: { checkedAt: 'desc' },
+            take: limit,
+        });
+    },
+
+    // --- Analytics & Query Operations (Using Promoted Fields) ---
+    
+    /**
+     * Get analyses filtered by processing time range.
+     * Enables queries like "show all analyses that took less than 10 seconds"
+     */
+    async getAnalysesByProcessingTime(minTime, maxTime, options = {}) {
+        const { limit = 100, includeRelations = false } = options;
+        
+        return prisma.deepfakeAnalysis.findMany({
+            where: {
+                processingTime: {
+                    gte: minTime,
+                    lte: maxTime,
+                },
+                status: 'COMPLETED', // Only completed analyses
+            },
+            ...(includeRelations && {
+                include: {
+                    analysisRun: {
+                        include: { media: true },
+                    },
+                },
+            }),
+            orderBy: { processingTime: 'asc' },
+            take: limit,
+        });
+    },
+
+    /**
+     * Get analyses filtered by media type.
+     * Enables queries like "show all video analyses" or "show all image analyses"
+     */
+    async getAnalysesByMediaType(mediaType, options = {}) {
+        const { limit = 100, includeRelations = false } = options;
+        
+        return prisma.deepfakeAnalysis.findMany({
+            where: { 
+                mediaType,
+                status: 'COMPLETED',
+            },
+            ...(includeRelations && {
+                include: {
+                    analysisRun: {
+                        include: { media: true },
+                    },
+                },
+            }),
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+    },
+
+    /**
+     * Get average processing time per model.
+     * Useful for performance monitoring and model comparison.
+     */
+    async getAverageProcessingTimeByModel() {
+        return prisma.$queryRaw`
+            SELECT 
+                model_name as "modelName",
+                COUNT(*) as "totalAnalyses",
+                AVG(processing_time) as "avgProcessingTime",
+                MIN(processing_time) as "minProcessingTime",
+                MAX(processing_time) as "maxProcessingTime"
+            FROM deepfake_analyses
+            WHERE processing_time IS NOT NULL 
+            AND status = 'COMPLETED'
+            GROUP BY model_name
+            ORDER BY "avgProcessingTime" ASC
+        `;
+    },
+
+    /**
+     * Get average confidence by model and media type.
+     * Enables insights like "which model performs best on videos?"
+     */
+    async getAverageConfidenceByModelAndMediaType() {
+        return prisma.$queryRaw`
+            SELECT 
+                model_name as "modelName",
+                media_type as "mediaType",
+                COUNT(*) as "totalAnalyses",
+                AVG(confidence) as "avgConfidence",
+                MIN(confidence) as "minConfidence",
+                MAX(confidence) as "maxConfidence"
+            FROM deepfake_analyses
+            WHERE media_type IS NOT NULL 
+            AND status = 'COMPLETED'
+            GROUP BY model_name, media_type
+            ORDER BY "avgConfidence" DESC
+        `;
+    },
+
+    /**
+     * Get slowest analyses for debugging/optimization.
+     */
+    async getSlowestAnalyses(limit = 10) {
+        return prisma.deepfakeAnalysis.findMany({
+            where: {
+                processingTime: { not: null },
+                status: 'COMPLETED',
+            },
+            include: {
+                analysisRun: {
+                    include: { 
+                        media: {
+                            select: { id: true, filename: true, mediaType: true }
+                        }
+                    },
+                },
+            },
+            orderBy: { processingTime: 'desc' },
+            take: limit,
+        });
+    },
+
+    /**
+     * Get fastest analyses for performance benchmarking.
+     */
+    async getFastestAnalyses(limit = 10) {
+        return prisma.deepfakeAnalysis.findMany({
+            where: {
+                processingTime: { not: null },
+                status: 'COMPLETED',
+            },
+            include: {
+                analysisRun: {
+                    include: { 
+                        media: {
+                            select: { id: true, filename: true, mediaType: true }
+                        }
+                    },
+                },
+            },
+            orderBy: { processingTime: 'asc' },
             take: limit,
         });
     },

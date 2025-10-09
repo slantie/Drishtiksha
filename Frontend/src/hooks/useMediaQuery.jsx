@@ -1,11 +1,33 @@
 // src/hooks/useMediaQuery.jsx
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { mediaApi } from "../services/api/media.api.js";
 import { queryKeys } from "../lib/queryKeys.js";
 import { showToast } from "../utils/toast.jsx";
+import { socketService } from "../lib/socket.jsx";
+
+/**
+ * ✨ NEW: Hook to check WebSocket connection status.
+ * Used for smart polling logic.
+ */
+export const useSocketStatus = () => {
+  const [isConnected, setIsConnected] = useState(
+    socketService.isConnected()
+  );
+
+  useEffect(() => {
+    // Check socket status every second
+    const interval = setInterval(() => {
+      setIsConnected(socketService.isConnected());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return { isConnected };
+};
 
 export const useMediaQuery = () => {
   return useQuery({
@@ -16,11 +38,33 @@ export const useMediaQuery = () => {
 };
 
 export const useMediaItemQuery = (mediaId, options = {}) => {
+  const { isConnected: isSocketConnected } = useSocketStatus();
+
   return useQuery({
     queryKey: queryKeys.media.detail(mediaId),
     queryFn: () => mediaApi.getById(mediaId),
     enabled: !!mediaId,
     select: (response) => response.data,
+    staleTime: 5000, // Consider data stale after 5 seconds
+    
+    // ✨ NEW: Smart polling based on WebSocket status and media state
+    refetchInterval: (query) => {
+      const media = query.state.data;
+      const status = media?.analysisRuns?.[0]?.status || media?.status;
+
+      // Stop polling if not in processing state
+      if (!status || !["QUEUED", "PROCESSING"].includes(status)) {
+        return false;
+      }
+
+      // Smart polling strategy:
+      // - If WebSocket is connected: poll slowly as fallback (30 seconds)
+      //   WebSocket updates should handle most updates in real-time
+      // - If WebSocket is disconnected: poll actively (5 seconds)
+      //   Fall back to polling for updates
+      return isSocketConnected ? 30000 : 5000;
+    },
+    
     ...options,
   });
 };

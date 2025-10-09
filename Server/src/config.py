@@ -2,6 +2,7 @@
 
 import os
 import yaml
+import json
 import logging
 from pathlib import Path
 from typing import Dict, Tuple, Union, Annotated, Literal, List, Optional, Any
@@ -215,7 +216,8 @@ ModelConfig = Annotated[
 class Settings(BaseSettings):
     api_key: SecretStr
     default_model_name: str
-    active_models: str
+    # ✨ CHANGED: Now a List[str] instead of str for proper type safety
+    active_models: List[str] = Field(default_factory=list)
     device: str
     project_name: str
     models: Dict[str, ModelConfig]
@@ -232,21 +234,13 @@ class Settings(BaseSettings):
         extra='ignore'
     )
 
-    @property
-    def active_model_list(self) -> List[str]:
-        if not self.active_models: return []
-        return [model.strip() for model in self.active_models.split(',') if model.strip()]
-        
-    @property
-    def active_model_list(self) -> List[str]:
-        if not self.active_models: return []
-        return [model.strip() for model in self.active_models.split(',') if model.strip()]
+    # ✨ REMOVED: active_model_list property (now redundant - use active_models directly)
         
     @model_validator(mode='after')
     def validate_paths_and_models(self) -> 'Settings':
         # Validate default model
-        active_list = self.active_model_list
-        if active_list and self.default_model_name not in active_list:
+        # ✨ CHANGED: Use active_models directly (now a List[str])
+        if self.active_models and self.default_model_name not in self.active_models:
             raise ValueError(
                 f"Config error: Default model '{self.default_model_name}' not in ACTIVE_MODELS."
             )
@@ -279,10 +273,29 @@ class Settings(BaseSettings):
 
         default_model_name_env = os.getenv("DEFAULT_MODEL_NAME")
         
+        # ✨ CHANGED: Parse ACTIVE_MODELS (supports both JSON array and comma-separated)
+        active_models_str = os.getenv("ACTIVE_MODELS", "")
+        active_model_names = []
+        
+        if active_models_str:
+            # Try parsing as JSON array first
+            active_models_str = active_models_str.strip()
+            if active_models_str.startswith('[') and active_models_str.endswith(']'):
+                try:
+                    active_model_names = json.loads(active_models_str)
+                    logger.info(f"🔧 Parsed ACTIVE_MODELS as JSON array: {len(active_model_names)} models")
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse ACTIVE_MODELS as JSON, falling back to comma-separated")
+                    active_model_names = [m.strip() for m in active_models_str.split(',') if m.strip()]
+            else:
+                # Parse as comma-separated string
+                active_model_names = [m.strip() for m in active_models_str.split(',') if m.strip()]
+                logger.info(f"🔧 Parsed ACTIVE_MODELS as comma-separated: {len(active_model_names)} models")
+        
         env_data = {
             "api_key": os.getenv("API_KEY"),
             "default_model_name": default_model_name_env.strip() if default_model_name_env else None,
-            "active_models": os.getenv("ACTIVE_MODELS"),
+            "active_models": active_model_names,  # ✨ Now a list, not string
             "device": env_device,
             "ASSETS_BASE_URL": os.getenv("ASSETS_BASE_URL"),
             "STORAGE_PATH": os.getenv("STORAGE_PATH", "../Backend/public/media"),
@@ -294,8 +307,6 @@ class Settings(BaseSettings):
             for model_name in merged_config['models']:
                 if isinstance(merged_config['models'][model_name], dict):
                     merged_config['models'][model_name]['device'] = env_device
-
-        active_model_names = [m.strip() for m in (env_data.get("active_models") or "").split(',') if m.strip()]
         
         if 'models' in merged_config:
             merged_config['models'] = {
@@ -331,10 +342,13 @@ class Settings(BaseSettings):
             default_model_name_env = list(yaml_data['models'].keys())[0]
             logger.info(f"🔧 [CLI MODE] No DEFAULT_MODEL_NAME set, using first model: {default_model_name_env}")
         
+        # ✨ CHANGED: Create list directly for CLI mode (all models)
+        all_model_names = list(yaml_data.get('models', {}).keys())
+        
         env_data = {
             "api_key": os.getenv("API_KEY", "cli-mode-key"),  # CLI doesn't need API key
             "default_model_name": default_model_name_env.strip() if default_model_name_env else None,
-            "active_models": ",".join(yaml_data.get('models', {}).keys()),  # ALL models
+            "active_models": all_model_names,  # ✨ Now a list, not comma-separated string
             "device": env_device,
             "ASSETS_BASE_URL": os.getenv("ASSETS_BASE_URL", "http://localhost:3000"),
             "STORAGE_PATH": os.getenv("STORAGE_PATH", "./storage"),

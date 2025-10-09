@@ -7,7 +7,7 @@ import { connectRedisClients, disconnectRedisClients, redisConnectionOptionsForB
 import logger from '../utils/logger.js';
 
 export {config} from './env.js';
-export {redisConnectionOptionsForBullMQ} from './redis.js';
+export {redisConnectionOptionsForBullMQ, redisCache} from './redis.js';
 
 // --- SERVICE SINGLETON INSTANTIATION ---
 export const prisma = new PrismaClient({
