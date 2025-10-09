@@ -28,6 +28,6 @@ export const loginRateLimiter = createRateLimiter({
 
 // A general rate limiter for all other API requests.
 export const apiRateLimiter = createRateLimiter({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
+    windowMs: 1 * 60 * 1000,
+    max: 20000,
 });

@@ -11,6 +11,7 @@ from src.ml.registry import ModelManager, ModelRegistryError
 from src.app.dependencies import app_state
 from src.app.routers import analysis, status
 from src.app.schemas import APIError
+from src.ml.correlation import set_correlation_id, get_correlation_id, generate_correlation_id
 
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
@@ -74,6 +75,50 @@ app = FastAPI(
     },
 )
 
+# --- Middleware for Correlation ID ---
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    """
+    Middleware to add correlation ID to every request for distributed tracing.
+    """
+    # Check if client provided a correlation ID
+    correlation_id = request.headers.get("X-Correlation-ID")
+    
+    # Generate one if not provided
+    if not correlation_id:
+        correlation_id = generate_correlation_id()
+    
+    # Set in context for the request
+    set_correlation_id(correlation_id)
+    
+    # Log the request start
+    logger.info(
+        f"[{correlation_id}] {request.method} {request.url.path} - Started"
+    )
+    
+    try:
+        response = await call_next(request)
+        
+        # Add correlation ID to response headers
+        response.headers["X-Correlation-ID"] = correlation_id
+        
+        # Log the request completion
+        logger.info(
+            f"[{correlation_id}] {request.method} {request.url.path} - "
+            f"Completed {response.status_code}"
+        )
+        
+        return response
+    except Exception as e:
+        logger.error(
+            f"[{correlation_id}] {request.method} {request.url.path} - "
+            f"Failed with exception: {e}",
+            exc_info=True
+        )
+        raise
+
+
 # --- Custom Exception Handlers ---
 
 # ADD: A global "catch-all" exception handler for ultimate robustness.
@@ -83,31 +128,52 @@ async def global_exception_handler(request: Request, exc: Exception):
     Handles any unexpected, unhandled exceptions that occur during a request.
     Ensures the client always receives a structured JSON error response.
     """
+    correlation_id = get_correlation_id() or "unknown"
     # Log the full traceback for the unhandled exception for debugging.
-    logger.critical(f"Unhandled exception during request to {request.url}: {exc}", exc_info=True)
+    logger.critical(
+        f"[{correlation_id}] Unhandled exception during request to {request.url}: {exc}", 
+        exc_info=True
+    )
     return JSONResponse(
         status_code=500,
         content=APIError(
             error="Internal Server Error",
-            message="An unexpected error occurred. The technical team has been notified."
+            message="An unexpected error occurred. The technical team has been notified.",
+            details={"correlation_id": correlation_id}
         ).model_dump(),
     )
 
 @app.exception_handler(ValueError)
 async def value_error_exception_handler(request: Request, exc: ValueError):
-    logger.warning(f"Validation error for request {request.url}: {exc}", exc_info=False)
+    correlation_id = get_correlation_id() or "unknown"
+    logger.warning(
+        f"[{correlation_id}] Validation error for request {request.url}: {exc}", 
+        exc_info=False
+    )
     return JSONResponse(
         status_code=422,
-        content=APIError(error="Validation Error", message=str(exc)).model_dump(),
+        content=APIError(
+            error="Validation Error", 
+            message=str(exc),
+            details={"correlation_id": correlation_id}
+        ).model_dump(),
     )
 
 # Note: The NotImplementedError handler is less critical now but is kept for good practice.
 @app.exception_handler(NotImplementedError)
 async def not_implemented_error_handler(request: Request, exc: NotImplementedError):
-    logger.warning(f"Feature not implemented for request {request.url}: {exc}", exc_info=False)
+    correlation_id = get_correlation_id() or "unknown"
+    logger.warning(
+        f"[{correlation_id}] Feature not implemented for request {request.url}: {exc}", 
+        exc_info=False
+    )
     return JSONResponse(
         status_code=501,
-        content=APIError(error="Not Implemented", message=str(exc)).model_dump(),
+        content=APIError(
+            error="Not Implemented", 
+            message=str(exc),
+            details={"correlation_id": correlation_id}
+        ).model_dump(),
     )
 
 

@@ -201,7 +201,7 @@ export const AnalysisInProgress = ({ media }) => {
 
         {/* Enhanced Progress Summary */}
         {activeModels > 0 && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+          <div className="mb-6 p-4 rounded-lg">
             <div className="flex items-center justify-center gap-4 mb-2">
               <span className="text-sm font-medium">
                 Overall Progress: {overallProgress.toFixed(1)}%

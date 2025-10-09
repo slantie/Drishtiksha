@@ -24,15 +24,32 @@ class SocketService {
     console.log("[Socket] Attempting to connect...");
     this.socket = io(config.VITE_BACKEND_URL, { auth: { token } }); // Use validated config
 
-    this.socket.on("connect", () =>
-      console.log("[Socket] ✅ Connection established:", this.socket.id)
-    );
-    this.socket.on("disconnect", (reason) =>
-      console.log("[Socket] 🔌 Connection disconnected:", reason)
-    );
-    this.socket.on("connect_error", (err) =>
-      console.error("[Socket] ❌ Connection error:", err.message)
-    );
+    this.socket.on("connect", () => {
+      console.log("[Socket] ✅ Connection established:", this.socket.id);
+      
+      // Trigger refetch of any media in processing state to sync up
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const data = query.state.data;
+          return data?.status && ["QUEUED", "PROCESSING"].includes(data.status);
+        },
+      });
+    });
+    
+    this.socket.on("disconnect", (reason) => {
+      console.log("[Socket] 🔌 Connection disconnected:", reason);
+      
+      if (reason === "io server disconnect") {
+        // Server disconnected, try to reconnect
+        console.log("[Socket] Server disconnected, attempting reconnection...");
+        this.socket.connect();
+      }
+    });
+    
+    this.socket.on("connect_error", (err) => {
+      console.error("[Socket] ❌ Connection error:", err.message);
+    });
+    
     this.setupEventListeners();
   }
 

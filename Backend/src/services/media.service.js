@@ -33,29 +33,53 @@ class MediaService {
       throw new ApiError(415, `Unsupported file type: ${file.mimetype}`);
     }
 
-    // --- MODIFIED: Correctly call the refactored uploadFile function ---
-    const uploadResponse = await storageManager.uploadFile(
-      file.path,
-      file.originalname, // Pass the original filename for type detection
-      mediaType.toLowerCase() + "s" // Subfolder (e.g., 'videos', 'audios')
-    );
+    let uploadResponse = null;
+    
+    try {
+      // Upload file to storage
+      uploadResponse = await storageManager.uploadFile(
+        file.path,
+        file.originalname,
+        mediaType.toLowerCase() + "s"
+      );
 
-    if (!uploadResponse) {
-      throw new ApiError(500, "Failed to upload file to storage.");
+      if (!uploadResponse) {
+        throw new ApiError(500, "Failed to upload file to storage.");
+      }
+
+      // Create database record - if this fails, we'll clean up the uploaded file
+      const mediaRecord = await mediaRepository.create({
+        filename: file.originalname,
+        description,
+        url: uploadResponse.url,
+        publicId: uploadResponse.publicId,
+        mimetype: uploadResponse.mimetype,
+        size: uploadResponse.size,
+        status: "QUEUED",
+        userId: user.id,
+        mediaType: mediaType,
+      });
+      
+      logger.info(`[MediaService] Successfully created media record ${mediaRecord.id} for user ${user.id}`);
+      return mediaRecord;
+      
+    } catch (error) {
+      // If database creation failed but file was uploaded, clean up the file
+      if (uploadResponse?.publicId) {
+        logger.error(
+          `[MediaService] Database creation failed after file upload. Cleaning up file: ${uploadResponse.publicId}`
+        );
+        try {
+          await storageManager.deleteFile(uploadResponse.publicId);
+          logger.info(`[MediaService] Successfully cleaned up orphaned file: ${uploadResponse.publicId}`);
+        } catch (deleteError) {
+          logger.error(
+            `[MediaService] Failed to clean up orphaned file ${uploadResponse.publicId}: ${deleteError.message}`
+          );
+        }
+      }
+      throw error;
     }
-
-    // --- MODIFIED: Use the accurate metadata from the uploadResponse ---
-    return mediaRepository.create({
-      filename: file.originalname,
-      description,
-      url: uploadResponse.url,
-      publicId: uploadResponse.publicId,
-      mimetype: uploadResponse.mimetype, // Use the NEW mimetype (e.g., 'audio/mpeg')
-      size: uploadResponse.size, // Use the NEW size after conversion
-      status: "QUEUED",
-      userId: user.id,
-      mediaType: mediaType,
-    });
   }
 
   // ... (The rest of the MediaService class remains unchanged)
@@ -86,14 +110,35 @@ class MediaService {
         name: "run-single-analysis",
         queueName: config.MEDIA_PROCESSING_QUEUE_NAME,
         data: { mediaId: media.id, runId: run.id, modelName },
-        opts: { jobId: `${run.id}-${modelName}` },
+        opts: { 
+          jobId: `${run.id}-${modelName}`,
+          attempts: 3, // Retry failed jobs up to 3 times
+          backoff: {
+            type: 'exponential',
+            delay: 5000, // Start with 5 second delay, then exponentially increase
+          },
+          removeOnComplete: {
+            age: 86400, // Keep completed jobs for 24 hours
+            count: 1000, // Keep last 1000 completed jobs
+          },
+          removeOnFail: {
+            age: 604800, // Keep failed jobs for 7 days for debugging
+          },
+        },
       }));
 
       await mediaFlowProducer.add({
         name: "finalize-analysis",
         queueName: config.MEDIA_PROCESSING_QUEUE_NAME,
         data: { runId: run.id, mediaId: media.id },
-        opts: { jobId: `${run.id}-finalizer` },
+        opts: { 
+          jobId: `${run.id}-finalizer`,
+          attempts: 2, // Retry finalizer once if it fails
+          backoff: {
+            type: 'fixed',
+            delay: 3000, // Wait 3 seconds before retry
+          },
+        },
         children: childJobs,
       });
       logger.info(

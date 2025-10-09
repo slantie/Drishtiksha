@@ -223,8 +223,15 @@ class ColorCuesLSTMV1(BaseModel):
 
     # --- Public API Method ---
 
-    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
-        """The single, unified entry point for running a comprehensive analysis."""
+    def analyze(self, media_path: str, generate_visualizations: bool = False, **kwargs) -> AnalysisResult:
+        """
+        The single, unified entry point for running a comprehensive analysis.
+        
+        Args:
+            media_path: Path to the media file
+            generate_visualizations: If True, generate visualization video. Defaults to False.
+            **kwargs: Additional arguments (video_id, user_id, etc.)
+        """
         start_time = time.time()
 
         # 1. Get temporal scores and metadata
@@ -269,8 +276,12 @@ class ColorCuesLSTMV1(BaseModel):
             "suspicious_sequences_count": int(sum(1 for s in sequence_scores if s > 0.5)),
         }
 
-        # 6. Generate the visualization video
-        visualization_path = self._generate_visualization(media_path, sequence_scores, total_frames)
+        # 6. Generate the visualization video (only if explicitly requested)
+        visualization_path = None
+        if generate_visualizations:
+            visualization_path = self._generate_visualization(media_path, sequence_scores, total_frames)
+        else:
+            logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
 
         # 7. Assemble and return the final, comprehensive result object
         return VideoAnalysisResult(

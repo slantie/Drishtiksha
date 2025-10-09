@@ -101,6 +101,20 @@ async function handleSingleAnalysis(job) {
     localMediaPath = await _getLocalMediaPath(media);
     isTempFile = config.STORAGE_PROVIDER !== "local";
 
+    // Emit analysis started for this specific model
+    await emitProgressEvent(
+      mediaId,
+      media.userId,
+      "ANALYSIS_STARTED",
+      `Starting ${modelName} analysis for "${media.filename}"`,
+      {
+        model_name: modelName,
+        filename: media.filename,
+        runId: runId,
+        phase: "analyzing",
+      }
+    );
+
     const resultPayload = await modelAnalysisService.runAnalysis(
       localMediaPath,
       modelName,
@@ -114,6 +128,22 @@ async function handleSingleAnalysis(job) {
       confidence: resultPayload.confidence,
       resultPayload,
     });
+
+    // Emit analysis completed for this specific model
+    await emitProgressEvent(
+      mediaId,
+      media.userId,
+      "ANALYSIS_COMPLETED",
+      `Completed ${modelName} analysis for "${media.filename}"`,
+      {
+        model_name: modelName,
+        filename: media.filename,
+        runId: runId,
+        prediction: resultPayload.prediction,
+        confidence: resultPayload.confidence,
+        phase: "completed",
+      }
+    );
 
     logger.info(
       `[Worker] ✅ Successfully completed ${modelName} analysis for media ${mediaId}`
@@ -129,8 +159,8 @@ async function handleSingleAnalysis(job) {
       await emitProgressEvent(
         mediaId,
         media.userId,
-        "PROCESSING_FAILED",
-        `Analysis failed for "${media.filename}" with model ${modelName}`,
+        "ANALYSIS_FAILED",
+        `Analysis failed for "${media.filename}" with model ${modelName}: ${error.message}`,
         {
           model_name: modelName,
           error_message: error.message,
@@ -138,8 +168,12 @@ async function handleSingleAnalysis(job) {
           runId: runId,
         }
       );
+      
+      // Record the error in the database
       await mediaRepository.createAnalysisError(runId, modelName, error);
     }
+    
+    // Re-throw to let BullMQ handle retries, but the error is now properly recorded
     throw error;
   } finally {
     if (localMediaPath && isTempFile) {
@@ -156,33 +190,111 @@ async function handleSingleAnalysis(job) {
 
 async function handleFinalizeAnalysis(job) {
   const { runId, mediaId } = job.data;
-  const run = await prisma.analysisRun.findUnique({
-    where: { id: runId },
-    include: { analyses: { select: { status: true } } },
-  });
+  
+  try {
+    const run = await prisma.analysisRun.findUnique({
+      where: { id: runId },
+      include: { 
+        analyses: { select: { status: true } },
+        media: { select: { userId: true, filename: true } }
+      },
+    });
 
-  if (!run) {
-    logger.error(
-      `[Finalizer] Cannot finalize, AnalysisRun ${runId} not found.`
+    if (!run) {
+      logger.error(
+        `[Finalizer] Cannot finalize, AnalysisRun ${runId} not found.`
+      );
+      return { status: "error", reason: "AnalysisRun not found." };
+    }
+
+    const totalAnalyses = run.analyses.length;
+    const completedAnalyses = run.analyses.filter(
+      (a) => a.status === "COMPLETED"
+    ).length;
+    const failedAnalyses = run.analyses.filter(
+      (a) => a.status === "FAILED"
+    ).length;
+
+    let finalStatus;
+    if (completedAnalyses === 0 && failedAnalyses > 0) {
+      // All analyses failed
+      finalStatus = "FAILED";
+    } else if (completedAnalyses > 0 && failedAnalyses > 0) {
+      // Some succeeded, some failed - this is not in the schema, using FAILED
+      finalStatus = "FAILED";
+      logger.warn(
+        `[Finalizer] Run ${runId} has mixed results (${completedAnalyses} completed, ${failedAnalyses} failed). Setting to FAILED.`
+      );
+    } else if (completedAnalyses > 0) {
+      // All succeeded
+      finalStatus = "ANALYZED";
+    } else {
+      // No analyses completed or failed - still processing (shouldn't happen in finalizer)
+      finalStatus = "PROCESSING";
+      logger.warn(
+        `[Finalizer] Run ${runId} has no completed or failed analyses. Setting to PROCESSING.`
+      );
+    }
+
+    // Update both run and media status in a transaction for consistency
+    await prisma.$transaction(async (tx) => {
+      await tx.analysisRun.update({
+        where: { id: run.id },
+        data: { status: finalStatus },
+      });
+      
+      await tx.media.update({
+        where: { id: mediaId },
+        data: {
+          status: finalStatus,
+          latestAnalysisRunId: run.id,
+        },
+      });
+    });
+
+    // Emit final status event
+    if (run.media) {
+      await emitProgressEvent(
+        mediaId,
+        run.media.userId,
+        finalStatus === "ANALYZED" ? "ANALYSIS_COMPLETE" : "ANALYSIS_FAILED",
+        finalStatus === "ANALYZED" 
+          ? `Analysis completed successfully for "${run.media.filename}"`
+          : `Analysis failed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`,
+        {
+          runId: run.id,
+          totalAnalyses,
+          completedAnalyses,
+          failedAnalyses,
+          finalStatus,
+          filename: run.media.filename,
+        }
+      );
+    }
+
+    logger.info(
+      `[Finalizer] Finalized AnalysisRun ${run.id} for media ${mediaId} with status: ${finalStatus} (${completedAnalyses}/${totalAnalyses} completed, ${failedAnalyses} failed)`
     );
-    return { status: "error", reason: "AnalysisRun not found." };
+    
+    return { runId, mediaId, finalStatus, completedAnalyses, failedAnalyses, totalAnalyses };
+  } catch (error) {
+    logger.error(
+      `[Finalizer] Error finalizing AnalysisRun ${runId}: ${error.message}`,
+      { stack: error.stack }
+    );
+    
+    // Ensure media status is set to FAILED even if finalization fails
+    try {
+      await mediaRepository.update(mediaId, { status: "FAILED" });
+      logger.info(`[Finalizer] Set media ${mediaId} status to FAILED after finalization error`);
+    } catch (updateError) {
+      logger.error(
+        `[Finalizer] Failed to update media ${mediaId} status to FAILED: ${updateError.message}`
+      );
+    }
+    
+    throw error;
   }
-
-  const failedAnalyses = run.analyses.filter(
-    (a) => a.status === "FAILED"
-  ).length;
-  const finalStatus = failedAnalyses > 0 ? "FAILED" : "ANALYZED";
-
-  await mediaRepository.updateRunStatus(run.id, finalStatus);
-  await mediaRepository.update(mediaId, {
-    status: finalStatus,
-    latestAnalysisRunId: run.id,
-  });
-
-  logger.info(
-    `[Finalizer] Finalized AnalysisRun ${run.id} for media ${mediaId} with status: ${finalStatus}`
-  );
-  return { runId, mediaId, finalStatus };
 }
 
 async function _getLocalMediaPath(media) {
@@ -226,4 +338,45 @@ worker.on("failed", (job, err) =>
     `[Worker] Job '${job.name}' (ID: ${job.id}) has failed: ${err.message}`
   )
 );
+
+// Graceful shutdown handler
+const gracefulShutdown = async (signal) => {
+  logger.info(`\n${signal} received. Shutting down worker gracefully...`);
+  
+  try {
+    // Stop accepting new jobs
+    await worker.close();
+    logger.info("[Worker] Stopped accepting new jobs.");
+    
+    // Close Redis connections
+    await redisPublisher.quit();
+    logger.info("[Worker] Closed Redis publisher connection.");
+    
+    // Close Prisma connection
+    await prisma.$disconnect();
+    logger.info("[Worker] Closed Prisma database connection.");
+    
+    logger.info("✅ Worker shutdown complete.");
+    process.exit(0);
+  } catch (error) {
+    logger.error(`[Worker] Error during shutdown: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+// Set up signal handlers for graceful shutdown
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+// Handle uncaught errors
+process.on("uncaughtException", (error) => {
+  logger.error("[Worker] Uncaught Exception:", error);
+  gracefulShutdown("UNCAUGHT_EXCEPTION");
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("[Worker] Unhandled Rejection at:", promise, "reason:", reason);
+  gracefulShutdown("UNHANDLED_REJECTION");
+});
+
 logger.info("🚀 Media processing worker started and is listening for jobs.");

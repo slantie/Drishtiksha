@@ -4,6 +4,19 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Union, TypeVar, Generic
 
+# Import metric schemas for proper type resolution
+from src.ml.metric_schemas import (
+    SequenceBasedMetrics,
+    FrameBasedMetrics,
+    ColorCuesMetrics,
+    BlinkDetectionMetrics,
+    FaceDetectionMetrics,
+    PitchMetrics,
+    EnergyMetrics,
+    SpectralMetrics,
+    VoiceQualityMetrics
+)
+
 # --- Standard Error and Response Wrappers ---
 
 class APIError(BaseModel):
@@ -105,12 +118,21 @@ class VideoAnalysisResult(BaseAnalysisResult):
     """
     A comprehensive data structure for video analysis results.
     This single schema will be the return type for all video models.
+    
+    The 'metrics' field is now strictly typed based on the model type.
     """
     media_type: str = "video"
     frame_count: Optional[int] = Field(None, description="Total frames in the video.")
     frames_analyzed: int = Field(..., description="Number of frames or windows analyzed.")
     frame_predictions: List[FramePrediction] = Field([], description="A list of predictions for each analyzed frame or window.")
-    metrics: Dict[str, Any] = Field({}, description="A dictionary of additional, model-specific metrics (e.g., average scores, variance).")
+    metrics: Union[
+        Dict[str, Any],  # Temporary fallback for backward compatibility
+        SequenceBasedMetrics,
+        FrameBasedMetrics,
+        ColorCuesMetrics,
+        BlinkDetectionMetrics,
+        FaceDetectionMetrics
+    ] = Field(..., description="Structured, model-specific metrics.")
     visualization_path: Optional[str] = Field(None, description="An optional path to a generated visualization video file.")
 
 # --- Audio Schemas (Now inheriting from BaseAnalysisResult) ---
@@ -138,15 +160,16 @@ class AudioVisualization(BaseModel):
 
 class AudioAnalysisResult(BaseAnalysisResult):
     """
-
     A comprehensive data structure for audio analysis results.
     Inherits common fields and adds audio-specific ones.
+    Now uses strictly typed metrics.
     """
     media_type: str = "audio"
     properties: AudioProperties
-    pitch: PitchAnalysis
-    energy: EnergyAnalysis
-    spectral: SpectralAnalysis
+    pitch: Union[PitchAnalysis, PitchMetrics]  # Support both old and new schema
+    energy: Union[EnergyAnalysis, EnergyMetrics]
+    spectral: Union[SpectralAnalysis, SpectralMetrics]
+    voice_quality: Optional[VoiceQualityMetrics] = Field(None, description="Advanced voice quality metrics")
     visualization: Optional[AudioVisualization] = None
 
 

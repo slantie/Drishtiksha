@@ -7,6 +7,8 @@ from src.app.schemas import HealthStatus, ModelStatus, ServerStats, DeviceInfo, 
 from src.app.security import get_api_key
 from src.ml.registry import ModelManager
 from src.ml.system_info import system_monitor
+from src.ml.health_check import HealthChecker
+from src.ml.correlation import set_correlation_id, get_correlation_id
 from src.config import settings
 
 # --- Router for Public Endpoints ---
@@ -94,3 +96,40 @@ def get_models_info(manager: ModelManager = Depends(get_model_manager)):
 def get_configuration():
     """(Protected) Get server configuration summary."""
     return system_monitor.get_server_configuration()
+
+@private_router.get("/health/deep")
+async def get_deep_health_check(
+    force_refresh: bool = False,
+    manager: ModelManager = Depends(get_model_manager)
+):
+    """
+    (Protected) Perform comprehensive health check on all models.
+    
+    This endpoint validates that each model can:
+    - Load successfully
+    - Perform inference
+    - Return proper results
+    
+    Args:
+        force_refresh: If True, bypass cache and perform fresh checks
+        
+    Returns:
+        Detailed health status for all models
+    """
+    # Set correlation ID for request tracing
+    import uuid
+    correlation_id = str(uuid.uuid4())
+    set_correlation_id(correlation_id)
+    
+    health_checker = HealthChecker(manager)
+    results = await health_checker.check_all_models(force_refresh=force_refresh)
+    results["correlation_id"] = correlation_id
+    
+    return results
+
+@private_router.post("/health/clear-cache")
+def clear_health_cache(manager: ModelManager = Depends(get_model_manager)):
+    """(Protected) Clear the health check cache."""
+    health_checker = HealthChecker(manager)
+    health_checker.clear_cache()
+    return {"status": "success", "message": "Health check cache cleared"}

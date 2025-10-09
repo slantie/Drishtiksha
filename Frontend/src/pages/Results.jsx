@@ -91,13 +91,34 @@ const Results = () => {
     error,
     refetch,
     isRefetching, // Added isRefetching
+    dataUpdatedAt, // Track when data was last updated
   } = useMediaItemQuery(mediaId, {
     refetchInterval: (query) => {
       const currentMedia = query.state.data;
       const latestRunStatus =
         currentMedia?.analysisRuns?.[0]?.status || currentMedia?.status;
-      return ["QUEUED", "PROCESSING"].includes(latestRunStatus) ? 5000 : false;
+      
+      // Don't poll if not in a processing state
+      if (!["QUEUED", "PROCESSING"].includes(latestRunStatus)) {
+        return false;
+      }
+      
+      // Use exponential backoff for polling:
+      // - First 30 seconds: poll every 2 seconds (rapid updates)
+      // - Next 2 minutes: poll every 5 seconds
+      // - After that: poll every 10 seconds
+      const now = Date.now();
+      const lastUpdate = query.state.dataUpdatedAt || now;
+      const timeSinceUpdate = now - lastUpdate;
+      
+      if (timeSinceUpdate < 30000) return 2000; // First 30s: 2s interval
+      if (timeSinceUpdate < 150000) return 5000; // Next 2min: 5s interval
+      return 10000; // After that: 10s interval
     },
+    // Refetch on window focus to catch any missed updates
+    refetchOnWindowFocus: true,
+    // Keep data fresh with stale time
+    staleTime: 2000,
   });
   const deleteMutation = useDeleteMediaMutation();
   const [modal, setModal] = useState({ type: null, data: null });

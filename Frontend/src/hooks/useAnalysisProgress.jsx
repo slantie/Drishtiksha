@@ -27,37 +27,55 @@ export const useAnalysisProgress = (mediaId, filename) => {
 
       // Update model-specific progress
       if (data?.model_name) {
-        setModelProgress((prev) => ({
-          ...prev,
-          [data.model_name]: {
-            modelName: data.model_name,
-            message: message,
-            progress: data.progress,
-            total: data.total,
-            details: data.details,
-            timestamp: Date.now(),
-            phase: data.details?.phase || "processing",
-          },
-        }));
+        setModelProgress((prev) => {
+          const phase = 
+            eventType === "ANALYSIS_STARTED" ? "analyzing" :
+            eventType === "ANALYSIS_COMPLETED" ? "completed" :
+            eventType === "ANALYSIS_FAILED" ? "failed" :
+            data.phase || prev[data.model_name]?.phase || "processing";
+
+          return {
+            ...prev,
+            [data.model_name]: {
+              modelName: data.model_name,
+              message: message,
+              progress: data.progress,
+              total: data.total,
+              details: data.details,
+              timestamp: Date.now(),
+              phase: phase,
+              prediction: data.prediction,
+              confidence: data.confidence,
+              error: data.error_message,
+            },
+          };
+        });
       }
 
       // Auto-show progress modal for certain events
-      if (eventType === "PROCESSING_STARTED") {
+      if (["PROCESSING_STARTED", "ANALYSIS_STARTED"].includes(eventType)) {
         setIsProgressVisible(true);
       }
 
-      // Auto-hide when all processing is complete
-      if (eventType === "ANALYSIS_COMPLETE" && data?.model_name) {
-        // Check if this was the last model
-        const totalModels = Object.keys(modelProgress).length;
-        const completedModels = Object.values(modelProgress).filter(
-          (model) => model.phase === "complete"
-        ).length;
-
-        if (completedModels >= totalModels - 1) {
-          // -1 because this one just completed
-          setTimeout(() => setIsProgressVisible(false), 2000); // Auto-hide after 2 seconds
-        }
+      // Auto-hide when all processing is complete or failed
+      if (["ANALYSIS_COMPLETE", "ANALYSIS_FAILED"].includes(eventType)) {
+        // Use setTimeout to allow final updates to render
+        setTimeout(() => {
+          setModelProgress((currentProgress) => {
+            const models = Object.values(currentProgress);
+            const allDone = models.length > 0 && 
+              models.every((model) => 
+                model.phase === "completed" || model.phase === "failed"
+              );
+            
+            if (allDone) {
+              // Auto-hide after 3 seconds if all models are done
+              setTimeout(() => setIsProgressVisible(false), 3000);
+            }
+            
+            return currentProgress;
+          });
+        }, 100);
       }
     },
     [modelProgress]

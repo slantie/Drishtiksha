@@ -317,8 +317,15 @@ class EfficientNetB7Detector(BaseModel):
 
     # --- Public API Method ---
 
-    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
-        """The single, unified entry point for running a comprehensive analysis."""
+    def analyze(self, media_path: str, generate_visualizations: bool = False, **kwargs) -> AnalysisResult:
+        """
+        The single, unified entry point for running a comprehensive analysis.
+        
+        Args:
+            media_path: Path to the media file
+            generate_visualizations: If True, generate visualization video. Defaults to False.
+            **kwargs: Additional arguments (video_id, user_id, etc.)
+        """
         start_time = time.time()
         video_id = kwargs.get("video_id")
         user_id = kwargs.get("user_id")
@@ -378,8 +385,12 @@ class EfficientNetB7Detector(BaseModel):
                 "suspicious_frames_count": sum(1 for s in frame_scores if s > 0.5),
             }
 
-            # 5. Generate visualization
-            visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
+            # 5. Generate visualization (only if explicitly requested)
+            visualization_path = None
+            if generate_visualizations:
+                visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
+            else:
+                logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
 
             # 6. Publish analysis completion
             if video_id and user_id:

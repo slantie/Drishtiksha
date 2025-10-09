@@ -116,7 +116,15 @@ class DistilDIREDetectorV1(BaseModel):
         
         return heatmap_normalized.tolist()
 
-    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
+    def analyze(self, media_path: str, generate_visualizations: bool = False, **kwargs) -> AnalysisResult:
+        """
+        Analyze an image for deepfake detection using DIRE (Diffusion Reconstruction Error).
+        
+        Args:
+            media_path: Path to the media file
+            generate_visualizations: If True, generate DIRE noise map visualization. Defaults to False.
+            **kwargs: Additional arguments (media_id, user_id, etc.)
+        """
         start_time = time.time()
         media_id = kwargs.get("media_id")
         user_id = kwargs.get("user_id")
@@ -147,9 +155,13 @@ class DistilDIREDetectorV1(BaseModel):
                 publish("DIRE_GENERATION", "Generating DIRE noise map", 25, 100)
                 eps_tensor = self._get_first_step_noise(img_tensor)
 
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                    visualization_path = tmp.name
-                self._save_tensor_as_image(eps_tensor, visualization_path)
+                # Only generate visualization if explicitly requested
+                if generate_visualizations:
+                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                        visualization_path = tmp.name
+                    self._save_tensor_as_image(eps_tensor, visualization_path)
+                else:
+                    logger.info(f"[{self.config.class_name}] Skipping DIRE map visualization generation (generate_visualizations=False)")
                 
                 publish("DETECTION", "Running detector model", 75, 100)
                 combined_input = torch.cat([img_tensor, eps_tensor], dim=1)

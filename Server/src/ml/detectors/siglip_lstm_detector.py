@@ -361,8 +361,13 @@ class BaseSiglipLSTMDetector(BaseModel):
             "suspicious_frames_count": sum(1 for s in frame_scores if s > 0.5),
         }
 
-        # 6. Generate the visualization video
-        visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
+        # 6. Generate the visualization video (only if explicitly requested)
+        generate_visualizations = kwargs.get('generate_visualizations', False)
+        visualization_path = None
+        if generate_visualizations:
+            visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
+        else:
+            logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
 
         # 7. Publish analysis completion
         if video_id and user_id:
@@ -389,10 +394,15 @@ class BaseSiglipLSTMDetector(BaseModel):
         )
 
     # --- Public API Method ---
-    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
+    def analyze(self, media_path: str, generate_visualizations: bool = False, **kwargs) -> AnalysisResult:
         """
         The single, unified entry point that dispatches to the correct
         analysis method based on the detected media type.
+        
+        Args:
+            media_path: Path to the media file
+            generate_visualizations: If True, generate visualization video. Defaults to False.
+            **kwargs: Additional arguments (video_id, user_id, etc.)
         """
         media_type = get_media_type(media_path)
         
@@ -400,9 +410,11 @@ class BaseSiglipLSTMDetector(BaseModel):
 
         try:
             if media_type == "VIDEO" and self.config.isVideo:
-                return self._analyze_video(media_path, **kwargs)
+                # Pass generate_visualizations through kwargs
+                return self._analyze_video(media_path, generate_visualizations=generate_visualizations, **kwargs)
             
             elif media_type == "IMAGE" and self.config.isImage:
+                # Images don't have video visualizations
                 return self._analyze_image(media_path)
                 
             else:

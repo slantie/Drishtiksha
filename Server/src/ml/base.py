@@ -47,7 +47,7 @@ class BaseModel(ABC):
         pass
 
     @abstractmethod
-    def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
+    def analyze(self, media_path: str, generate_visualizations: bool = False, **kwargs) -> AnalysisResult:
         """
         Performs a comprehensive analysis on the given media file.
 
@@ -58,6 +58,9 @@ class BaseModel(ABC):
 
         Args:
             media_path (str): The local file path to the media to be analyzed.
+            generate_visualizations (bool): If True, generate visualization videos/images.
+                                          Defaults to False for API calls (raw data only).
+                                          Set to True for CLI usage.
             **kwargs: Catches additional parameters that might be sent from the API,
                       such as 'video_id' or 'user_id' for event publishing.
 

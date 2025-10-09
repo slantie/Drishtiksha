@@ -103,9 +103,28 @@ class ModelAnalysisService {
         logger.error(`[ModelAnalysisService] API Error during ${operation} for ${logId}: ${error.message}`);
         if (error.response) {
             const { status, data } = error.response;
-            const message = data?.detail || data?.message || 'Analysis failed on the model server.';
+            
+            // Extract meaningful error message (ensure it's a string)
+            let message;
+            if (typeof data?.detail === 'string') {
+                message = data.detail;
+            } else if (typeof data?.detail?.message === 'string') {
+                message = data.detail.message;
+            } else if (typeof data?.message === 'string') {
+                message = data.message;
+            } else if (typeof data?.detail === 'object') {
+                message = data.detail.error || data.detail.message || 'Analysis failed on the model server.';
+            } else {
+                message = 'Analysis failed on the model server.';
+            }
+            
             logger.error(`[ModelAnalysisService] Server responded with status ${status}: ${JSON.stringify(data)}`);
-            throw new ApiError(status, message, data?.details || data);
+            
+            // Create error with string message and full data as details
+            const apiError = new ApiError(status, message, data);
+            // Store the full error response for debugging
+            apiError.serverResponse = data;
+            throw apiError;
         } else if (error.code === 'ECONNREFUSED') {
             throw new ApiError(503, 'Model analysis service is unavailable. Connection refused.');
         } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {

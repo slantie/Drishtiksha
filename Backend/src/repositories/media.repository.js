@@ -113,15 +113,35 @@ export const mediaRepository = {
     },
 
     async createAnalysisError(runId, modelName, error) {
+        // Ensure errorMessage is always a string
+        let errorMessage;
+        if (typeof error.message === 'string') {
+            errorMessage = error.message;
+        } else if (typeof error.message === 'object') {
+            // If message is an object, stringify it
+            errorMessage = JSON.stringify(error.message);
+        } else {
+            errorMessage = String(error.message || error);
+        }
+        
+        // Build result payload with full error details
+        const resultPayload = {
+            error: errorMessage,
+            stack: error.stack,
+            // Include server response if available (from ApiError)
+            serverResponse: error.serverResponse || error.details,
+            timestamp: new Date().toISOString()
+        };
+        
         return prisma.deepfakeAnalysis.create({
             data: {
                 analysisRunId: runId,
                 modelName,
                 status: 'FAILED',
-                errorMessage: error.message,
+                errorMessage: errorMessage, // Guaranteed to be string
                 prediction: 'N/A',
                 confidence: 0,
-                resultPayload: { error: error.stack || error.message },
+                resultPayload: resultPayload,
             },
         });
     },

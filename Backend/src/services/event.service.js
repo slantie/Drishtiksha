@@ -41,9 +41,9 @@ export function initializeRedisListener(io) {
         }
 
         // Log the event for debugging (can be disabled in production)
-        logger.debug(
-          `[EventService] 📢 Broadcasting '${progressData.event}' event for media_id: ${progressData.media_id}, user_id: ${progressData.user_id}`
-        );
+        // logger.debug(
+        //   `[EventService] 📢 Broadcasting '${progressData.event}' event for media_id: ${progressData.media_id}, user_id: ${progressData.user_id}`
+        // );
 
         // Convert Server event format to Frontend-compatible format
         const frontendEvent = {
@@ -59,9 +59,9 @@ export function initializeRedisListener(io) {
         io.to(progressData.user_id).emit("progress_update", frontendEvent);
 
         // Optional: Log successful broadcast
-        logger.debug(
-          `[EventService] ✅ Successfully broadcasted event to user ${progressData.user_id}`
-        );
+        // logger.debug(
+        //   `[EventService] ✅ Successfully broadcasted event to user ${progressData.user_id}`
+        // );
       } catch (error) {
         logger.error(
           "[EventService] ❌ Failed to parse or broadcast progress event message:",
