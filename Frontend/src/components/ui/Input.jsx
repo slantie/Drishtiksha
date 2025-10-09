@@ -9,15 +9,16 @@ const Input = React.forwardRef(
     const inputId = id || React.useId(); // Generate unique ID if not provided
 
     return (
-      <div className="relative w-full">
-        {label && (
+      <div>
+      {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-1"
+            className="block text-sm font-medium text-light-muted-text dark:text-dark-muted-text mb-2"
           >
             {label}
           </label>
         )}
+      <div className="relative w-full">
         {/* REFACTOR: Left icon is now a purely decorative element with pointer-events-none. */}
         {leftIcon && (
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -52,6 +53,7 @@ const Input = React.forwardRef(
             {rightIcon}
           </div>
         )}
+      </div>
       </div>
     );
   }

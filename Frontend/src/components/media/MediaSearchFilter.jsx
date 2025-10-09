@@ -65,20 +65,23 @@ export const MediaSearchFilter = ({ mediaItems, onFilterChange }) => {
     return (
         <Card>
             <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+                <div className="flex gap-2 items-center justify-between">
                     {/* Search Input */}
-                    <Input
+                    <div className='w-1/2'>
+                        <Input
                         type="text"
                         placeholder="Search by filename or description..."
                         value={filters.searchTerm}
                         onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                         leftIcon={<Search className="h-5 w-5" />}
-                        className="lg:col-span-1"
-                        rightIcon={null}
+                        className="rounded-full w-full"
+                        rightIcon={<></>}
                     />
+                    </div>
 
                     {/* Media Type Filter */}
-                    <Select value={filters.mediaType} onValueChange={(value) => handleFilterChange('mediaType', value)}>
+                    <div className="flex gap-2 w-1/2">
+                    <Select value={filters.mediaType} onValueChange={(value) => handleFilterChange('mediaType', value)} className="w-1/6">
                         <SelectTrigger><SelectValue placeholder="Filter by Type" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Media Types</SelectItem>
@@ -132,6 +135,7 @@ export const MediaSearchFilter = ({ mediaItems, onFilterChange }) => {
                             )}
                         </SelectContent>
                     </Select>
+                    </div>
 
                 </div>
                 {hasActiveFilters && (

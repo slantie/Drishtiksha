@@ -339,7 +339,7 @@ export const Dashboard = () => {
   if (isLoading && !mediaItems.length) return <DashboardSkeleton />;
 
   return (
-    <div className="space-y-6 w-full max-w-full mx-auto">
+    <div className="space-y-2 w-full max-w-full mx-auto">
       {" "}
       {/* Consistent vertical spacing, full width */}
       <PageHeader
@@ -352,17 +352,18 @@ export const Dashboard = () => {
             <Button
               onClick={() => refetch()}
               variant="outline"
+              size="sm"
               isLoading={isRefetching}
             >
               <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
             </Button>
-            <Button onClick={() => setModal({ type: "upload" })}>
+            <Button size="sm" onClick={() => setModal({ type: "upload" })}>
               <Upload className="mr-2 h-4 w-4" /> Upload Media
             </Button>
           </div>
         }
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {" "}
         {/* Consistent gap */}
         <StatCard

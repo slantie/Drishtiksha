@@ -193,7 +193,7 @@ export function DataTable({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="rounded-full"
-                  rightIcon={null} // Explicitly null
+                  rightIcon={<></>} // Explicitly null
                 />
               </div>
             )}

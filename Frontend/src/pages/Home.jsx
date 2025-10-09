@@ -214,16 +214,6 @@ const Home = () => {
                 <Play className="mr-2 h-5 w-5" /> Start Analysis
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg">
-              <a
-                href="https://github.com/zaptrixio-cyber/Drishtiksha"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="View on GitHub"
-              >
-                <Github className="mr-2 h-5 w-5" /> View on GitHub
-              </a>
-            </Button>
           </div>
         </div>
         {/* Stats positioned within the hero section, but separate from the main text block */}

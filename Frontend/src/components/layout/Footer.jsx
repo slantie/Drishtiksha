@@ -33,7 +33,7 @@ function Footer() {
 
           <div className="flex items-center gap-2 justify-center">
             {/* Social Links */}
-            <div className="flex items-center space-x-4">
+            {/* <div className="flex items-center space-x-4">
               {socialLinks.map((link) => (
                 <Button
                   as="a"
@@ -48,7 +48,7 @@ function Footer() {
                   <span>{link.name}</span>
                 </Button>
               ))}
-            </div>
+            </div> */}
             {/* Back to Top */}
             <Button
               variant="outline"

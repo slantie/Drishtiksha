@@ -8,7 +8,7 @@ function Layout({ children }) {
     return (
         <div className="flex flex-col min-h-screen bg-light-muted-background dark:bg-dark-background text-light-text dark:text-dark-text font-sans">
             <Header />
-            <main className="flex-1 w-full mx-auto p-6">
+            <main className="flex-1 w-full mx-auto p-4">
                 {children}
             </main>
             <Footer />

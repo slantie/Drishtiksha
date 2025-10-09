@@ -277,7 +277,7 @@ const Profile = () => {
                         value={profileForm.firstName}
                         onChange={handleProfileChange}
                         leftIcon={<User className="h-5 w-5" />} // Consistent icon size
-                        rightIcon={null}
+                        rightIcon={<></>}
                         disabled={updateProfileMutation.isPending} // Disable input while saving
                       />
                       <Input
@@ -286,7 +286,7 @@ const Profile = () => {
                         value={profileForm.lastName}
                         onChange={handleProfileChange}
                         leftIcon={<User className="h-5 w-5" />} // Consistent icon size
-                        rightIcon={null}
+                        rightIcon={<></>}
                         disabled={updateProfileMutation.isPending} // Disable input while saving
                       />
                     </div>
@@ -329,26 +329,28 @@ const Profile = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {" "}
+                    {/* {" "} */}
                     {/* Consistent vertical spacing */}
                     <Input
                       label="Current Password"
                       name="currentPassword"
                       type="password"
+                      placeholder="••••••••"
                       value={passwordForm.currentPassword}
                       onChange={handlePasswordChange}
-                      leftIcon={<Lock className="h-5 w-5" />} // Consistent icon size
-                      rightIcon={null}
+                      leftIcon={<Lock/>} // Consistent icon size
+                      rightIcon={<></>}
                       disabled={updatePasswordMutation.isPending}
                     />
                     <Input
                       label="New Password"
                       name="newPassword"
                       type="password"
+                      placeholder="••••••••"
                       value={passwordForm.newPassword}
                       onChange={handlePasswordChange}
-                      leftIcon={<Lock className="h-5 w-5" />} // Consistent icon size
-                      rightIcon={null}
+                      leftIcon={<Lock/>} // Consistent icon size
+                      rightIcon={<></>}
                       minLength={6} // Client-side hint
                       disabled={updatePasswordMutation.isPending}
                     />

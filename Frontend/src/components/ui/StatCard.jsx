@@ -105,7 +105,7 @@ export const StatCard = ({
           </p>
           <div
             className={clsx(
-              "text-4xl md:text-5xl font-extrabold transition-colors duration-300",
+              "text-3xl font-extrabold transition-colors duration-300",
               theme.text, // Always use theme color for the value
               {
                 "group-hover:opacity-80": isClickable,
@@ -131,7 +131,7 @@ export const StatCard = ({
                 enableScrollSpy={true}
                 scrollSpyOnce={true}
                 className={clsx(
-                  "md:text-4xl lg:text-6xl font-black",
+                  "text-5xl font-extrabold",
                   theme.text
                 )}
               />
@@ -148,7 +148,7 @@ export const StatCard = ({
         {/* Icon with dynamic color and opacity for hover effect */}
         <Icon
           className={clsx(
-            "h-20 w-20 transition-all duration-300 group-hover:scale-110 flex-shrink-0",
+            "h-16 w-16 transition-all duration-300 group-hover:scale-110 flex-shrink-0",
             theme.text, // Apply dynamic text color
             "opacity-80 group-hover:opacity-100" // Control opacity on hover
           )}
