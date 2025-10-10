@@ -39,19 +39,19 @@ export const AnalysisReport = ({ result }) => {
   const isAudio = mediaType === "audio";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-      {/* Left Column: Consistent for all media types */}
-      <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
-        <OverallResultCard result={overallData} />
-        <EnvironmentCard result={environmentData} /> {/* Reintegrated */}
-      </div>
+    <div className="space-y-6">
+      {/* Top Section: Overall Result */}
+      <OverallResultCard result={overallData} />
 
-      {/* Right Column: Dynamically renders the correct report type */}
-      <div className="lg:col-span-2 space-y-6">
+      {/* Main Content: Media-specific analysis */}
+      <div className="space-y-6">
         {isVideo && <VideoReport result={result} />}
         {isAudio && <AudioReport result={result} />}
         {/* Potentially add ImageReport here if needed later */}
       </div>
+
+      {/* Bottom Section: Environment Info */}
+      <EnvironmentCard result={environmentData} />
     </div>
   );
 };

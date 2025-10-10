@@ -11,14 +11,18 @@ import {
   CardFooter,
 } from "../../ui/Card";
 import { Button } from "../../ui/Button";
+import { Badge } from "../../ui/Badge";
 import { Alert, AlertDescription, AlertTitle } from "../../ui/Alert";
 import {
-  Eye, // Changed to Brain for view detailed report
+  Eye,
   ShieldCheck,
   ShieldAlert,
   Clock,
   AlertTriangle,
-  Brain, // Icon for view detailed report
+  Brain,
+  FileVideo,
+  FileAudio,
+  FileImage,
 } from "lucide-react";
 import { formatProcessingTime } from "../../../utils/formatters.js";
 
@@ -70,24 +74,48 @@ export const AnalysisResultSummaryCard = ({ analysis, mediaId }) => {
 
   const isReal = prediction === "REAL";
 
+  // Media type icon mapping
+  const mediaTypeIcons = {
+    video: FileVideo,
+    audio: FileAudio,
+    image: FileImage,
+  };
+  
+  const MediaIcon = mediaTypeIcons[mediaType?.toLowerCase()] || FileVideo;
+
   return (
     <Card
       className={`transition-all hover:shadow-lg ${
         isReal ? "border-green-500/30" : "border-red-500/30"
       }`}
     >
-      <CardHeader className="flex flex-row items-start justify-between">
-        <div>
-          <CardTitle>{analysis.modelName}</CardTitle>
-          <CardDescription className="capitalize">
-            {mediaType} analysis model.
-          </CardDescription>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <CardTitle className="text-base truncate">{analysis.modelName}</CardTitle>
+              <Badge 
+                variant={
+                  mediaType?.toLowerCase() === "video" ? "purple" : 
+                  mediaType?.toLowerCase() === "audio" ? "info" : 
+                  "success"
+                }
+                size="sm"
+              >
+                <MediaIcon className="w-3 h-3 mr-1" />
+                {mediaType}
+              </Badge>
+            </div>
+            <CardDescription className="text-xs">
+              AI deepfake detection model
+            </CardDescription>
+          </div>
+          {isReal ? (
+            <ShieldCheck className="w-8 h-8 text-green-500 flex-shrink-0" />
+          ) : (
+            <ShieldAlert className="w-8 h-8 text-red-500 flex-shrink-0" />
+          )}
         </div>
-        {isReal ? (
-          <ShieldCheck className="w-8 h-8 text-green-500 flex-shrink-0" />
-        ) : (
-          <ShieldAlert className="w-8 h-8 text-red-500 flex-shrink-0" />
-        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4 text-center">

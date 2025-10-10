@@ -71,7 +71,7 @@ export const EditMediaModal = ({ isOpen, onClose, media }) => {
           maxLength={500} // Add max length client-side hint
           disabled={updateMutation.isPending}
           leftIcon={<FilePen className="h-5 w-5" />} // Added icon
-          rightIcon={null}
+          rightIcon={<></>}
         />
       </div>
     </Modal>

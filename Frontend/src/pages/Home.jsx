@@ -1,6 +1,6 @@
 // src/pages/Home.jsx
 
-import React, { useRef } from "react"; // Removed useState, useEffect, useMemo as they were not directly used for static content and section scrolling is off
+import React, { useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   BrainCircuit,

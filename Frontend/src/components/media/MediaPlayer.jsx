@@ -276,8 +276,10 @@ export const MediaPlayer = ({ media }) => {
       ref={containerRef}
       className={`relative group bg-black rounded-lg overflow-hidden focus:outline-none ${
         media.mediaType === "VIDEO"
-          ? "aspect-video"
-          : "aspect-square max-h-[500px]"
+          ? "aspect-video max-h-[400px]"
+          : media.mediaType === "AUDIO"
+          ? "aspect-video max-h-[280px]"
+          : "aspect-square max-h-[400px]"
       }`}
       tabIndex={0}
     >

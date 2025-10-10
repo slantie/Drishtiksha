@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageLoader } from "../components/ui/LoadingSpinner";
+import { showToast } from "../utils/toast.jsx";
 import {
   useProfileQuery,
   useUpdateProfileMutation,
@@ -100,6 +101,7 @@ const Profile = () => {
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
+    confirmPassword: "",
   });
 
   useEffect(() => {
@@ -111,7 +113,7 @@ const Profile = () => {
     } else {
       // Clear forms if user becomes null (e.g., after logout or session expiry)
       setProfileForm({ firstName: "", lastName: "" });
-      setPasswordForm({ currentPassword: "", newPassword: "" });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     }
   }, [user]);
 
@@ -135,10 +137,15 @@ const Profile = () => {
       showToast.error("New password must be at least 6 characters long.");
       return;
     }
+    // Check if passwords match
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showToast.error("New passwords do not match.");
+      return;
+    }
     updatePasswordMutation.mutate(passwordForm, {
       onSuccess: () => {
         setActiveView("view");
-        setPasswordForm({ currentPassword: "", newPassword: "" }); // Clear password fields
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); // Clear password fields
       },
     });
   };
@@ -354,6 +361,24 @@ const Profile = () => {
                       minLength={6} // Client-side hint
                       disabled={updatePasswordMutation.isPending}
                     />
+                    <Input
+                      label="Confirm New Password"
+                      name="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={passwordForm.confirmPassword}
+                      onChange={handlePasswordChange}
+                      leftIcon={<Lock/>}
+                      rightIcon={<></>}
+                      minLength={6}
+                      disabled={updatePasswordMutation.isPending}
+                      error={
+                        passwordForm.confirmPassword &&
+                        passwordForm.newPassword !== passwordForm.confirmPassword
+                          ? "Passwords do not match"
+                          : undefined
+                      }
+                    />
                   </CardContent>
                   <CardFooter className="justify-end gap-2">
                     {" "}
@@ -371,7 +396,9 @@ const Profile = () => {
                       disabled={
                         !passwordForm.currentPassword ||
                         !passwordForm.newPassword ||
-                        passwordForm.newPassword.length < 6 // Disable if new password too short
+                        !passwordForm.confirmPassword ||
+                        passwordForm.newPassword.length < 6 ||
+                        passwordForm.newPassword !== passwordForm.confirmPassword // Disable if passwords don't match
                       }
                     >
                       <Save className="mr-2 h-4 w-4" /> Update Password

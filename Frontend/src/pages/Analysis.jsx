@@ -146,18 +146,28 @@ const AnalysisPage = () => {
           </div>
         }
       />
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5 text-primary-main" /> Original Media
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MediaPlayer media={media} />
-        </CardContent>
-      </Card>
-      {/* The main analysis report component */}
-      <AnalysisReport result={analysis.resultPayload} />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        {/* Compact Media Player Sidebar */}
+        <div className="lg:col-span-1 space-y-4 lg:sticky lg:top-24">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Video className="h-4 w-4 text-primary-main" /> Original Media
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3">
+              <div className="max-h-64 overflow-hidden rounded-lg">
+                <MediaPlayer media={media} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Analysis Report */}
+        <div className="lg:col-span-3">
+          <AnalysisReport result={analysis.resultPayload} />
+        </div>
+      </div>
     </div>
   );
 };

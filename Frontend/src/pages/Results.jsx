@@ -18,6 +18,7 @@ import {
   useDeleteMediaMutation,
 } from "../hooks/useMediaQuery.jsx";
 import { Button } from "../components/ui/Button";
+import { StatusBadge } from "../components/ui/Badge";
 import {
   Card,
   CardContent,
@@ -38,49 +39,43 @@ import { AnalysisResultSummaryCard } from "../components/analysis/charts/Analysi
 import { DownloadService } from "../services/DownloadReport.js"; // Import the DownloadService
 import { useAuth } from "../contexts/AuthContext.jsx"; // Import useAuth to get user for report generation
 
-const AnalysisRunCard = ({ run, mediaId }) => (
-  <Card>
-    <CardHeader>
-      <div className="flex justify-between items-center gap-4">
-        {" "}
-        {/* Added gap for responsiveness */}
-        <CardTitle className="text-lg">
-          Analysis Run #{run.runNumber}
-        </CardTitle>{" "}
-        {/* Consistent title size */}
-        <span className="text-xs text-light-muted-text dark:text-dark-muted-text flex-shrink-0">
-          {formatDate(run.createdAt)}
-        </span>
-      </div>
-      <CardDescription>
-        Status:{" "}
-        <span className="capitalize font-semibold">
-          {run.status.toLowerCase()}
-        </span>
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {" "}
-        {/* Consistent gap */}
-        {run.analyses?.length > 0 ? (
-          run.analyses.map((analysis) => (
-            <AnalysisResultSummaryCard
-              key={analysis.id}
-              analysis={analysis}
-              mediaId={mediaId}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center text-light-muted-text dark:text-dark-muted-text p-4">
-            <Brain className="h-10 w-10 mx-auto mb-3" />
-            <p>No completed analyses for this run yet.</p>
+const AnalysisRunCard = ({ run, mediaId }) => {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg">
+              Run #{run.runNumber}
+            </CardTitle>
+            <StatusBadge status={run.status} />
           </div>
-        )}
-      </div>
-    </CardContent>
-  </Card>
-);
+          <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+            {formatDate(run.createdAt)}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {run.analyses?.length > 0 ? (
+            run.analyses.map((analysis) => (
+              <AnalysisResultSummaryCard
+                key={analysis.id}
+                analysis={analysis}
+                mediaId={mediaId}
+              />
+            ))
+          ) : (
+            <div className="col-span-full text-center text-light-muted-text dark:text-dark-muted-text p-8">
+              <Brain className="h-10 w-10 mx-auto mb-3" />
+              <p className="text-sm">No completed analyses for this run yet.</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Results = () => {
   const { mediaId } = useParams();
@@ -191,29 +186,15 @@ const Results = () => {
           </div>
         }
       />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {" "}
-        {/* Consistent gap */}
-        <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
-          {" "}
-          {/* Consistent vertical spacing, sticky for actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Original Media</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MediaPlayer media={media} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {" "}
-              {/* Consistent gap, responsive columns */}
+      {/* Media Player Section - Compact at top */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle>Original Media</CardTitle>
+            <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() => setModal({ type: "rerun", data: media })}
+                size="sm"
                 aria-label={`Re-analyze ${media.filename}`}
               >
                 <RefreshCw className="h-4 w-4 mr-2" /> Re-Analyze
@@ -221,6 +202,7 @@ const Results = () => {
               <Button
                 onClick={() => setModal({ type: "edit", data: media })}
                 variant="outline"
+                size="sm"
                 aria-label={`Edit description for ${media.filename}`}
               >
                 <Edit className="h-4 w-4 mr-2" /> Edit
@@ -228,35 +210,43 @@ const Results = () => {
               <Button
                 onClick={() =>
                   DownloadService.downloadMedia(media.url, media.filename)
-                } // Use DownloadService
+                }
                 variant="outline"
+                size="sm"
                 aria-label={`Download original file ${media.filename}`}
               >
-                <Download className="h-4 w-4 mr-2" /> Download File
+                <Download className="h-4 w-4 mr-2" /> Download
               </Button>
-              {media.analysisRuns?.[0]?.analyses?.length >
-                0 /* Only show if there's any analysis to report */ && (
+              {media.analysisRuns?.[0]?.analyses?.length > 0 && (
                 <Button
                   onClick={() =>
                     DownloadService.generateAndDownloadPDF(media, user)
-                  } // Use DownloadService for PDF
+                  }
                   variant="outline"
+                  size="sm"
                   aria-label={`Download PDF report for ${media.filename}`}
                 >
-                  <FileText className="h-4 w-4 mr-2" /> Download Report
+                  <FileText className="h-4 w-4 mr-2" /> Report
                 </Button>
               )}
               <Button
                 onClick={() => setModal({ type: "delete", data: media })}
                 variant="destructive"
+                size="sm"
                 aria-label={`Delete ${media.filename}`}
               >
                 <Trash2 className="h-4 w-4 mr-2" /> Delete
               </Button>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="lg:col-span-2 space-y-6">
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <MediaPlayer media={media} />
+        </CardContent>
+      </Card>
+
+      {/* Analysis Results Section */}
+      <div className="space-y-6">
           {" "}
           {/* Consistent vertical spacing */}
           {isProcessing ? (
@@ -288,8 +278,8 @@ const Results = () => {
               }
             />
           )}
-        </div>
       </div>
+
       {/* --- MODALS --- */}
       <EditMediaModal
         isOpen={modal.type === "edit"}
