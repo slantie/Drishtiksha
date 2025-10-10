@@ -139,6 +139,7 @@ class MediaService {
             type: 'fixed',
             delay: 3000, // Wait 3 seconds before retry
           },
+          ignoreDependencyOnFailure: true,  // 🔧 FIX: Run finalizer even if child jobs fail
         },
         children: childJobs,
       });
@@ -189,7 +190,6 @@ class MediaService {
 
   async _determineCompatibleModels(mediaType) {
     const serverStats = await modelAnalysisService.getServerStatistics();
-    console.log("Server's Sent Data: ", JSON.stringify(serverStats));
     if (!serverStats?.models_info) return [];
 
     return (

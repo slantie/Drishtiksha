@@ -131,26 +131,50 @@ export const mediaRepository = {
             errorMessage = String(error.message || error);
         }
         
+        // 🔍 BUGFIX: Check if an analysis entry already exists for this run + model combo
+        // This prevents duplicate FAILED entries when BullMQ retries the job
+        const existingAnalysis = await prisma.deepfakeAnalysis.findFirst({
+            where: {
+                analysisRunId: runId,
+                modelName: modelName,
+            },
+        });
+        
         // Build result payload with full error details
         const resultPayload = {
             error: errorMessage,
             stack: error.stack,
             // Include server response if available (from ApiError)
             serverResponse: error.serverResponse || error.details,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            // Track retry count to show users how many times the job was retried
+            retryCount: existingAnalysis ? ((existingAnalysis.resultPayload?.retryCount || 0) + 1) : 0,
         };
         
-        return prisma.deepfakeAnalysis.create({
-            data: {
-                analysisRunId: runId,
-                modelName,
-                status: 'FAILED',
-                errorMessage: errorMessage, // Guaranteed to be string
-                prediction: 'N/A',
-                confidence: 0,
-                resultPayload: resultPayload,
-            },
-        });
+        if (existingAnalysis) {
+            // 🔄 UPDATE: If entry exists, update it with new error details and incremented retry count
+            return prisma.deepfakeAnalysis.update({
+                where: { id: existingAnalysis.id },
+                data: {
+                    status: 'FAILED',
+                    errorMessage: errorMessage, // Guaranteed to be string
+                    resultPayload: resultPayload,
+                },
+            });
+        } else {
+            // ✨ CREATE: If this is the first failure, create a new entry
+            return prisma.deepfakeAnalysis.create({
+                data: {
+                    analysisRunId: runId,
+                    modelName,
+                    status: 'FAILED',
+                    errorMessage: errorMessage, // Guaranteed to be string
+                    prediction: 'N/A',
+                    confidence: 0,
+                    resultPayload: resultPayload,
+                },
+            });
+        }
     },
 
     // --- Monitoring Operations ---

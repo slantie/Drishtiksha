@@ -196,7 +196,7 @@ const Results = () => {
         </p>
         <Button asChild className="mt-4">
           <Link to="/dashboard">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Link>
         </Button>
       </div>
@@ -231,8 +231,8 @@ const Results = () => {
               <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
             </Button>
             <Button asChild variant="outline">
-              <Link to="/dashboard" aria-label="Back to dashboard">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+              <Link to="/dashboard" aria-label="Go Back">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
               </Link>
             </Button>
           </div>

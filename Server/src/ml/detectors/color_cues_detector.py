@@ -246,6 +246,7 @@ class ColorCuesLSTMV1(BaseModel):
                 note=note,
                 frame_count=total_frames,
                 frames_analyzed=0,
+                metrics={}  # 🔧 FIX: Add empty metrics to satisfy Pydantic schema
             )
 
         # 3. Calculate final prediction and confidence

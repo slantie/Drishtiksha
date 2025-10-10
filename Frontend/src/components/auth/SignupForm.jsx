@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
-import { Eye, EyeOff, Mail, Lock, User, UserPlus } from "lucide-react"; // Added UserPlus for signup button
+import { Eye, EyeOff, Mail, Lock, User, UserPlus, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { showToast } from "../../utils/toast.jsx"; // Import toast for client-side feedback
+import { showToast } from "../../utils/toast.jsx";
 
 const SignupForm = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
@@ -17,10 +17,47 @@ const SignupForm = ({ onSwitchToLogin }) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const { signup, isSigningUp } = useAuth();
 
+  // Email validation
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Real-time email validation
+    if (name === "email") {
+      if (value && !isValidEmail(value)) {
+        setEmailError("Please enter a valid email address");
+      } else {
+        setEmailError("");
+      }
+    }
+
+    // Real-time password validation
+    if (name === "password") {
+      if (value && value.length < 6) {
+        setPasswordError("Password must be at least 6 characters");
+      } else {
+        setPasswordError("");
+      }
+    }
+
+    // Real-time confirm password validation
+    if (name === "confirmPassword") {
+      if (value && value !== formData.password) {
+        setPasswordError("Passwords do not match");
+      } else if (formData.password.length < 6) {
+        setPasswordError("Password must be at least 6 characters");
+      } else {
+        setPasswordError("");
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -123,7 +160,39 @@ const SignupForm = ({ onSwitchToLogin }) => {
         disabled={isSigningUp}
         leftIcon={<Mail className="h-5 w-5" />}
         rightIcon={<></>}
+        error={emailError}
       />
+
+      {/* Password Requirements */}
+      {formData.password && (
+        <div className="space-y-2 p-3 bg-light-background dark:bg-dark-muted-background rounded-lg">
+          <p className="text-xs font-medium text-light-muted-text dark:text-dark-muted-text">
+            Password Requirements:
+          </p>
+          <div className="flex items-center gap-2 text-xs">
+            {formData.password.length >= 6 ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-500" />
+            )}
+            <span className={formData.password.length >= 6 ? "text-green-600 dark:text-green-400" : "text-light-muted-text dark:text-dark-muted-text"}>
+              At least 6 characters
+            </span>
+          </div>
+          {formData.confirmPassword && (
+            <div className="flex items-center gap-2 text-xs">
+              {formData.password === formData.confirmPassword ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-500" />
+              )}
+              <span className={formData.password === formData.confirmPassword ? "text-green-600 dark:text-green-400" : "text-light-muted-text dark:text-dark-muted-text"}>
+                Passwords match
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
@@ -136,7 +205,8 @@ const SignupForm = ({ onSwitchToLogin }) => {
           disabled={isSigningUp}
           leftIcon={<Lock className="h-5 w-5" />}
           rightIcon={passwordToggle}
-          minLength={6} // Client-side hint, backend validates
+          minLength={6}
+          error={passwordError && !formData.confirmPassword ? passwordError : ""}
         />
         <Input
           name="confirmPassword"
@@ -148,7 +218,8 @@ const SignupForm = ({ onSwitchToLogin }) => {
           disabled={isSigningUp}
           leftIcon={<Lock className="h-5 w-5" />}
           rightIcon={confirmPasswordToggle}
-          minLength={6} // Client-side hint, backend validates
+          minLength={6}
+          error={formData.confirmPassword && passwordError ? passwordError : ""}
         />
       </div>
 

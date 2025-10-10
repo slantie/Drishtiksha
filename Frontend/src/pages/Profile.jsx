@@ -43,6 +43,9 @@ const AvatarCard = ({ user }) => (
         <div className="w-32 h-32 rounded-full border-4 border-light-secondary dark:border-dark-secondary shadow-lg bg-primary-main/20 flex items-center justify-center">
           <span className="text-5xl font-bold text-primary-main">
             {user.firstName?.charAt(0) || ""} {/* Ensure fallback for charAt */}
+            
+          </span>
+          <span className="text-5xl font-bold text-primary-main">
             {user.lastName?.charAt(0) || ""}
           </span>
         </div>

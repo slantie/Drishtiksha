@@ -32,7 +32,10 @@ const worker = new Worker(
         throw new Error(`Unknown job name: ${job.name}`);
     }
   },
-  { connection: redisConnectionOptionsForBullMQ, concurrency: 5 }
+  { 
+    connection: redisConnectionOptionsForBullMQ, 
+    concurrency: 1  // 🔧 FIX: Process models one-by-one to prevent memory issues
+  }
 );
 
 // Helper function to emit custom progress events to Redis

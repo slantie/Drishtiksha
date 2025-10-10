@@ -78,9 +78,9 @@ const AnalysisPage = () => {
           title="Media Not Found"
           message="The requested media item could not be found or you do not have access."
           action={
-            <Button asChild aria-label="Back to dashboard">
+            <Button asChild aria-label="Go Back">
               <Link to="/dashboard">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                <ArrowLeft className="mr-2 h-4 w-4" />Go Back
               </Link>
             </Button>
           }
@@ -110,10 +110,10 @@ const AnalysisPage = () => {
             <Button
               asChild
               variant="outline"
-              aria-label="Back to analysis summary"
+              aria-label="Go Back"
             >
               <Link to={`/results/${mediaId}`}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Summary
+                <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
               </Link>
             </Button>
           }
@@ -145,9 +145,9 @@ const AnalysisPage = () => {
             <Button asChild variant="outline">
               <Link
                 to={`/results/${mediaId}`}
-                aria-label="Back to analysis summary"
+                aria-label="Go Back"
               >
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Summary
+                <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
               </Link>
             </Button>
           </div>

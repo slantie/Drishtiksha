@@ -2,20 +2,33 @@
 
 import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
-import { Eye, EyeOff, Mail, Lock, LogIn } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-// REMOVED: import { Router } from "react-router-dom"; // No longer needed as navigation is centralized in AuthContext
 
 const LoginForm = ({ onSwitchToSignup }) => {
-  // REMOVED: router = Router(); // No longer needed
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const { login, isLoggingIn } = useAuth();
+
+  // Email validation regex
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Real-time email validation
+    if (name === "email") {
+      if (value && !isValidEmail(value)) {
+        setEmailError("Please enter a valid email address");
+      } else {
+        setEmailError("");
+      }
+    }
   };
 
   const handleSubmit = (e) => {
@@ -62,6 +75,7 @@ const LoginForm = ({ onSwitchToSignup }) => {
         disabled={isLoggingIn}
         leftIcon={<Mail className="h-5 w-5" />}
         rightIcon={<></>}
+        error={emailError}
       />
       <Input
         name="password"

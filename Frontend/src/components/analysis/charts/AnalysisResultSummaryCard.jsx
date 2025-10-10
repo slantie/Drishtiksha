@@ -30,6 +30,8 @@ import { formatProcessingTime } from "../../../utils/formatters.js";
 export const AnalysisResultSummaryCard = ({ analysis, mediaId }) => {
   // Card for a FAILED analysis
   if (analysis.status === "FAILED") {
+    const retryCount = analysis.resultPayload?.retryCount || 0;
+    
     return (
       <Card className="border-0 shadow-none">
         <CardContent className="p-2">
@@ -40,7 +42,11 @@ export const AnalysisResultSummaryCard = ({ analysis, mediaId }) => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h4 className="font-semibold text-base truncate">{analysis.modelName}</h4>
-                {/* <Badge variant="destructive" size="sm">FAILED</Badge> */}
+                {retryCount > 0 && (
+                  <Badge variant="secondary" size="sm" className="text-xs">
+                    {retryCount} {retryCount === 1 ? 'retry' : 'retries'}
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-light-muted-text dark:text-dark-muted-text mb-2">
                 {analysis.errorMessage}
