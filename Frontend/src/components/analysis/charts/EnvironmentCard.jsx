@@ -23,7 +23,7 @@ export const EnvironmentCard = ({ result }) => {
         <span className="flex items-center gap-2 text-light-muted-text dark:text-dark-muted-text">
           {Icon && <Icon className="h-4 w-4" />} {label}:
         </span>
-        <span className="font-semibold font-mono">{value}</span>
+        <span className="font-semibold">{value}</span>
       </div>
     ) : null;
 

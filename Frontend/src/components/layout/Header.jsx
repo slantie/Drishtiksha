@@ -17,6 +17,7 @@ const navItems = []; // Public routes, e.g., { path: "/about", label: "About" }
 const authenticatedNavItems = [
   { path: "/dashboard", label: "Dashboard" },
   { path: "/monitor", label: "System Monitoring" },
+  { path: "/profile", label: "Profile" },
 ];
 
 function Header() {
@@ -133,7 +134,8 @@ function Header() {
             </span>
           </div>
 
-          {/* Desktop Navigation */}
+          <div className="flex items-center gap-6">
+            {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
             {(isAuthenticated ? authenticatedNavItems : navItems).map(
               (item) => (
@@ -223,6 +225,7 @@ function Header() {
                 </Button>
               </div>
             )}
+          </div>
           </div>
 
           {/* Mobile Menu Button */}

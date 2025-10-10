@@ -1,6 +1,7 @@
 // src/components/ui/index.js
 
 export { Alert, AlertTitle, AlertDescription } from "./Alert.jsx";
+export { Badge, StatusBadge, MediaTypeBadge, DeviceBadge, VersionBadge } from "./Badge.jsx";
 export { Button, buttonVariants } from "./Button.jsx";
 export {
   Card,

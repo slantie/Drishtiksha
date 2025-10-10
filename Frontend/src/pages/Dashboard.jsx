@@ -28,6 +28,7 @@ import { PageHeader } from "../components/layout/PageHeader.jsx";
 import { StatCard } from "../components/ui/StatCard";
 import { DataTable } from "../components/ui/DataTable";
 import { Button } from "../components/ui/Button";
+import { StatusBadge, MediaTypeBadge } from "../components/ui/Badge";
 import { UploadModal } from "../components/media/UploadModal.jsx";
 import { EditMediaModal } from "../components/media/EditMediaModal.jsx";
 import { DeleteMediaModal } from "../components/media/DeleteMediaModal.jsx";
@@ -40,53 +41,29 @@ import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
 // --- SUB-COMPONENTS (Refined for Media Types) ---
 
 const DashboardSkeleton = () => (
-  <div className="space-y-6 max-w-full mx-auto">
-    {" "}
-    {/* Adjusted spacing and full width */}
-    <SkeletonCard className="h-24 w-full" /> {/* PageHeader skeleton */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {" "}
-      {/* Consistent gap */}
+  <div className="space-y-6 w-full max-w-full mx-auto">
+    <SkeletonCard className="h-24 w-full" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <SkeletonCard className="h-32" />
       <SkeletonCard className="h-32" />
       <SkeletonCard className="h-32" />
       <SkeletonCard className="h-32" />
     </div>
-    <SkeletonCard className="h-24 w-full" /> {/* Filter card skeleton */}
-    <SkeletonCard className="h-[500px] w-full" /> {/* DataTable skeleton */}
+    <SkeletonCard className="h-20 w-full" />
+    <SkeletonCard className="h-[500px] w-full" />
   </div>
 );
 
-const StatusBadge = ({ status }) => {
-  const styles = {
-    ANALYZED: "bg-green-500/10 text-green-500",
-    PARTIALLY_ANALYZED: "bg-blue-500/10 text-blue-500",
-    PROCESSING: "bg-yellow-500/10 text-yellow-500 animate-pulse",
-    QUEUED: "bg-indigo-500/10 text-indigo-500",
-    FAILED: "bg-red-500/10 text-red-500",
-  };
-  return (
-    <div
-      className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full capitalize ${
-        styles[status] || "bg-gray-500/10 text-gray-500"
-      }`}
-    >
-      <span>{status.replace("_", " ").toLowerCase()}</span>
-    </div>
-  );
-};
-
 const MediaTypeIcon = ({ mediaType }) => {
-  switch (mediaType) {
-    case "VIDEO":
-      return <FileVideo className="w-5 h-5 text-purple-500" />;
-    case "AUDIO":
-      return <FileAudio className="w-5 h-5 text-blue-500" />;
-    case "IMAGE":
-      return <FileImage className="w-5 h-5 text-green-500" />;
-    default:
-      return <FileVideo className="w-5 h-5 text-gray-500" />;
-  }
+  const iconMap = {
+    VIDEO: FileVideo,
+    AUDIO: FileAudio,
+    IMAGE: FileImage,
+  };
+  
+  const Icon = iconMap[mediaType] || FileVideo;
+  
+  return <MediaTypeBadge mediaType={mediaType} icon={Icon} size="sm" />;
 };
 
 const AnalysisSummary = ({ latestRun }) => {
@@ -94,30 +71,38 @@ const AnalysisSummary = ({ latestRun }) => {
     // If the run status is already failed or partially analyzed (but no completed analyses)
     if (latestRun?.status === "FAILED") {
       return (
-        <div className={`flex items-center font-semibold text-sm text-red-500`}>
-          <ShieldX className="w-5 h-5 mr-2 flex-shrink-0" />
-          <span>Failed ({latestRun.analyses?.length || 0} attempts)</span>
+        <div className="flex items-center gap-2">
+          <ShieldX className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-red-600 dark:text-red-400">
+              Failed
+            </span>
+            <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+              {latestRun.analyses?.length || 0} attempts
+            </span>
+          </div>
         </div>
       );
     }
     if (latestRun?.status === "PARTIALLY_ANALYZED") {
       return (
-        <div
-          className={`flex items-center font-semibold text-sm text-blue-500`}
-        >
-          <HelpCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-          <span>
-            Partial Results (
-            {latestRun.analyses?.filter((a) => a.status === "COMPLETED").length}{" "}
-            models)
-          </span>
+        <div className="flex items-center gap-2">
+          <HelpCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              Partial Results
+            </span>
+            <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+              {latestRun.analyses?.filter((a) => a.status === "COMPLETED").length} models
+            </span>
+          </div>
         </div>
       );
     }
     // For QUEUED/PROCESSING, or if no analyses yet
     return (
       <span className="text-sm text-light-muted-text dark:text-dark-muted-text italic">
-        {latestRun?.status === "QUEUED" ? "Queued" : "Processing"}...
+        {latestRun?.status === "QUEUED" ? "⏳ Queued" : "⏳ Processing"}...
       </span>
     );
   }
@@ -126,7 +111,7 @@ const AnalysisSummary = ({ latestRun }) => {
   if (completed.length === 0) {
     return (
       <span className="text-sm text-light-muted-text dark:text-dark-muted-text italic">
-        Processing... ({latestRun.analyses?.length} job(s) started)
+        ⏳ Processing... ({latestRun.analyses?.length} started)
       </span>
     );
   }
@@ -134,28 +119,33 @@ const AnalysisSummary = ({ latestRun }) => {
   const fakes = completed.filter((a) => a.prediction === "FAKE").length;
   const reals = completed.length - fakes;
 
-  let consensus, Icon, color;
+  let consensus, Icon, color, bgColor;
   if (fakes > reals) {
     consensus = "Likely Deepfake";
     Icon = ShieldX;
-    color = "text-red-500";
+    color = "text-red-600 dark:text-red-400";
+    bgColor = "bg-red-500/10";
   } else if (reals > fakes) {
     consensus = "Likely Authentic";
     Icon = ShieldCheck;
-    color = "text-green-500";
+    color = "text-green-600 dark:text-green-400";
+    bgColor = "bg-green-500/10";
   } else {
     consensus = "Inconclusive";
     Icon = HelpCircle;
-    color = "text-yellow-500";
+    color = "text-yellow-600 dark:text-yellow-400";
+    bgColor = "bg-yellow-500/10";
   }
 
   return (
-    <div className={`flex items-center font-semibold text-sm ${color}`}>
-      <Icon className="w-5 h-5 mr-2 flex-shrink-0" />
-      <div>
-        {consensus}
-        <span className="block text-xs font-normal text-light-muted-text dark:text-dark-muted-text">
-          {completed.length} Model(s) Analyzed
+    <div className="flex items-center gap-2">
+      <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
+      <div className="flex flex-col">
+        <span className={`text-sm font-medium ${color}`}>
+          {consensus}
+        </span>
+        <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+          {completed.length} {completed.length === 1 ? 'model' : 'models'} analyzed
         </span>
       </div>
     </div>
@@ -245,7 +235,14 @@ export const Dashboard = () => {
         key: "filename",
         header: "File",
         render: (item) => (
-          <span className="font-semibold">{item.filename}</span>
+          <div className="flex flex-col gap-1 max-w-xs">
+            <span className="font-semibold text-sm truncate">{item.filename}</span>
+            {item.description && (
+              <span className="text-xs text-light-muted-text dark:text-dark-muted-text truncate">
+                {item.description}
+              </span>
+            )}
+          </div>
         ),
         sortable: true,
         filterable: true,
@@ -277,7 +274,7 @@ export const Dashboard = () => {
         key: "actions",
         header: "Actions",
         render: (item) => (
-          <div className="flex items-center justify-end space-x-1">
+          <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -288,7 +285,7 @@ export const Dashboard = () => {
               }}
               aria-label={`View results for ${item.filename}`}
             >
-              <ChartNetwork className="h-5 w-5 text-purple-500" />
+              <ChartNetwork className="h-4 w-4 text-purple-500" />
             </Button>
             <Button
               variant="ghost"
@@ -300,7 +297,7 @@ export const Dashboard = () => {
               }}
               aria-label={`Re-run analysis for ${item.filename}`}
             >
-              <RefreshCw className="h-5 w-5 text-indigo-500" />
+              <RefreshCw className="h-4 w-4 text-indigo-500" />
             </Button>
             <Button
               variant="ghost"
@@ -312,7 +309,7 @@ export const Dashboard = () => {
               }}
               aria-label={`Edit description for ${item.filename}`}
             >
-              <Edit className="h-5 w-5 text-blue-500" />
+              <Edit className="h-4 w-4 text-blue-500" />
             </Button>
             <Button
               variant="ghost"
@@ -324,7 +321,7 @@ export const Dashboard = () => {
               }}
               aria-label={`Delete ${item.filename}`}
             >
-              <Trash2 className="h-5 w-5 text-red-500" />
+              <Trash2 className="h-4 w-4 text-red-500" />
             </Button>
           </div>
         ),
@@ -339,16 +336,12 @@ export const Dashboard = () => {
   if (isLoading && !mediaItems.length) return <DashboardSkeleton />;
 
   return (
-    <div className="space-y-2 w-full max-w-full mx-auto">
-      {" "}
-      {/* Consistent vertical spacing, full width */}
+    <div className="space-y-6 w-full max-w-full mx-auto">
       <PageHeader
         title="Media Dashboard"
         description="Manage, upload, and review all your media analyses."
         actions={
           <div className="flex items-center gap-2">
-            {" "}
-            {/* Group buttons */}
             <Button
               onClick={() => refetch()}
               variant="outline"
@@ -363,9 +356,7 @@ export const Dashboard = () => {
           </div>
         }
       />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        {" "}
-        {/* Consistent gap */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Files"
           value={stats.total}

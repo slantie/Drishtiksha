@@ -369,7 +369,7 @@ export const MediaPlayer = ({ media }) => {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="w-20 font-mono"
+                    className="w-20"
                     aria-label="Playback speed"
                   >
                     {playbackRate}x
