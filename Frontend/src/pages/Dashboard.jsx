@@ -35,24 +35,7 @@ import { DeleteMediaModal } from "../components/media/DeleteMediaModal.jsx";
 import { MediaSearchFilter } from "../components/media/MediaSearchFilter.jsx";
 import { RerunAnalysisModal } from "../components/analysis/RerunAnalysisModal.jsx";
 import { formatDate } from "../utils/formatters.js";
-import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
-// Removed useAuth as it's not directly consumed here.
-
-// --- SUB-COMPONENTS (Refined for Media Types) ---
-
-const DashboardSkeleton = () => (
-  <div className="space-y-6 w-full max-w-full mx-auto">
-    <SkeletonCard className="h-24 w-full" />
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <SkeletonCard className="h-32" />
-      <SkeletonCard className="h-32" />
-      <SkeletonCard className="h-32" />
-      <SkeletonCard className="h-32" />
-    </div>
-    <SkeletonCard className="h-20 w-full" />
-    <SkeletonCard className="h-[500px] w-full" />
-  </div>
-);
+import DashboardSkeleton from "../components/ui/DashboardSkeleton.jsx";
 
 const MediaTypeIcon = ({ mediaType }) => {
   const iconMap = {

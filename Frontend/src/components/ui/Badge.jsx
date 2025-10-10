@@ -87,7 +87,7 @@ const statusConfigs = {
 };
 
 // Predefined media type configurations
-const mediaTypeConfigs = {
+export const mediaTypeConfigs = {
   VIDEO: {
     variant: "purple",
     label: "Video",
@@ -169,7 +169,7 @@ export const Badge = React.forwardRef(
     // Version badge
     if (version) {
       config = { variant: "primary" };
-      content = content || (version === "N/A" ? "N/A" : `v${version}`);
+      content = content || (version === "N/A" ? "N/A" : `Version ${version}`);
       mono = true;
     }
 

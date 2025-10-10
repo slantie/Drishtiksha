@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { PageLoader } from "../components/ui/LoadingSpinner";
 import { showToast } from "../utils/toast.jsx";
+import ProfileSkeleton from "../components/ui/ProfileSkeleton.jsx";
 import {
   useProfileQuery,
   useUpdateProfileMutation,
@@ -117,7 +118,11 @@ const Profile = () => {
     } else {
       // Clear forms if user becomes null (e.g., after logout or session expiry)
       setProfileForm({ firstName: "", lastName: "" });
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
     }
   }, [user]);
 
@@ -149,12 +154,17 @@ const Profile = () => {
     updatePasswordMutation.mutate(passwordForm, {
       onSuccess: () => {
         setActiveView("view");
-        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); // Clear password fields
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }); // Clear password fields
       },
     });
   };
 
-  if (isProfileLoading) return <PageLoader text="Loading Profile..." />;
+  // if (isProfileLoading) return <PageLoader text="Loading Profile..." />;
+  if (isProfileLoading) return <ProfileSkeleton />;
   if (!user)
     return (
       <div className="text-center py-16 w-full max-w-full mx-auto">
@@ -192,6 +202,7 @@ const Profile = () => {
               {" "}
               {/* Responsive button grouping */}
               <Button
+                size="sm"
                 variant="outline"
                 onClick={() => setActiveView("editPassword")}
                 aria-label="Change password"
@@ -199,6 +210,7 @@ const Profile = () => {
                 <Lock className="mr-2 h-4 w-4" /> Change Password
               </Button>
               <Button
+                size="sm"
                 onClick={() => setActiveView("editProfile")}
                 aria-label="Edit profile"
               >
@@ -306,6 +318,7 @@ const Profile = () => {
                     {" "}
                     {/* Consistent gap */}
                     <Button
+                      size="sm"
                       variant="ghost"
                       onClick={() => setActiveView("view")}
                       disabled={updateProfileMutation.isPending}
@@ -313,6 +326,7 @@ const Profile = () => {
                       Cancel
                     </Button>
                     <Button
+                      size="sm"
                       onClick={handleProfileSave}
                       isLoading={updateProfileMutation.isPending}
                       disabled={!profileForm.firstName || !profileForm.lastName} // Disable save if fields are empty
@@ -349,7 +363,7 @@ const Profile = () => {
                       placeholder="••••••••"
                       value={passwordForm.currentPassword}
                       onChange={handlePasswordChange}
-                      leftIcon={<Lock/>} // Consistent icon size
+                      leftIcon={<Lock />} // Consistent icon size
                       rightIcon={<></>}
                       disabled={updatePasswordMutation.isPending}
                     />
@@ -360,7 +374,7 @@ const Profile = () => {
                       placeholder="••••••••"
                       value={passwordForm.newPassword}
                       onChange={handlePasswordChange}
-                      leftIcon={<Lock/>} // Consistent icon size
+                      leftIcon={<Lock />} // Consistent icon size
                       rightIcon={<></>}
                       minLength={6} // Client-side hint
                       disabled={updatePasswordMutation.isPending}
@@ -372,13 +386,14 @@ const Profile = () => {
                       placeholder="••••••••"
                       value={passwordForm.confirmPassword}
                       onChange={handlePasswordChange}
-                      leftIcon={<Lock/>}
+                      leftIcon={<Lock />}
                       rightIcon={<></>}
                       minLength={6}
                       disabled={updatePasswordMutation.isPending}
                       error={
                         passwordForm.confirmPassword &&
-                        passwordForm.newPassword !== passwordForm.confirmPassword
+                        passwordForm.newPassword !==
+                          passwordForm.confirmPassword
                           ? "Passwords do not match"
                           : undefined
                       }
@@ -388,6 +403,7 @@ const Profile = () => {
                     {" "}
                     {/* Consistent gap */}
                     <Button
+                      size="sm"
                       variant="ghost"
                       onClick={() => setActiveView("view")}
                       disabled={updatePasswordMutation.isPending}
@@ -395,6 +411,7 @@ const Profile = () => {
                       Cancel
                     </Button>
                     <Button
+                      size="sm"
                       onClick={handlePasswordSave}
                       isLoading={updatePasswordMutation.isPending}
                       disabled={
@@ -402,7 +419,8 @@ const Profile = () => {
                         !passwordForm.newPassword ||
                         !passwordForm.confirmPassword ||
                         passwordForm.newPassword.length < 6 ||
-                        passwordForm.newPassword !== passwordForm.confirmPassword // Disable if passwords don't match
+                        passwordForm.newPassword !==
+                          passwordForm.confirmPassword // Disable if passwords don't match
                       }
                     >
                       <Save className="mr-2 h-4 w-4" /> Update Password

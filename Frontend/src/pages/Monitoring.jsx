@@ -136,46 +136,52 @@ const ResourceCard = ({ title, icon: Icon, chartData, details }) => (
 const LiveStatusIndicator = ({ serverStatus }) => {
   const isHealthy = serverStatus?.status === "running";
   return (
-    <Card
-      className={`${isHealthy ? "border-green-500/50" : "border-red-500/50"}`}
-    >
-      <CardContent className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4">
-          {isHealthy ? (
-            <CheckCircle className="h-8 w-8 text-green-500" />
-          ) : (
-            <AlertTriangle className="h-8 w-8 text-red-500" />
-          )}
-          <div>
-            <h2 className="font-bold text-lg">ML Service Status</h2>{" "}
-            {/* Consistent title size */}
-            <p
-              className={`font-semibold ${
-                isHealthy ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {isHealthy ? "Healthy & Operational" : "Unavailable"}
-            </p>
-          </div>
-        </div>
-        <div className="text-sm text-center sm:text-right space-y-1">
-          <div>
-            Uptime:{" "}
-            <span className="font-semibold">
-              {formatUptime(serverStatus?.uptime_seconds)}
-            </span>
-          </div>
-          <div>
-            Response Time:{" "}
-            <span className="font-semibold">
-              {serverStatus?.responseTimeMs
-                ? `${serverStatus.responseTimeMs}ms`
-                : "N/A"}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      {isHealthy == false && (
+        <Card
+          className={`${
+            isHealthy ? "border-green-500/50" : "border-red-500/50"
+          }`}
+        >
+          <CardContent className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-4">
+              {isHealthy ? (
+                <CheckCircle className="h-8 w-8 text-green-500" />
+              ) : (
+                <AlertTriangle className="h-8 w-8 text-red-500" />
+              )}
+              <div>
+                <h2 className="font-bold text-lg">ML Service Status</h2>{" "}
+                {/* Consistent title size */}
+                <p
+                  className={`font-semibold ${
+                    isHealthy ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {isHealthy ? "Healthy & Operational" : "Unavailable"}
+                </p>
+              </div>
+            </div>
+            <div className="text-sm text-center sm:text-right space-y-1">
+              <div>
+                Uptime:{" "}
+                <span className="font-semibold">
+                  {formatUptime(serverStatus?.uptime_seconds)}
+                </span>
+              </div>
+              <div>
+                Response Time:{" "}
+                <span className="font-semibold">
+                  {serverStatus?.responseTimeMs
+                    ? `${serverStatus.responseTimeMs}ms`
+                    : "N/A"}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 };
 
@@ -192,7 +198,7 @@ const HealthCheckHistoryChart = ({ data }) => {
     .map((item) => ({
       ...item.statsPayload, // Contains deviceInfo, systemInfo etc from the Python service
       status: item.status, // Backend's 'HEALTHY', 'UNHEALTHY', etc.
-      responseTime: item.responseTimeMs/1000,
+      responseTime: item.responseTimeMs / 1000,
       checkedAt: item.checkedAt,
     }))
     .reverse(); // Display oldest first for time series
@@ -218,7 +224,7 @@ const HealthCheckHistoryChart = ({ data }) => {
           <p className="font-bold capitalize">
             Status: {data.status?.toLowerCase()}
           </p>
-          <p>Response Time: {data.responseTime/1000}s</p>
+          <p>Response Time: {data.responseTime / 1000}s</p>
           <p>Time: {new Date(data.checkedAt).toLocaleTimeString()}</p>{" "}
           {/* Show time */}
         </div>
@@ -330,7 +336,7 @@ const Monitoring = () => {
           title="System Monitoring"
           description="Live status and performance metrics for the analysis services."
           actions={
-            <Button onClick={handleRefreshAll} variant="outline">
+            <Button size="sm" onClick={handleRefreshAll} variant="outline">
               <RefreshCw className="mr-2 h-4 w-4" /> Try Again
             </Button>
           }
@@ -408,11 +414,7 @@ const Monitoring = () => {
         return (
           <div className="flex flex-wrap gap-1">
             {types.map((type) => (
-              <Badge 
-                key={type} 
-                variant={colorMap[type] || "default"}
-                size="sm"
-              >
+              <Badge key={type} variant={colorMap[type] || "default"} size="sm">
                 {type}
               </Badge>
             ))}
@@ -425,9 +427,7 @@ const Monitoring = () => {
     {
       key: "device",
       header: "Device",
-      render: (item) => (
-        <DeviceBadge device={item.device?.toUpperCase()} />
-      ),
+      render: (item) => <DeviceBadge device={item.device?.toUpperCase()} />,
       sortable: true,
       filterable: true,
     },
@@ -461,6 +461,7 @@ const Monitoring = () => {
         description="Live status and performance metrics for the analysis services."
         actions={
           <Button
+            size="sm"
             onClick={handleRefreshAll}
             isLoading={statusRefetching}
             variant="outline"
@@ -519,12 +520,6 @@ const Monitoring = () => {
                         label: "Total VRAM",
                         value: `${deviceInfo.total_memory?.toFixed(2)} GB`,
                       },
-                      {
-                        label: "GPU Temp",
-                        value: deviceInfo.temperature
-                          ? `${deviceInfo.temperature}°C`
-                          : "N/A",
-                      },
                     ]
                   : [
                       // CPU specific details
@@ -555,7 +550,6 @@ const Monitoring = () => {
               }
               details={[
                 { label: "Platform", value: systemInfo.platform },
-                { label: "OS", value: systemInfo.os_type }, // Assuming os_type exists
                 { label: "Python", value: systemInfo.python_version },
                 {
                   label: "Used RAM",
@@ -565,12 +559,6 @@ const Monitoring = () => {
                   label: "Total RAM",
                   value: `${systemInfo.total_ram?.toFixed(2)} GB`,
                 },
-                {
-                  label: "CPU Load",
-                  value: systemInfo.cpu_load_percent
-                    ? `${systemInfo.cpu_load_percent.toFixed(1)}%`
-                    : "N/A",
-                },
               ]}
             />
           )}
@@ -579,8 +567,8 @@ const Monitoring = () => {
               title="Processing Queue"
               icon={Layers}
               details={[
-                { label: "Pending Jobs", value: queueStatus.pending },
-                { label: "Active Jobs", value: queueStatus.active },
+                // { label: "Pending Jobs", value: queueStatus.pending },
+                // { label: "Active Jobs", value: queueStatus.active },
                 { label: "Completed Jobs", value: queueStatus.completed },
                 { label: "Failed Jobs", value: queueStatus.failed },
               ]}

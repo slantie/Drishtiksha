@@ -41,7 +41,7 @@ export const AnalysisReport = ({ result }) => {
   return (
     <div className="space-y-6">
       {/* Top Section: Overall Result */}
-      <OverallResultCard result={overallData} />
+      {/* <OverallResultCa rd result={overallData} /> */}
 
       {/* Main Content: Media-specific analysis */}
       <div className="space-y-6">

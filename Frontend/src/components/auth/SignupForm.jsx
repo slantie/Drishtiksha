@@ -157,7 +157,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
         isLoading={isSigningUp}
         className="w-full"
         size="lg"
-        disabled={isSigningUp || formData.password !== formData.confirmPassword} // Disable if passwords don't match
+        disabled={isSigningUp || formData.password.length < 6 || formData.password !== formData.confirmPassword} // Disable if passwords don't match
       >
         {!isSigningUp && <UserPlus className="w-5 h-5 mr-2" />}
         {isSigningUp ? "Creating Account..." : "Create Account"}
@@ -170,7 +170,7 @@ const SignupForm = ({ onSwitchToLogin }) => {
             type="button"
             onClick={onSwitchToLogin}
             className="font-semibold text-primary-main hover:underline"
-            disabled={isSigningUp} // Disable button while loading
+            disabled={isSigningUp}
           >
             Sign In
           </button>
