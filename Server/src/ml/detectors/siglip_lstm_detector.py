@@ -113,7 +113,7 @@ class BaseSiglipLSTMDetector(BaseModel):
         seq_len = self.config.num_frames
         end_frame_indices = np.linspace(seq_len - 1, total_frames - 1, num_windows, dtype=int)
 
-        for i, end_index in enumerate(tqdm(end_frame_indices, desc=f"Analyzing windows for {self.config.class_name}")):
+        for i, end_index in enumerate(tqdm(end_frame_indices, desc=f"Analyzing windows for {self.config.model_name}")):
             start_index = max(0, end_index - seq_len + 1)
             indices_to_extract = np.linspace(start_index, end_index, seq_len, dtype=int).tolist()
             frame_window = list(extract_frames(media_path, num_frames=seq_len, specific_indices=indices_to_extract))
@@ -137,7 +137,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                     event="FRAME_ANALYSIS_PROGRESS",
                     message=f"Processed window {i + 1}/{num_windows}",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         progress=i + 1,
                         total=num_windows
                     )
@@ -175,7 +175,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                 media_id=video_id, user_id=user_id, event="FRAME_ANALYSIS_PROGRESS",
                 message="Starting visualization generation",
                 data=EventData(
-                    model_name=self.config.class_name, progress=0, total=total_frames,
+                    model_name=self.config.model_name, progress=0, total=total_frames,
                     details={"phase": "visualization"}
                 )
             ))
@@ -236,7 +236,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                         media_id=video_id, user_id=user_id, event="FRAME_ANALYSIS_PROGRESS",
                         message=f"Generating visualization: {i + 1}/{total_frames} frames processed",
                         data=EventData(
-                            model_name=self.config.class_name, progress=i + 1, total=total_frames,
+                            model_name=self.config.model_name, progress=i + 1, total=total_frames,
                             details={"phase": "visualization"}
                         )
                     ))
@@ -250,7 +250,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                 media_id=video_id, user_id=user_id, event="FRAME_ANALYSIS_PROGRESS",
                 message="Visualization generation completed",
                 data=EventData(
-                    model_name=self.config.class_name, progress=total_frames, total=total_frames,
+                    model_name=self.config.model_name, progress=total_frames, total=total_frames,
                     details={"phase": "visualization_complete"}
                 )
             ))
@@ -301,9 +301,9 @@ class BaseSiglipLSTMDetector(BaseModel):
         if video_id and user_id:
             event_publisher.publish(ProgressEvent(
                 media_id=video_id, user_id=user_id, event="FRAME_ANALYSIS_PROGRESS",
-                message=f"Starting analysis with {self.config.class_name}",
+                message=f"Starting analysis with {self.config.model_name}",
                 data=EventData(
-                    model_name=self.config.class_name, progress=0, total=None,
+                    model_name=self.config.model_name, progress=0, total=None,
                     details={"phase": "initialization"}
                 )
             ))
@@ -321,7 +321,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                     media_id=video_id, user_id=user_id, event="ANALYSIS_COMPLETE",
                     message=f"Analysis completed with fallback: {final_prediction} (confidence: {final_confidence:.3f})",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         details={
                             "prediction": final_prediction, "confidence": final_confidence,
                             "processing_time": time.time() - start_time, "fallback": True
@@ -367,7 +367,7 @@ class BaseSiglipLSTMDetector(BaseModel):
         if generate_visualizations:
             visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
         else:
-            logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
+            logger.info(f"[{self.config.model_name}] Skipping visualization generation (generate_visualizations=False)")
 
         # 7. Publish analysis completion
         if video_id and user_id:
@@ -375,7 +375,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                 media_id=video_id, user_id=user_id, event="ANALYSIS_COMPLETE",
                 message=f"Analysis completed: {final_prediction} (confidence: {final_confidence:.3f})",
                 data=EventData(
-                    model_name=self.config.class_name,
+                    model_name=self.config.model_name,
                     details={
                         "prediction": final_prediction, "confidence": final_confidence,
                         "processing_time": time.time() - start_time,
@@ -406,7 +406,7 @@ class BaseSiglipLSTMDetector(BaseModel):
         """
         media_type = get_media_type(media_path)
         
-        logger.info(f"Analyzing '{os.path.basename(media_path)}' as {media_type} with {self.config.class_name}")
+        logger.info(f"Analyzing '{os.path.basename(media_path)}' as {media_type} with {self.config.model_name}")
 
         try:
             if media_type == "VIDEO" and self.config.isVideo:
@@ -419,7 +419,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                 
             else:
                 raise MediaProcessingError(
-                    f"Model '{self.config.class_name}' does not support media type '{media_type}'."
+                    f"Model '{self.config.model_name}' does not support media type '{media_type}'."
                 )
         except Exception as e:
             video_id = kwargs.get("video_id")
@@ -429,7 +429,7 @@ class BaseSiglipLSTMDetector(BaseModel):
                     media_id=video_id, user_id=user_id, event="ANALYSIS_FAILED",
                     message=f"Analysis failed: {str(e)}",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         details={"error": str(e)}
                     )
                 ))
@@ -449,10 +449,10 @@ class SiglipLSTMV1(BaseSiglipLSTMDetector):
             self.model.to(self.device)
             self.model.eval()
             self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
 
 class SiglipLSTMV3(BaseSiglipLSTMDetector):
@@ -468,10 +468,10 @@ class SiglipLSTMV3(BaseSiglipLSTMDetector):
             self.model.to(self.device)
             self.model.eval()
             self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
 
 class SiglipLSTMV4(BaseSiglipLSTMDetector):
@@ -487,7 +487,7 @@ class SiglipLSTMV4(BaseSiglipLSTMDetector):
             self.model.to(self.device)
             self.model.eval()
             self.processor = AutoProcessor.from_pretrained(self.config.processor_path)
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {time.time() - start_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e

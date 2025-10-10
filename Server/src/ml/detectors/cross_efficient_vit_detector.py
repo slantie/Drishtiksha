@@ -76,11 +76,11 @@ class CrossEfficientViTDetector(BaseModel):
             ])
 
             load_time = time.time() - start_time
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     def _get_face_crops(self, frame: np.ndarray) -> List[np.ndarray]:
         """Detects and extracts all face crops from a single frame."""
@@ -214,5 +214,5 @@ class CrossEfficientViTDetector(BaseModel):
             return self._analyze_image(media_path)
         else:
             raise NotImplementedError(
-                f"Model {self.config.class_name} does not support video or image analysis."
+                f"Model {self.config.model_name} does not support video or image analysis."
             )

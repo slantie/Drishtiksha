@@ -27,20 +27,33 @@ export const useAnalysisProgress = (mediaId, filename) => {
 
       // Update model-specific progress
       if (data?.model_name) {
+        const modelName = data.model_name;
+        
+        // Filter out non-model entries (Backend worker, empty names, etc.)
+        if (!modelName || 
+            modelName.toLowerCase().includes('worker') || 
+            modelName.toLowerCase().includes('backend') ||
+            modelName.trim() === '') {
+          return; // Skip this update
+        }
+        
         setModelProgress((prev) => {
           const phase = 
+            eventType === "ANALYSIS_QUEUED" ? "queued" :
             eventType === "ANALYSIS_STARTED" ? "analyzing" :
             eventType === "ANALYSIS_COMPLETED" ? "completed" :
             eventType === "ANALYSIS_FAILED" ? "failed" :
-            data.phase || prev[data.model_name]?.phase || "processing";
+            data.phase || prev[modelName]?.phase || "processing";
 
+          // Update existing model entry (don't create duplicates)
           return {
             ...prev,
-            [data.model_name]: {
-              modelName: data.model_name,
+            [modelName]: {
+              ...prev[modelName], // Preserve existing data
+              modelName: modelName,
               message: message,
-              progress: data.progress,
-              total: data.total,
+              progress: data.progress !== undefined ? data.progress : prev[modelName]?.progress,
+              total: data.total !== undefined ? data.total : prev[modelName]?.total,
               details: data.details,
               timestamp: Date.now(),
               phase: phase,
@@ -53,7 +66,7 @@ export const useAnalysisProgress = (mediaId, filename) => {
       }
 
       // Auto-show progress modal for certain events
-      if (["PROCESSING_STARTED", "ANALYSIS_STARTED"].includes(eventType)) {
+      if (["PROCESSING_STARTED", "ANALYSIS_STARTED", "ANALYSIS_QUEUED"].includes(eventType)) {
         setIsProgressVisible(true);
       }
 
@@ -78,7 +91,7 @@ export const useAnalysisProgress = (mediaId, filename) => {
         }, 100);
       }
     },
-    [modelProgress]
+    []
   );
 
   // Listen for custom events to show progress modal
@@ -162,6 +175,7 @@ export const useAnalysisProgress = (mediaId, filename) => {
       isVisible: isProgressVisible,
       onClose: hideProgress,
       progressData: progressData,
+      modelProgress: modelProgress, // FIXED: Pass modelProgress for modal display
     },
   };
 };

@@ -148,7 +148,7 @@ def warmup_model(model: "BaseModel", model_type: str = "video") -> tuple[bool, f
         Tuple of (success, inference_time, error_message)
     """
     try:
-        logger.info(f"Warming up model: {model.config.class_name} ({model_type})")
+        logger.info(f"Warming up model: {model.config.model_name} ({model_type})")
         start_time = time.time()
         
         # Create appropriate dummy media based on model type
@@ -167,7 +167,7 @@ def warmup_model(model: "BaseModel", model_type: str = "video") -> tuple[bool, f
         
         inference_time = time.time() - start_time
         logger.info(
-            f"✅ Warmup successful for {model.config.class_name}: "
+            f"✅ Warmup successful for {model.config.model_name}: "
             f"{inference_time:.2f}s (prediction: {result.prediction})"
         )
         
@@ -176,7 +176,7 @@ def warmup_model(model: "BaseModel", model_type: str = "video") -> tuple[bool, f
     except Exception as e:
         inference_time = time.time() - start_time
         error_msg = f"Warmup failed: {str(e)}"
-        logger.error(f"❌ {error_msg} for {model.config.class_name} after {inference_time:.2f}s", exc_info=True)
+        logger.error(f"❌ {error_msg} for {model.config.model_name} after {inference_time:.2f}s", exc_info=True)
         return False, inference_time, error_msg
 
 

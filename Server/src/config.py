@@ -90,6 +90,8 @@ class BaseModelConfig(BaseModel):
     isAudio: bool = False
     isVideo: bool = True
     isImage: bool = False
+    # ADDED: Store the actual model key (e.g., "EFFICIENTNET-B7-V1") for consistent naming
+    model_name: Optional[str] = None  # Will be set by ModelManager when loading
 
 class SiglipLSTMv1Config(BaseModelConfig):
     # FIX: The Literal must match the Python class name from config.yaml

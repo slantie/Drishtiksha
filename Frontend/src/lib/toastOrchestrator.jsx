@@ -93,11 +93,11 @@ class ToastOrchestrator {
   }
 
   // Legacy method names for compatibility
-  startVideoProcessing(mediaId, message) {
-    return this.startMediaProcessing(mediaId, message);
+  startVideoProcessing(mediaId, _message) {
+    return this.startMediaProcessing(mediaId, _message);
   }
 
-  startMediaProcessing(mediaId, message) {
+  startMediaProcessing(mediaId, _message) {
     if (this.mediaToastMap.has(mediaId)) {
       console.log(
         `[ToastOrchestrator] Media toast already exists for ${mediaId}`
@@ -105,12 +105,11 @@ class ToastOrchestrator {
       return;
     }
 
-    const toastContent = <ToastProgress message={message} />;
-
-    const toastId = showToast.loading(toastContent, { duration: Infinity });
-    this.mediaToastMap.set(mediaId, toastId);
+    // SUPPRESSED: No toast spam - ProgressPanel handles this
+    // Instead, just mark that we're tracking this media
+    this.mediaToastMap.set(mediaId, 'progress-panel-tracking');
     console.log(
-      `[ToastOrchestrator] ✨ Created main toast (ID: ${toastId}) for media ${mediaId}`
+      `[ToastOrchestrator] ✅ Started tracking media ${mediaId} (no toast - using ProgressPanel)`
     );
   }
 
@@ -120,111 +119,70 @@ class ToastOrchestrator {
     message,
     progress,
     total,
-    details = {}
+    _details = {}
   ) {
     const modelToastKey = `${mediaId}-${modelName}`;
-    let toastId = this.modelToastMap.get(modelToastKey);
 
-    // Create enhanced message with progress info
-    let displayMessage = message;
-
-    // Add detailed progress information
+    // SUPPRESSED: No individual model toasts - ProgressPanel handles this
+    // Just log the progress for debugging
     if (progress && total) {
       const percentage = ((progress / total) * 100).toFixed(1);
-      displayMessage = `${message} (${progress}/${total} - ${percentage}%)`;
-
-      // Add specific details if available
-      if (details.faces_detected_so_far) {
-        displayMessage += ` - ${details.faces_detected_so_far} faces detected`;
-      }
-      if (details.windows_processed) {
-        displayMessage += ` - ${details.windows_processed} windows processed`;
-      }
-    }
-
-    const toastContent = (
-      <ToastProgress
-        modelName={modelName}
-        message={displayMessage}
-        progress={progress}
-        total={total}
-        details={details}
-      />
-    );
-
-    if (!toastId) {
-      toastId = showToast.loading(toastContent, { duration: Infinity });
-      this.modelToastMap.set(modelToastKey, toastId);
       console.log(
-        `[ToastOrchestrator] ✨ Created model toast (ID: ${toastId}) for ${modelName}`
+        `[ToastOrchestrator] 🔄 Model progress for ${modelName}: ${percentage}% (${progress}/${total})`
       );
     } else {
-      showToast.loading(toastContent, { id: toastId, duration: Infinity });
       console.log(
-        `[ToastOrchestrator] 🔄 Updated model toast (ID: ${toastId}) for ${modelName}: ${displayMessage}`
+        `[ToastOrchestrator] 🔄 Model update for ${modelName}: ${message}`
       );
+    }
+
+    // Mark that we've seen this model (for cleanup purposes)
+    if (!this.modelToastMap.has(modelToastKey)) {
+      this.modelToastMap.set(modelToastKey, 'progress-panel-tracking');
     }
   }
 
   resolveModelProgress(mediaId, modelName, success, errorMsg = "") {
     const modelToastKey = `${mediaId}-${modelName}`;
-    const toastId = this.modelToastMap.get(modelToastKey);
 
-    if (toastId) {
-      let message;
-      if (success) {
-        message = `✅ ${modelName} analysis completed successfully`;
-      } else {
-        message = `❌ ${modelName} analysis failed${
-          errorMsg ? `: ${errorMsg}` : ""
-        }`;
-      }
+    // SUPPRESSED: No individual model completion toasts - ProgressPanel handles this
+    console.log(
+      `[ToastOrchestrator] ✅ Model ${modelName} ${success ? 'completed' : 'failed'}${
+        errorMsg ? `: ${errorMsg}` : ""
+      }`
+    );
 
-      const toastContent = (
-        <ToastProgress modelName={modelName} message={message} />
-      );
-
-      const toastFn = success ? showToast.success : showToast.error;
-      toastFn(toastContent, { id: toastId, duration: success ? 5000 : 8000 });
-
-      this.modelToastMap.delete(modelToastKey);
-      console.log(
-        `[ToastOrchestrator] ✅ Resolved model toast (ID: ${toastId}) for ${modelName}`
-      );
-    }
+    // Clean up tracking
+    this.modelToastMap.delete(modelToastKey);
   }
 
   resolveMediaProcessing(mediaId, filename, success, errorMsg = "") {
-    const mainToastId = this.mediaToastMap.get(mediaId);
-
-    if (mainToastId) {
-      let message;
-      if (success) {
-        message = `🎉 All analyses completed for "${filename}"!`;
-      } else {
-        message = `❌ Processing failed for "${filename}"${
-          errorMsg ? `: ${errorMsg}` : ""
-        }`;
-      }
-
-      const toastContent = <ToastProgress message={message} />;
-
-      const toastFn = success ? showToast.success : showToast.error;
-      toastFn(toastContent, {
-        id: mainToastId,
-        duration: success ? 8000 : 10000,
-      });
-
-      this.mediaToastMap.delete(mediaId);
-      console.log(
-        `[ToastOrchestrator] ✅ Resolved main media toast (ID: ${mainToastId})`
-      );
+    // Show ONLY ONE toast for final completion/failure
+    let message;
+    if (success) {
+      message = `🎉 Analysis complete for "${filename}"!`;
+    } else {
+      message = `❌ Analysis failed for "${filename}"${
+        errorMsg ? `: ${errorMsg}` : ""
+      }`;
     }
 
-    // Clean up any remaining model-specific toasts for this media
-    this.modelToastMap.forEach((toastId, key) => {
+    const toastContent = <ToastProgress message={message} />;
+    const toastFn = success ? showToast.success : showToast.error;
+    toastFn(toastContent, {
+      duration: success ? 5000 : 8000,
+    });
+
+    console.log(
+      `[ToastOrchestrator] ✅ Media processing ${success ? 'completed' : 'failed'}: ${filename}`
+    );
+
+    // Clean up tracking
+    this.mediaToastMap.delete(mediaId);
+
+    // Clean up any remaining model tracking for this media
+    this.modelToastMap.forEach((_toastId, key) => {
       if (key.startsWith(`${mediaId}-`)) {
-        showToast.dismiss(toastId);
         this.modelToastMap.delete(key);
       }
     });

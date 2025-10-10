@@ -53,10 +53,10 @@ class ScatteringWaveV1(BaseModel):
                 transforms.ToTensor(),
             ])
             load_time = time.time() - start_time
-            logger.info(f"Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     # --- Private Helper Methods ---
 
@@ -69,7 +69,7 @@ class ScatteringWaveV1(BaseModel):
             event_publisher.publish(ProgressEvent(
                 media_id=video_id, user_id=user_id, event="AUDIO_EXTRACTION_START",
                 message="Extracting audio track from media file.",
-                data=EventData(model_name=self.config.class_name)
+                data=EventData(model_name=self.config.model_name)
             ))
 
         try:
@@ -86,7 +86,7 @@ class ScatteringWaveV1(BaseModel):
             event_publisher.publish(ProgressEvent(
                 media_id=video_id, user_id=user_id, event="AUDIO_EXTRACTION_COMPLETE",
                 message="Audio track successfully extracted.",
-                data=EventData(model_name=self.config.class_name)
+                data=EventData(model_name=self.config.model_name)
             ))
 
         try:
@@ -104,7 +104,7 @@ class ScatteringWaveV1(BaseModel):
             event_publisher.publish(ProgressEvent(
                 media_id=video_id, user_id=user_id, event="SPECTROGRAM_GENERATION_START",
                 message="Generating Mel Spectrogram from audio.",
-                data=EventData(model_name=self.config.class_name)
+                data=EventData(model_name=self.config.model_name)
             ))
 
         mel_spec = librosa.feature.melspectrogram(y=y_preemphasized, sr=sr, n_fft=2048, hop_length=512, n_mels=256)
@@ -123,7 +123,7 @@ class ScatteringWaveV1(BaseModel):
             event_publisher.publish(ProgressEvent(
                 media_id=video_id, user_id=user_id, event="SPECTROGRAM_GENERATION_COMPLETE",
                 message="Mel Spectrogram successfully generated.",
-                data=EventData(model_name=self.config.class_name)
+                data=EventData(model_name=self.config.model_name)
             ))
 
         image = Image.open(img_buffer).convert('L') # Ensure grayscale
@@ -145,9 +145,9 @@ class ScatteringWaveV1(BaseModel):
                 media_id=video_id,
                 user_id=user_id,
                 event="FRAME_ANALYSIS_PROGRESS",
-                message=f"Starting audio analysis with {self.config.class_name}",
+                message=f"Starting audio analysis with {self.config.model_name}",
                 data=EventData(
-                    model_name=self.config.class_name,
+                    model_name=self.config.model_name,
                     progress=0,
                     total=None,
                     details={"phase": "initialization", "media_type": "audio"}
@@ -196,7 +196,7 @@ class ScatteringWaveV1(BaseModel):
                     event="ANALYSIS_COMPLETE",
                     message=f"Audio analysis completed: {prediction} (confidence: {confidence:.3f})",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         details={
                             "prediction": prediction,
                             "confidence": confidence,
@@ -234,7 +234,7 @@ class ScatteringWaveV1(BaseModel):
                     event="ANALYSIS_FAILED",
                     message=f"Audio analysis failed: {str(e)}",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         details={"error": str(e), "processing_time": time.time() - start_time, "media_type": "audio"}
                     )
                 ))

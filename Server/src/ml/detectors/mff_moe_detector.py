@@ -47,10 +47,10 @@ class MFFMoEDetectorV1(BaseModel):
                 transforms.Resize((512, 512), antialias=True),
             ])
             load_time = time.time() - start_time
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     def _analyze_image(self, image: Image.Image) -> Tuple[float, Optional[str]]:
         """Analyzes a single PIL image and returns the fake probability."""
@@ -60,7 +60,7 @@ class MFFMoEDetectorV1(BaseModel):
                 prob_fake = self.model(image_tensor).item()
             return prob_fake, None
         except Exception as e:
-            logger.error(f"Error during single image inference for {self.config.class_name}: {e}")
+            logger.error(f"Error during single image inference for {self.config.model_name}: {e}")
             return 0.5, "Inference on image failed."
 
     def analyze(self, media_path: str, **kwargs) -> AnalysisResult:
@@ -143,5 +143,5 @@ class MFFMoEDetectorV1(BaseModel):
         except (MediaProcessingError, InferenceError) as e:
             raise e # Re-raise known errors
         except Exception as e:
-            logger.error(f"Unexpected error during video analysis for {self.config.class_name}: {e}", exc_info=True)
+            logger.error(f"Unexpected error during video analysis for {self.config.model_name}: {e}", exc_info=True)
             raise InferenceError(f"An unexpected error occurred during video analysis.")

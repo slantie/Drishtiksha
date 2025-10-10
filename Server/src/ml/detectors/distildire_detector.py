@@ -68,11 +68,11 @@ class DistilDIREDetectorV1(BaseModel):
             ])
 
             load_time = time.time() - start_time
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' and its dependencies | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' and its dependencies | Device: '{self.device}' | Time: {load_time:.2f}s.")
 
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     def _get_first_step_noise(self, img_tensor: torch.Tensor) -> torch.Tensor:
         t = torch.zeros(img_tensor.shape[0],).long().to(self.device)
@@ -134,7 +134,7 @@ class DistilDIREDetectorV1(BaseModel):
                 event_publisher.publish(ProgressEvent(
                     media_id=media_id, user_id=user_id, event="FRAME_ANALYSIS_PROGRESS", message=message,
                     data=EventData(
-                        model_name=self.config.class_name, progress=progress, total=total,
+                        model_name=self.config.model_name, progress=progress, total=total,
                         details={"phase": event.lower()}
                     )
                 ))
@@ -161,7 +161,7 @@ class DistilDIREDetectorV1(BaseModel):
                         visualization_path = tmp.name
                     self._save_tensor_as_image(eps_tensor, visualization_path)
                 else:
-                    logger.info(f"[{self.config.class_name}] Skipping DIRE map visualization generation (generate_visualizations=False)")
+                    logger.info(f"[{self.config.model_name}] Skipping DIRE map visualization generation (generate_visualizations=False)")
                 
                 publish("DETECTION", "Running detector model", 75, 100)
                 combined_input = torch.cat([img_tensor, eps_tensor], dim=1)
@@ -189,7 +189,7 @@ class DistilDIREDetectorV1(BaseModel):
 
         except Exception as e:
             publish("ANALYSIS_FAILED", f"Error during analysis: {e}")
-            logger.error(f"An error occurred during inference for {self.config.class_name}: {e}", exc_info=True)
+            logger.error(f"An error occurred during inference for {self.config.model_name}: {e}", exc_info=True)
             if visualization_path and os.path.exists(visualization_path):
                 os.remove(visualization_path)
-            raise InferenceError(f"An unexpected error occurred during analysis for {self.config.class_name}.")
+            raise InferenceError(f"An unexpected error occurred during analysis for {self.config.model_name}.")

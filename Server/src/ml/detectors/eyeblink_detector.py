@@ -68,10 +68,10 @@ class EyeblinkDetectorV1(BaseModel):
             ])
 
             load_time = time.time() - start_time
-            logger.info(f"Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     # --- Private Helper Methods ---
 
@@ -102,7 +102,7 @@ class EyeblinkDetectorV1(BaseModel):
         consecutive_blink_frames = 0
 
         try:
-            for i in tqdm(frames_to_process, desc=f"Detecting blinks for {self.config.class_name}"):
+            for i in tqdm(frames_to_process, desc=f"Detecting blinks for {self.config.model_name}"):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, i)
                 ret, frame = cap.read()
                 if not ret: break
@@ -114,7 +114,7 @@ class EyeblinkDetectorV1(BaseModel):
                         event="FRAME_ANALYSIS_PROGRESS",
                         message=f"Processed window {i + 1}/{total_frames}",
                         data=EventData(
-                            model_name=self.config.class_name,
+                            model_name=self.config.model_name,
                             progress=i + 1,
                             total=total_frames
                         )
@@ -296,7 +296,7 @@ class EyeblinkDetectorV1(BaseModel):
         if generate_visualizations:
             visualization_path = self._generate_visualization(media_path, sequence_scores, total_frames)
         else:
-            logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
+            logger.info(f"[{self.config.model_name}] Skipping visualization generation (generate_visualizations=False)")
 
         # 7. Assemble and return the final result
         return VideoAnalysisResult(

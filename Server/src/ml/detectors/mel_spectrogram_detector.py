@@ -44,10 +44,10 @@ class MelSpectrogramCNNV1(BaseModel):
                 transforms.ToTensor(),
             ])
             load_time = time.time() - start_time
-            logger.info(f"Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     def _get_audio_chunks(self, media_path: str) -> Tuple[np.ndarray, int]:
         """Standardizes and chunks the audio file."""

@@ -7,6 +7,7 @@ import storageManager from "../storage/storage.manager.js";
 import { ApiError } from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 import { getMediaType } from "../utils/media.js";
+import { redisPublisher } from "../config/redis.js";
 
 class MediaService {
   // ... (createAndAnalyzeMedia, rerunAnalysis methods are the same)
@@ -141,6 +142,33 @@ class MediaService {
         },
         children: childJobs,
       });
+      
+      // Emit initial QUEUED events for all models so frontend shows them immediately
+      for (const modelName of compatibleModels) {
+        try {
+          const queuedEvent = {
+            media_id: media.id,
+            user_id: media.userId,
+            event: "ANALYSIS_QUEUED",
+            message: `${modelName} queued for analysis`,
+            data: {
+              model_name: modelName,
+              progress: 0,
+              total: 100,
+              phase: "QUEUED",
+              timestamp: new Date().toISOString(),
+            },
+          };
+          await redisPublisher.publish(
+            config.MEDIA_PROGRESS_CHANNEL_NAME,
+            JSON.stringify(queuedEvent)
+          );
+          logger.debug(`[MediaService] Emitted QUEUED event for model ${modelName}`);
+        } catch (error) {
+          logger.error(`[MediaService] Failed to emit QUEUED event for ${modelName}:`, error);
+        }
+      }
+      
       logger.info(
         `[MediaService] Successfully queued run #${runNumber} for media ${media.id} with ${childJobs.length} models.`
       );

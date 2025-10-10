@@ -66,10 +66,10 @@ class EfficientNetB7Detector(BaseModel):
             self.model.eval()
 
             load_time = time.time() - start_time
-            logger.info(f"Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     # --- Private Helper Methods ---
 
@@ -148,7 +148,7 @@ class EfficientNetB7Detector(BaseModel):
                 event="FRAME_ANALYSIS_PROGRESS",
                 message=f"Starting frame analysis for {total_frames} frames",
                 data=EventData(
-                    model_name=self.config.class_name,
+                    model_name=self.config.model_name,
                     progress=0,
                     total=total_frames,
                     details={"phase": "frame_processing_start"}
@@ -156,7 +156,7 @@ class EfficientNetB7Detector(BaseModel):
             ))
 
         try:
-            for i in tqdm(range(total_frames), desc=f"Analyzing frames for {self.config.class_name}"):
+            for i in tqdm(range(total_frames), desc=f"Analyzing frames for {self.config.model_name}"):
                 ret, frame = cap.read()
                 if not ret: break
 
@@ -177,7 +177,7 @@ class EfficientNetB7Detector(BaseModel):
                         event="FRAME_ANALYSIS_PROGRESS",
                         message=f"Analyzed {i + 1}/{total_frames} frames, detected {len(all_face_predictions)} faces",
                         data=EventData(
-                            model_name=self.config.class_name,
+                            model_name=self.config.model_name,
                             progress=i + 1,
                             total=total_frames,
                             details={
@@ -224,7 +224,7 @@ class EfficientNetB7Detector(BaseModel):
                 event="FRAME_ANALYSIS_PROGRESS",
                 message="Starting visualization generation",
                 data=EventData(
-                    model_name=self.config.class_name,
+                    model_name=self.config.model_name,
                     progress=0,
                     total=total_frames,
                     details={"phase": "visualization"}
@@ -287,7 +287,7 @@ class EfficientNetB7Detector(BaseModel):
                         event="FRAME_ANALYSIS_PROGRESS",
                         message=f"Generating visualization: {i + 1}/{total_frames} frames processed",
                         data=EventData(
-                            model_name=self.config.class_name,
+                            model_name=self.config.model_name,
                             progress=i + 1,
                             total=total_frames,
                             details={"phase": "visualization"}
@@ -306,7 +306,7 @@ class EfficientNetB7Detector(BaseModel):
                 event="FRAME_ANALYSIS_PROGRESS",
                 message="Visualization generation completed",
                 data=EventData(
-                    model_name=self.config.class_name,
+                    model_name=self.config.model_name,
                     progress=total_frames,
                     total=total_frames,
                     details={"phase": "visualization_complete"}
@@ -336,9 +336,9 @@ class EfficientNetB7Detector(BaseModel):
                 media_id=video_id,
                 user_id=user_id,
                 event="FRAME_ANALYSIS_PROGRESS",
-                message=f"Starting analysis with {self.config.class_name}",
+                message=f"Starting analysis with {self.config.model_name}",
                 data=EventData(
-                    model_name=self.config.class_name,
+                    model_name=self.config.model_name,
                     progress=0,
                     total=None,
                     details={"phase": "initialization"}
@@ -357,7 +357,7 @@ class EfficientNetB7Detector(BaseModel):
                     event="FRAME_ANALYSIS_PROGRESS",
                     message=f"Frame analysis completed. Processing {len(all_face_scores)} face detections",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         progress=total_frames,
                         total=total_frames,
                         details={"phase": "frame_analysis_complete", "faces_detected": len(all_face_scores)}
@@ -390,7 +390,7 @@ class EfficientNetB7Detector(BaseModel):
             if generate_visualizations:
                 visualization_path = self._generate_visualization(media_path, frame_scores, total_frames, **kwargs)
             else:
-                logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
+                logger.info(f"[{self.config.model_name}] Skipping visualization generation (generate_visualizations=False)")
 
             # 6. Publish analysis completion
             if video_id and user_id:
@@ -400,7 +400,7 @@ class EfficientNetB7Detector(BaseModel):
                     event="ANALYSIS_COMPLETE",
                     message=f"Analysis completed: {prediction} (confidence: {confidence:.3f})",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         progress=total_frames,
                         total=total_frames,
                         details={
@@ -435,7 +435,7 @@ class EfficientNetB7Detector(BaseModel):
                     event="ANALYSIS_FAILED",
                     message=f"Analysis failed: {str(e)}",
                     data=EventData(
-                        model_name=self.config.class_name,
+                        model_name=self.config.model_name,
                         details={"error": str(e), "processing_time": time.time() - start_time}
                     )
                 ))

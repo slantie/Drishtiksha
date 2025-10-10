@@ -1,23 +1,26 @@
 // Frontend/src/components/ui/AnalysisProgress.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "../../lib/utils";
 import { Card } from "./Card";
 
 /**
  * Comprehensive analysis progress component showing multiple models progress
  * Similar to TQDM but for multiple concurrent processes
+ * 
+ * FIXED: Now accepts modelProgress directly from useAnalysisProgress hook
  */
 export const AnalysisProgress = ({
   mediaId,
   filename,
   isVisible = false,
   onClose,
-  progressData = {},
+  progressData = {}, // Legacy format (single model update)
+  modelProgress: externalModelProgress = {}, // NEW: Direct model progress map
 }) => {
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [modelProgress, setModelProgress] = useState({});
+  const [internalModelProgress, setInternalModelProgress] = useState({});
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -27,10 +30,10 @@ export const AnalysisProgress = ({
     return () => clearInterval(interval);
   }, [startTime]);
 
-  // Update model progress when new data comes in
+  // Update model progress when new data comes in (legacy single-model format)
   useEffect(() => {
     if (progressData.modelName && progressData.progress !== undefined) {
-      setModelProgress((prev) => ({
+      setInternalModelProgress((prev) => ({
         ...prev,
         [progressData.modelName]: {
           ...progressData,
@@ -39,6 +42,36 @@ export const AnalysisProgress = ({
       }));
     }
   }, [progressData]);
+
+  // Merge external model progress (from useAnalysisProgress) with internal
+  const modelProgress = useMemo(() => {
+    // If external progress exists, use it (it's more complete)
+    if (Object.keys(externalModelProgress).length > 0) {
+      // Transform to the expected format with lastUpdate
+      return Object.entries(externalModelProgress).reduce((acc, [modelName, data]) => {
+        // Filter out non-model entries (like "Backend worker", empty names, etc.)
+        if (!modelName || 
+            modelName.toLowerCase().includes('worker') || 
+            modelName.toLowerCase().includes('backend') ||
+            modelName.trim() === '') {
+          return acc; // Skip this entry
+        }
+        
+        acc[modelName] = {
+          modelName: modelName,
+          progress: data.progress || 0,
+          total: data.total || 100,
+          message: data.message || '',
+          lastUpdate: data.timestamp || Date.now(),
+          phase: data.phase,
+          details: data.details,
+        };
+        return acc;
+      }, {});
+    }
+    // Fallback to internal (legacy)
+    return internalModelProgress;
+  }, [externalModelProgress, internalModelProgress]);
 
   const formatTime = (ms) => {
     const seconds = Math.floor(ms / 1000);
@@ -70,16 +103,27 @@ export const AnalysisProgress = ({
   };
 
   const ModelProgressBar = ({ modelName, data }) => {
-    const percentage =
+    // Handle phase-based completion
+    const isQueued = data.phase === 'queued';
+    const isCompleted = data.phase === 'completed' || data.phase === 'complete';
+    const isFailed = data.phase === 'failed';
+    const isProcessing = data.phase === 'analyzing' || data.phase === 'processing';
+    
+    const percentage = isCompleted ? 100 :
+      isFailed ? 0 :
+      isQueued ? 0 :
       data.total > 0 ? Math.min(100, (data.progress / data.total) * 100) : 0;
-    const timeSinceUpdate = Date.now() - data.lastUpdate;
-    const isStale = timeSinceUpdate > 10000; // 10 seconds
+    
+    const timeSinceUpdate = Date.now() - (data.lastUpdate || Date.now());
+    const isStale = timeSinceUpdate > 10000 && !isCompleted && !isFailed; // 10 seconds
 
     const calculateETA = () => {
-      if (!data.progress || data.progress === 0 || percentage >= 100)
+      if (!data.progress || data.progress === 0 || percentage >= 100 || isCompleted)
         return null;
 
       const timeElapsed = data.lastUpdate - startTime;
+      if (timeElapsed <= 0) return null;
+      
       const avgTimePerItem = timeElapsed / data.progress;
       const remainingItems = data.total - data.progress;
       const etaMs = avgTimePerItem * remainingItems;
@@ -88,10 +132,10 @@ export const AnalysisProgress = ({
     };
 
     const calculateSpeed = () => {
-      if (!data.progress || data.progress === 0) return null;
+      if (!data.progress || data.progress === 0 || isCompleted) return null;
 
       const timeElapsed = data.lastUpdate - startTime;
-      if (timeElapsed === 0) return null;
+      if (timeElapsed <= 0) return null;
 
       const itemsPerSecond = (data.progress * 1000) / timeElapsed;
       return itemsPerSecond.toFixed(1);
@@ -115,36 +159,29 @@ export const AnalysisProgress = ({
             <span>{percentage.toFixed(1)}%</span>
           </div>
 
-          <div className="w-full bg-muted rounded-full h-2">
+          <div className="w-full bg-light-secondary dark:bg-dark-secondary rounded-full h-2.5">
             <div
               className={cn(
-                "h-2 rounded-full transition-all duration-300",
-                percentage >= 100
+                "h-2.5 rounded-full transition-all duration-500 ease-out",
+                isCompleted
                   ? "bg-green-500"
+                  : isFailed
+                  ? "bg-red-500"
+                  : isQueued
+                  ? "bg-gray-400"
                   : isStale
                   ? "bg-yellow-500"
-                  : "bg-blue-500"
+                  : "bg-primary-main" // Purple theme color
               )}
               style={{ width: `${percentage}%` }}
             />
           </div>
 
-          {/* TQDM-style bar */}
-          <div className="flex text-xs font-mono">
-            <span className="text-blue-500">
-              {Array(Math.floor(percentage / 5))
-                .fill("█")
-                .join("")}
-            </span>
-            <span className="text-muted-foreground">
-              {Array(20 - Math.floor(percentage / 5))
-                .fill("░")
-                .join("")}
-            </span>
-          </div>
-
-          <div className="text-xs text-muted-foreground truncate">
-            {data.message || `Processing ${modelName}...`}
+          <div className="text-xs text-light-muted-text dark:text-dark-muted-text truncate mt-1">
+            {isCompleted ? "✅ Analysis complete" :
+             isFailed ? "❌ Analysis failed" :
+             isQueued ? "⏳ Queued for analysis..." :
+             data.message || `Processing ${modelName}...`}
           </div>
         </div>
       </div>
@@ -181,31 +218,17 @@ export const AnalysisProgress = ({
 
           {/* Overall Progress */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Overall Progress</span>
+            <div className="flex justify-between text-sm text-light-text dark:text-dark-text">
+              <span className="font-medium">Overall Progress</span>
               <span>
-                {overallProgress.toFixed(1)}% ({activeModels} models)
+                {overallProgress.toFixed(1)}% ({activeModels} model{activeModels !== 1 ? 's' : ''})
               </span>
             </div>
-            <div className="w-full bg-muted rounded-full h-3">
+            <div className="w-full bg-light-secondary dark:bg-dark-secondary rounded-full h-3">
               <div
-                className="h-3 bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-300"
+                className="h-3 bg-gradient-to-r from-primary-main to-purple-600 rounded-full transition-all duration-500 ease-out shadow-sm"
                 style={{ width: `${overallProgress}%` }}
               />
-            </div>
-
-            {/* Overall TQDM-style visualization */}
-            <div className="flex text-sm font-mono justify-center">
-              <span className="text-blue-500">
-                {Array(Math.floor(overallProgress / 2.5))
-                  .fill("█")
-                  .join("")}
-              </span>
-              <span className="text-muted-foreground">
-                {Array(40 - Math.floor(overallProgress / 2.5))
-                  .fill("░")
-                  .join("")}
-              </span>
             </div>
           </div>
 

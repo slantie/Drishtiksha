@@ -57,10 +57,10 @@ class ColorCuesLSTMV1(BaseModel):
             self.model.eval()
 
             load_time = time.time() - start_time
-            logger.info(f"✅ Loaded Model: '{self.config.class_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
+            logger.info(f"✅ Loaded Model: '{self.config.model_name}' | Device: '{self.device}' | Time: {load_time:.2f}s.")
         except Exception as e:
-            logger.error(f"Failed to load model '{self.config.class_name}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to load model '{self.config.class_name}'") from e
+            logger.error(f"Failed to load model '{self.config.model_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load model '{self.config.model_name}'") from e
 
     # --- Private Helper Methods ---
 
@@ -83,7 +83,7 @@ class ColorCuesLSTMV1(BaseModel):
         frame_indices = np.linspace(0, total_frames - 1, frames_to_sample, dtype=int)
 
         try:
-            for i, frame_idx in enumerate(tqdm(frame_indices, desc=f"Analyzing frames for {self.config.class_name}")):
+            for i, frame_idx in enumerate(tqdm(frame_indices, desc=f"Analyzing frames for {self.config.model_name}")):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
                 ret, frame = cap.read()
                 if not ret: continue
@@ -95,7 +95,7 @@ class ColorCuesLSTMV1(BaseModel):
                         event="FRAME_ANALYSIS_PROGRESS",
                         message=f"Processed window {i + 1}/{frame_indices}",
                         data=EventData(
-                            model_name=self.config.class_name,
+                            model_name=self.config.model_name,
                             progress=i + 1,
                             total=frame_indices
                         )
@@ -281,7 +281,7 @@ class ColorCuesLSTMV1(BaseModel):
         if generate_visualizations:
             visualization_path = self._generate_visualization(media_path, sequence_scores, total_frames)
         else:
-            logger.info(f"[{self.config.class_name}] Skipping visualization generation (generate_visualizations=False)")
+            logger.info(f"[{self.config.model_name}] Skipping visualization generation (generate_visualizations=False)")
 
         # 7. Assemble and return the final, comprehensive result object
         return VideoAnalysisResult(

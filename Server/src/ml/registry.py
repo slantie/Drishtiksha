@@ -106,6 +106,11 @@ class ModelManager:
             logger.info(f"🔄 Lazy loading model '{model_name}' (Class: {class_name})...")
             start_time = time.monotonic()
             
+            # CRITICAL FIX: Inject the model_name into config before instantiation
+            # This ensures progress events use the consistent model key (e.g., "EFFICIENTNET-B7-V1")
+            # instead of the class name (e.g., "EfficientNetB7Detector")
+            model_config.model_name = model_name
+            
             instance = model_class(model_config)
             instance.load()  # Load weights into GPU/CPU memory
             
