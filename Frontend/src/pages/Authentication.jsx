@@ -1,5 +1,6 @@
 // src/pages/Authentication.jsx
 
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck } from "lucide-react";
@@ -10,6 +11,12 @@ import { config } from "../config/env.js";
 function Authentication() {
   const [searchParams, setSearchParams] = useSearchParams({ view: "login" });
   const currentView = searchParams.get("view") || "login";
+
+  useEffect(() => {
+    document.title = currentView === "login" 
+      ? "Login - Drishtiksha" 
+      : "Sign Up - Drishtiksha";
+  }, [currentView]);
 
   const handleViewTransition = (newView) => {
     if (newView !== currentView) {

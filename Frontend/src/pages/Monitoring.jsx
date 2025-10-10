@@ -1,6 +1,6 @@
 // src/pages/Monitoring.jsx
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   useServerStatusQuery,
   useServerHistoryQuery,
@@ -297,6 +297,10 @@ const MonitoringSkeleton = () => (
 );
 
 const Monitoring = () => {
+  useEffect(() => {
+    document.title = "System Monitoring - Drishtiksha";
+  }, []);
+
   const {
     data: serverStatus,
     error: serverStatusError,

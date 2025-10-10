@@ -1,6 +1,6 @@
 // src/pages/Analysis.jsx (Consolidated and Refined)
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -35,6 +35,10 @@ const AnalysisPage = () => {
     refetch,
     isRefetching,
   } = useMediaItemQuery(mediaId);
+
+  useEffect(() => {
+    document.title = "Analysis Report - Drishtiksha";
+  }, []);
 
   // --- Loading State ---
   if (isLoading)

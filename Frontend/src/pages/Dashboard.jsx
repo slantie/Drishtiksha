@@ -1,6 +1,6 @@
 // src/pages/Dashboard.jsx
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Upload,
@@ -163,6 +163,10 @@ export const Dashboard = () => {
   } = useMediaQuery(); // Added refetch from useMediaQuery
   const { stats } = useMediaStats();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "Dashboard - Drishtiksha";
+  }, []);
 
   const [modal, setModal] = useState({ type: null, data: null });
   const [filters, setFilters] = useState({

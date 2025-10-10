@@ -190,7 +190,10 @@ const techStack = [
 ];
 
 const Home = () => {
-  // Removed unused state/refs: containerRef, currentSection, isScrolling, sections
+  useEffect(() => {
+    document.title = "Drishtiksha - AI-Powered Media Analysis";
+  }, []);
+
   return (
     <div className="bg-light-background dark:bg-dark-background text-light-text dark:text-dark-text min-h-screen">
       {/* Hero Section */}

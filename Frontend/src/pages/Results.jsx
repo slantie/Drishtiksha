@@ -1,6 +1,6 @@
 // src/pages/Results.jsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -117,6 +117,14 @@ const Results = () => {
   });
   const deleteMutation = useDeleteMediaMutation();
   const [modal, setModal] = useState({ type: null, data: null });
+
+  useEffect(() => {
+    if (media) {
+      document.title = `${media.filename} - Results - Drishtiksha`;
+    } else {
+      document.title = "Results - Drishtiksha";
+    }
+  }, [media]);
 
   // Handle various loading/error states for the main page
   if (isLoading) return <PageLoader text="Loading Media & Results..." />;

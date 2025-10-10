@@ -105,6 +105,10 @@ const Profile = () => {
   });
 
   useEffect(() => {
+    document.title = "Profile - Drishtiksha";
+  }, []);
+
+  useEffect(() => {
     if (user) {
       setProfileForm({
         firstName: user.firstName || "",
