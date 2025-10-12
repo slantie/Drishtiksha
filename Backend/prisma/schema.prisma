@@ -43,10 +43,16 @@ model Media {
   description String?
   status      MediaStatus @default(QUEUED) // Represents the status of the LATEST run
   mediaType   MediaType
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  hasAudio    Boolean?    @map("has_audio") // For videos: whether audio track exists (null for non-video media)
+
+  // Rich metadata from FFprobe extraction - stores duration, resolution, bitrate, codec info, etc.
+  // Example: { "format": {...}, "video": {...}, "audio": {...}, "streams": [...] }
+  metadata Json? // Flexible JSON field for storing comprehensive media metadata
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // A single media file can have multiple "runs" of the analysis pipeline over time.
   analysisRuns AnalysisRun[]

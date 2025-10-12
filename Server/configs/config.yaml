@@ -265,7 +265,7 @@ models:
     model_path: "models/LipFD-v1.pth"
     isImage: false
     isVideo: true
-    isAudio: false
+    isAudio: true
     model_definition:
       arch: "CLIP:ViT-L/14"
       n_extract: 200

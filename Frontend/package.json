@@ -9,7 +9,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "vitest run --coverage",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-pdf": "node scripts\\md-to-pdf-runner.js"
   },
   "dependencies": {
     "@cloudinary/react": "^1.14.3",
@@ -29,6 +30,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.513.0",
+    "md-to-pdf": "^5.2.4",
     "prop-types": "^15.8.1",
     "radix-ui": "^1.4.2",
     "react": "^19.1.0",
@@ -71,3 +73,4 @@
     "vitest": "^3.2.4"
   }
 }
+

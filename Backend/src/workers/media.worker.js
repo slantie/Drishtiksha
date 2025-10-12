@@ -194,11 +194,13 @@ async function handleSingleAnalysis(job) {
 async function handleFinalizeAnalysis(job) {
   const { runId, mediaId } = job.data;
   
+  logger.info(`[Finalizer] Starting finalization for run ${runId}, media ${mediaId}`);
+  
   try {
     const run = await prisma.analysisRun.findUnique({
       where: { id: runId },
       include: { 
-        analyses: { select: { status: true } },
+        analyses: { select: { status: true, modelName: true } },
         media: { select: { userId: true, filename: true } }
       },
     });
@@ -217,25 +219,37 @@ async function handleFinalizeAnalysis(job) {
     const failedAnalyses = run.analyses.filter(
       (a) => a.status === "FAILED"
     ).length;
+    const pendingAnalyses = run.analyses.filter(
+      (a) => a.status === "PENDING"
+    ).length;
 
+    logger.info(
+      `[Finalizer] Run ${runId} analysis status: ${completedAnalyses} completed, ${failedAnalyses} failed, ${pendingAnalyses} pending out of ${totalAnalyses} total`
+    );
+
+    // 🔧 FIX: Determine final status based on what we have
     let finalStatus;
-    if (completedAnalyses === 0 && failedAnalyses > 0) {
-      // All analyses failed
-      finalStatus = "FAILED";
-    } else if (completedAnalyses > 0 && failedAnalyses > 0) {
-      // Some succeeded, some failed - this is not in the schema, using FAILED
-      finalStatus = "FAILED";
-      logger.warn(
-        `[Finalizer] Run ${runId} has mixed results (${completedAnalyses} completed, ${failedAnalyses} failed). Setting to FAILED.`
-      );
-    } else if (completedAnalyses > 0) {
-      // All succeeded
-      finalStatus = "ANALYZED";
-    } else {
-      // No analyses completed or failed - still processing (shouldn't happen in finalizer)
+    if (completedAnalyses === 0 && failedAnalyses === 0) {
+      // No analyses have completed yet - this shouldn't happen in finalizer
+      // but handle it gracefully
       finalStatus = "PROCESSING";
       logger.warn(
-        `[Finalizer] Run ${runId} has no completed or failed analyses. Setting to PROCESSING.`
+        `[Finalizer] Run ${runId} has no completed or failed analyses (${pendingAnalyses} pending). Keeping as PROCESSING.`
+      );
+    } else if (completedAnalyses > 0) {
+      // At least one analysis succeeded - mark as ANALYZED
+      // This is the success case even if some models failed
+      finalStatus = "ANALYZED";
+      if (failedAnalyses > 0) {
+        logger.info(
+          `[Finalizer] Run ${runId} has mixed results (${completedAnalyses} completed, ${failedAnalyses} failed). Setting to ANALYZED since we have at least one result.`
+        );
+      }
+    } else {
+      // All analyses failed (completedAnalyses === 0 && failedAnalyses > 0)
+      finalStatus = "FAILED";
+      logger.warn(
+        `[Finalizer] Run ${runId} has all analyses failed (${failedAnalyses} failed). Setting to FAILED.`
       );
     }
 
@@ -255,6 +269,10 @@ async function handleFinalizeAnalysis(job) {
       });
     });
 
+    logger.info(
+      `[Finalizer] ✅ Updated database: Run ${runId} and Media ${mediaId} status set to ${finalStatus}`
+    );
+
     // Emit final status event
     if (run.media) {
       await emitProgressEvent(
@@ -262,13 +280,16 @@ async function handleFinalizeAnalysis(job) {
         run.media.userId,
         finalStatus === "ANALYZED" ? "ANALYSIS_COMPLETE" : "ANALYSIS_FAILED",
         finalStatus === "ANALYZED" 
-          ? `Analysis completed successfully for "${run.media.filename}"`
-          : `Analysis failed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`,
+          ? `Analysis completed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`
+          : failedAnalyses === totalAnalyses
+            ? `All ${totalAnalyses} models failed for "${run.media.filename}"`
+            : `Analysis partially failed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`,
         {
           runId: run.id,
           totalAnalyses,
           completedAnalyses,
           failedAnalyses,
+          pendingAnalyses,
           finalStatus,
           filename: run.media.filename,
         }
@@ -276,13 +297,13 @@ async function handleFinalizeAnalysis(job) {
     }
 
     logger.info(
-      `[Finalizer] Finalized AnalysisRun ${run.id} for media ${mediaId} with status: ${finalStatus} (${completedAnalyses}/${totalAnalyses} completed, ${failedAnalyses} failed)`
+      `[Finalizer] ✅ Finalized AnalysisRun ${run.id} for media ${mediaId} with status: ${finalStatus} (${completedAnalyses}/${totalAnalyses} completed, ${failedAnalyses} failed)`
     );
     
     return { runId, mediaId, finalStatus, completedAnalyses, failedAnalyses, totalAnalyses };
   } catch (error) {
     logger.error(
-      `[Finalizer] Error finalizing AnalysisRun ${runId}: ${error.message}`,
+      `[Finalizer] ❌ Error finalizing AnalysisRun ${runId}: ${error.message}`,
       { stack: error.stack }
     );
     

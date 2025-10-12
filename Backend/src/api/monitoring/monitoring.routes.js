@@ -11,5 +11,8 @@ router.use(authenticateToken);
 router.get('/server-status', monitoringController.getServerStatus);
 router.get('/server-history', monitoringController.getServerHealthHistory);
 router.get('/queue-status', monitoringController.getQueueStatus);
+router.post('/check-stuck-runs', monitoringController.checkStuckRuns);
+router.get('/verify-statuses', monitoringController.verifyStatuses);
+router.post('/fix-statuses', monitoringController.fixStatuses);
 
 export default router;

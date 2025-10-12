@@ -40,6 +40,74 @@ const ensureDirectoryExists = async (dirPath) => {
 // ====================================================================
 
 /**
+ * Extracts comprehensive metadata from media files using ffprobe.
+ * @param {string} filePath - The path to the media file.
+ * @returns {Promise<Object>} Metadata object with format, video, audio, and streams info.
+ */
+const extractMediaMetadata = (filePath) => {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (error, metadata) => {
+      if (error) {
+        logger.warn(`Failed to extract metadata from ${filePath}: ${error.message}`);
+        resolve(null); // Return null instead of rejecting - metadata is optional
+        return;
+      }
+
+      try {
+        const processed = {
+          format: {},
+          video: null,
+          audio: null,
+          streams: [],
+        };
+
+        // Format information
+        if (metadata.format) {
+          processed.format = {
+            duration: parseFloat(metadata.format.duration) || 0,
+            size: parseInt(metadata.format.size) || 0,
+            bitRate: parseInt(metadata.format.bit_rate) || 0,
+            formatName: metadata.format.format_name,
+          };
+        }
+
+        // Stream information
+        if (metadata.streams && Array.isArray(metadata.streams)) {
+          metadata.streams.forEach((stream) => {
+            if (stream.codec_type === "video") {
+              processed.video = {
+                codecName: stream.codec_name,
+                width: stream.width,
+                height: stream.height,
+                frameRate: stream.r_frame_rate,
+                bitRate: parseInt(stream.bit_rate) || 0,
+              };
+            } else if (stream.codec_type === "audio") {
+              processed.audio = {
+                codecName: stream.codec_name,
+                sampleRate: parseInt(stream.sample_rate) || 0,
+                channels: stream.channels,
+                bitRate: parseInt(stream.bit_rate) || 0,
+              };
+            }
+
+            processed.streams.push({
+              codecType: stream.codec_type,
+              codecName: stream.codec_name,
+            });
+          });
+        }
+
+        resolve(processed);
+      } catch (processError) {
+        logger.warn(`Failed to process metadata: ${processError.message}`);
+        resolve(null);
+      }
+    });
+  });
+};
+
+/**
  * Converts any compatible video file to MP4 using ffmpeg.
  * @param {string} inputPath - The path to the source video file.
  * @param {string} outputPath - The path to save the converted MP4 file.
@@ -185,6 +253,12 @@ const localProvider = {
     const newMimeType =
       mime.lookup(destinationPath) || "application/octet-stream";
 
+    // Extract metadata for videos and audio files
+    let metadata = null;
+    if (fileType === "video" || fileType === "audio") {
+      metadata = await extractMediaMetadata(destinationPath);
+    }
+
     const publicId = path.join(subfolder, uniqueFilename).replace(/\\/g, "/");
     const urlPathSegment = config.LOCAL_STORAGE_PATH.split("/")
       .slice(1)
@@ -199,6 +273,7 @@ const localProvider = {
       publicId: publicId,
       mimetype: newMimeType, // This was the missing piece of data
       size: newSize, // This was the other missing piece
+      metadata: metadata, // Rich metadata from ffprobe
     };
   },
 

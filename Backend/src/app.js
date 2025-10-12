@@ -12,6 +12,7 @@ import { apiRateLimiter } from "./middleware/security.middleware.js";
 import authRoutes from "./api/auth/auth.routes.js";
 import mediaRoutes from "./api/media/media.routes.js";
 import monitoringRoutes from "./api/monitoring/monitoring.routes.js";
+import pdfRoutes from "./api/pdf/pdf.routes.js";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use(cookieParser());
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/media", mediaRoutes);
 app.use("/api/v1/monitoring", monitoringRoutes);
+app.use("/api/v1/pdf", pdfRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({

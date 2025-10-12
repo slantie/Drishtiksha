@@ -93,11 +93,11 @@ class ColorCuesLSTMV1(BaseModel):
                         media_id=video_id,
                         user_id=user_id,
                         event="FRAME_ANALYSIS_PROGRESS",
-                        message=f"Processed window {i + 1}/{frame_indices}",
+                        message=f"Processed window {i + 1}/{len(frame_indices)}",
                         data=EventData(
                             model_name=self.config.model_name,
                             progress=i + 1,
-                            total=frame_indices
+                            total=len(frame_indices)
                         )
                     ))
 

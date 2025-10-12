@@ -20,6 +20,28 @@ export function initializeQueueEvents(io) {
                 io.to(media.user.id).emit('media_update', media);
                 logger.info(`[SocketIO] Emitted final 'media_update' for media ${mediaId} to user ${media.user.id}`);
             }
+        } else {
+            // 🔧 NEW: When a child analysis job completes, check if all siblings are done
+            const runId = jobId.split('-')[0];
+            if (runId && runId.length > 10) { // Valid UUID-like runId
+                try {
+                    const run = await prisma.analysisRun.findUnique({
+                        where: { id: runId },
+                        include: { analyses: { select: { status: true } } },
+                    });
+                    
+                    if (run && run.status === 'PROCESSING') {
+                        const totalAnalyses = run.analyses.length;
+                        const completedOrFailed = run.analyses.filter(
+                            a => a.status === 'COMPLETED' || a.status === 'FAILED'
+                        ).length;
+                        
+                        logger.debug(`[QueueEvents] Run ${runId} progress: ${completedOrFailed}/${totalAnalyses} done`);
+                    }
+                } catch (error) {
+                    // Silently ignore - this is just progress tracking
+                }
+            }
         }
     });
 

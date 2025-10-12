@@ -14,6 +14,7 @@ import {
   FileText,
   ChevronDown,
   Video,
+  Eye,
 } from "lucide-react";
 import {
   useMediaItemQuery,
@@ -40,10 +41,28 @@ import { PageHeader } from "../components/layout/PageHeader.jsx";
 import { formatDate } from "../utils/formatters.js";
 import { EmptyState } from "../components/ui/EmptyState.jsx";
 import { AnalysisResultSummaryCard } from "../components/analysis/charts/AnalysisResultSummaryCard.jsx";
-import { DownloadService } from "../services/DownloadReport.js";
+import { MarkdownPDFService } from "../services/pdf/MarkdownPDFService.js";
+import { MediaDownloadService } from "../services/MediaDownloadService.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { showToast } from "../utils/toast.jsx";
 
 const AnalysisRunCard = ({ run, mediaId, isExpanded, onToggle }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadReport = async (e) => {
+    e.stopPropagation(); // Prevent card toggle
+    setIsDownloading(true);
+    try {
+      await MarkdownPDFService.downloadPDF(run.id);
+      showToast.success(`Downloaded report for Run #${run.runNumber}`);
+    } catch (error) {
+      console.error("PDF download error:", error);
+      showToast.error(`Failed to download report: ${error.message}`);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
       <button
@@ -73,9 +92,44 @@ const AnalysisRunCard = ({ run, mediaId, isExpanded, onToggle }) => {
                 </Badge>
               )}
             </div>
-            <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
-              {formatDate(run.createdAt)}
-            </span>
+            <div className="flex items-center gap-2">
+              {run.analyses?.length > 0 && (
+                <>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Link to={`/results/${mediaId}/runs/${run.id}`}>
+                      <Layers className="h-4 w-4 mr-2" /> View Details
+                    </Link>
+                  </Button>
+                  <Button
+                    onClick={handleDownloadReport}
+                    variant="outline"
+                    size="sm"
+                    disabled={isDownloading}
+                    aria-label={`Download report for Run #${run.runNumber}`}
+                    className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {isDownloading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" /> PDF
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+              <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+                {formatDate(run.createdAt)}
+              </span>
+            </div>
           </div>
         </CardHeader>
       </button>
@@ -150,6 +204,7 @@ const Results = () => {
   const deleteMutation = useDeleteMediaMutation();
   const [modal, setModal] = useState({ type: null, data: null });
   const [expandedRuns, setExpandedRuns] = useState(new Set([0])); // Expand first run by default
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const toggleRun = (index) => {
     setExpandedRuns((prev) => {
@@ -316,7 +371,7 @@ const Results = () => {
                   </Button>
                   <Button
                     onClick={() =>
-                      DownloadService.downloadMedia(media.url, media.filename)
+                      MediaDownloadService.downloadMedia(media.url, media.filename)
                     }
                     variant="outline"
                     className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
@@ -326,17 +381,72 @@ const Results = () => {
                     <Download className="h-4 w-4 mr-2" /> Download
                   </Button>
                   {media.analysisRuns?.[0]?.analyses?.length > 0 && (
-                    <Button
-                      onClick={() =>
-                        DownloadService.generateAndDownloadPDF(media, user)
-                      }
-                      variant="outline"
-                      className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                      size="sm"
-                      aria-label={`Download PDF report for ${media.filename}`}
-                    >
-                      <FileText className="h-4 w-4 mr-2" /> Report
-                    </Button>
+                    <>
+                      <Button
+                        onClick={async () => {
+                          setPdfGenerating(true);
+                          try {
+                            // Get the latest/first analysis run
+                            const latestRun = media.analysisRuns?.[0];
+                            if (!latestRun) {
+                              throw new Error('No analysis run available');
+                            }
+                            await MarkdownPDFService.previewPDF(latestRun.id);
+                          } catch (error) {
+                            console.error("PDF preview error:", error);
+                          } finally {
+                            setPdfGenerating(false);
+                          }
+                        }}
+                        variant="outline"
+                        className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                        size="sm"
+                        disabled={pdfGenerating}
+                        aria-label={`Preview PDF report for ${media.filename}`}
+                      >
+                        {pdfGenerating ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4 mr-2" /> Preview
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          setPdfGenerating(true);
+                          try {
+                            // Get the latest/first analysis run
+                            const latestRun = media.analysisRuns?.[0];
+                            if (!latestRun) {
+                              throw new Error('No analysis run available');
+                            }
+                            await MarkdownPDFService.downloadPDF(latestRun.id);
+                          } catch (error) {
+                            console.error("PDF download error:", error);
+                          } finally {
+                            setPdfGenerating(false);
+                          }
+                        }}
+                        variant="outline"
+                        className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                        size="sm"
+                        disabled={pdfGenerating || !media.analysisRuns?.[0]}
+                        aria-label={`Download PDF report for ${media.filename}`}
+                      >
+                        {pdfGenerating ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4 mr-2" /> Latest Report
+                          </>
+                        )}
+                      </Button>
+                    </>
                   )}
                   <Button
                     onClick={() => setModal({ type: "delete", data: media })}

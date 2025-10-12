@@ -48,6 +48,20 @@ class MediaService {
         throw new ApiError(500, "Failed to upload file to storage.");
       }
 
+      // Extract metadata from the uploaded file
+      let hasAudio = null;
+      let metadata = null;
+      
+      if (uploadResponse.metadata) {
+        metadata = uploadResponse.metadata;
+        // For videos, check if audio track exists
+        if (mediaType === "VIDEO" && metadata.audio) {
+          hasAudio = true;
+        } else if (mediaType === "VIDEO" && !metadata.audio) {
+          hasAudio = false;
+        }
+      }
+
       // Create database record - if this fails, we'll clean up the uploaded file
       const mediaRecord = await mediaRepository.create({
         filename: file.originalname,
@@ -59,9 +73,11 @@ class MediaService {
         status: "QUEUED",
         userId: user.id,
         mediaType: mediaType,
+        hasAudio: hasAudio,
+        metadata: metadata,
       });
       
-      logger.info(`[MediaService] Successfully created media record ${mediaRecord.id} for user ${user.id}`);
+      logger.info(`[MediaService] Successfully created media record ${mediaRecord.id} for user ${user.id}${hasAudio !== null ? ` (hasAudio: ${hasAudio})` : ''}`);
       return mediaRecord;
       
     } catch (error) {
@@ -90,7 +106,8 @@ class MediaService {
         `[MediaService] Preparing analysis run #${runNumber} for media ${media.id}`
       );
       const compatibleModels = await this._determineCompatibleModels(
-        media.mediaType
+        media.mediaType,
+        media.hasAudio
       );
       const run = await mediaRepository.createAnalysisRun(media.id, runNumber);
       await mediaRepository.update(media.id, { status: "QUEUED" });
@@ -128,20 +145,32 @@ class MediaService {
         },
       }));
 
+      // 🔧 FIX: Use failParentOnFailure: false to ensure finalizer runs even when children fail
       await mediaFlowProducer.add({
         name: "finalize-analysis",
         queueName: config.MEDIA_PROCESSING_QUEUE_NAME,
         data: { runId: run.id, mediaId: media.id },
         opts: { 
           jobId: `${run.id}-finalizer`,
-          attempts: 2, // Retry finalizer once if it fails
+          attempts: 3, // Retry finalizer up to 3 times if it fails
           backoff: {
             type: 'fixed',
             delay: 3000, // Wait 3 seconds before retry
           },
-          ignoreDependencyOnFailure: true,  // 🔧 FIX: Run finalizer even if child jobs fail
+          removeOnComplete: {
+            age: 86400, // Keep completed finalizer jobs for 24 hours
+          },
+          removeOnFail: {
+            age: 604800, // Keep failed finalizer jobs for 7 days
+          },
         },
-        children: childJobs,
+        children: childJobs.map(job => ({
+          ...job,
+          opts: {
+            ...job.opts,
+            failParentOnFailure: false, // 🔧 KEY FIX: Don't fail parent when child fails
+          }
+        })),
       });
       
       // Emit initial QUEUED events for all models so frontend shows them immediately
@@ -188,7 +217,7 @@ class MediaService {
     }
   }
 
-  async _determineCompatibleModels(mediaType) {
+  async _determineCompatibleModels(mediaType, hasAudio = null) {
     const serverStats = await modelAnalysisService.getServerStatistics();
     if (!serverStats?.models_info) return [];
 
@@ -196,16 +225,37 @@ class MediaService {
       serverStats.models_info
         .filter((m) => {
           if (!m.loaded) return false;
+          
+          // First check basic media type compatibility
+          let isCompatible = false;
           switch (mediaType) {
             case "AUDIO":
-              return m.isAudio;
+              isCompatible = m.isAudio;
+              break;
             case "IMAGE":
-              return m.isImage;
+              isCompatible = m.isImage;
+              break;
             case "VIDEO":
-              return m.isVideo;
+              isCompatible = m.isVideo;
+              break;
             default:
               return false;
           }
+          
+          if (!isCompatible) return false;
+          
+          // For video media, check if model requires audio and if video has audio
+          if (mediaType === "VIDEO" && m.isAudio && m.isVideo) {
+            // Model requires both video AND audio (like LIP-FD-V1)
+            if (hasAudio === false) {
+              logger.info(
+                `[MediaService] Skipping model ${m.name} - requires audio but video has no audio track`
+              );
+              return false; // Skip this model
+            }
+          }
+          
+          return true;
         })
         .map((m) => m.name) || []
     );

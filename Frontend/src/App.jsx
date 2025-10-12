@@ -16,6 +16,7 @@ import Profile from "./pages/Profile.jsx";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
 import DetailedAnalysisPage from "./pages/Analysis.jsx";
+import RunDetailsPage from "./pages/RunDetails.jsx";
 import Monitoring from "./pages/Monitoring.jsx";
 
 function App() {
@@ -70,6 +71,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Results />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/results/:mediaId/runs/:runId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <RunDetailsPage />
                 </Layout>
               </ProtectedRoute>
             }
