@@ -10,7 +10,6 @@ import { getMediaType } from "../utils/media.js";
 import { redisPublisher } from "../config/redis.js";
 
 class MediaService {
-  // ... (createAndAnalyzeMedia, rerunAnalysis methods are the same)
   async createAndAnalyzeMedia(file, user, description) {
     if (!file) throw new ApiError(400, "A file is required for upload.");
     const mediaRecord = await this._createMediaRecord(file, user, description);
@@ -35,7 +34,7 @@ class MediaService {
     }
 
     let uploadResponse = null;
-    
+
     try {
       // Upload file to storage
       uploadResponse = await storageManager.uploadFile(
@@ -51,7 +50,7 @@ class MediaService {
       // Extract metadata from the uploaded file
       let hasAudio = null;
       let metadata = null;
-      
+
       if (uploadResponse.metadata) {
         metadata = uploadResponse.metadata;
         // For videos, check if audio track exists
@@ -76,10 +75,15 @@ class MediaService {
         hasAudio: hasAudio,
         metadata: metadata,
       });
-      
-      logger.info(`[MediaService] Successfully created media record ${mediaRecord.id} for user ${user.id}${hasAudio !== null ? ` (hasAudio: ${hasAudio})` : ''}`);
+
+      logger.info(
+        `[MediaService] Successfully created media record ${
+          mediaRecord.id
+        } for user ${user.id}${
+          hasAudio !== null ? ` (hasAudio: ${hasAudio})` : ""
+        }`
+      );
       return mediaRecord;
-      
     } catch (error) {
       // If database creation failed but file was uploaded, clean up the file
       if (uploadResponse?.publicId) {
@@ -88,7 +92,9 @@ class MediaService {
         );
         try {
           await storageManager.deleteFile(uploadResponse.publicId);
-          logger.info(`[MediaService] Successfully cleaned up orphaned file: ${uploadResponse.publicId}`);
+          logger.info(
+            `[MediaService] Successfully cleaned up orphaned file: ${uploadResponse.publicId}`
+          );
         } catch (deleteError) {
           logger.error(
             `[MediaService] Failed to clean up orphaned file ${uploadResponse.publicId}: ${deleteError.message}`
@@ -99,22 +105,60 @@ class MediaService {
     }
   }
 
-  // ... (The rest of the MediaService class remains unchanged)
-  async _queueAnalysisRun(media, runNumber) {
+  async _getMediaMetadata(filePath) {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (err, metadata) => {
+        if (err) {
+          logger.error(`[MediaService] ffprobe failed for ${filePath}:`, err);
+          return reject(
+            new ApiError(
+              422,
+              "Could not read media file streams.",
+              [],
+              err.stack
+            )
+          );
+        }
+        const hasVideoStream = metadata.streams.some(
+          (s) => s.codec_type === "video"
+        );
+        const hasAudioStream = metadata.streams.some(
+          (s) => s.codec_type === "audio"
+        );
+        resolve({
+          hasVideo: hasVideoStream,
+          hasAudio: hasAudioStream,
+          metadata: metadata.format,
+        });
+      });
+    });
+  }
+
+  async _queueAnalysisRun(media, isRerun = false) {
+    const latestRunNumber = isRerun
+      ? await mediaRepository.findLatestRunNumber(media.id)
+      : 0;
+    const nextRunNumber = latestRunNumber + 1;
+
     try {
       logger.info(
-        `[MediaService] Preparing analysis run #${runNumber} for media ${media.id}`
+        `[MediaService] Preparing analysis run #${nextRunNumber} for media ${media.id}`
       );
+
       const compatibleModels = await this._determineCompatibleModels(
         media.mediaType,
         media.hasAudio
       );
-      const run = await mediaRepository.createAnalysisRun(media.id, runNumber);
-      await mediaRepository.update(media.id, { status: "QUEUED" });
 
       if (compatibleModels.length === 0) {
         logger.warn(
-          `No compatible models found for ${media.mediaType}. Marking run ${run.id} as analyzed.`
+          `No compatible models found for ${media.mediaType}${
+            media.hasAudio !== null ? ` (hasAudio: ${media.hasAudio})` : ""
+          }. Marking as ANALYZED.`
+        );
+        const run = await mediaRepository.createAnalysisRun(
+          media.id,
+          nextRunNumber
         );
         await mediaRepository.updateRunStatus(run.id, "ANALYZED");
         await mediaRepository.update(media.id, {
@@ -124,56 +168,55 @@ class MediaService {
         return;
       }
 
+      const run = await mediaRepository.createAnalysisRun(
+        media.id,
+        nextRunNumber
+      );
+      await mediaRepository.update(media.id, { status: "QUEUED" });
+
       const childJobs = compatibleModels.map((modelName) => ({
         name: "run-single-analysis",
         queueName: config.MEDIA_PROCESSING_QUEUE_NAME,
         data: { mediaId: media.id, runId: run.id, modelName },
-        opts: { 
+        opts: {
           jobId: `${run.id}-${modelName}`,
-          attempts: 3, // Retry failed jobs up to 3 times
+          attempts: 3,
           backoff: {
-            type: 'exponential',
-            delay: 5000, // Start with 5 second delay, then exponentially increase
+            type: "exponential",
+            delay: 5000,
           },
           removeOnComplete: {
-            age: 86400, // Keep completed jobs for 24 hours
-            count: 1000, // Keep last 1000 completed jobs
+            age: 86400,
+            count: 1000,
           },
           removeOnFail: {
-            age: 604800, // Keep failed jobs for 7 days for debugging
+            age: 604800,
           },
+          failParentOnFailure: false,
         },
       }));
 
-      // 🔧 FIX: Use failParentOnFailure: false to ensure finalizer runs even when children fail
       await mediaFlowProducer.add({
         name: "finalize-analysis",
         queueName: config.MEDIA_PROCESSING_QUEUE_NAME,
         data: { runId: run.id, mediaId: media.id },
-        opts: { 
+        opts: {
           jobId: `${run.id}-finalizer`,
-          attempts: 3, // Retry finalizer up to 3 times if it fails
+          attempts: 3,
           backoff: {
-            type: 'fixed',
-            delay: 3000, // Wait 3 seconds before retry
+            type: "fixed",
+            delay: 3000,
           },
           removeOnComplete: {
-            age: 86400, // Keep completed finalizer jobs for 24 hours
+            age: 86400,
           },
           removeOnFail: {
-            age: 604800, // Keep failed finalizer jobs for 7 days
+            age: 604800,
           },
         },
-        children: childJobs.map(job => ({
-          ...job,
-          opts: {
-            ...job.opts,
-            failParentOnFailure: false, // 🔧 KEY FIX: Don't fail parent when child fails
-          }
-        })),
+        children: childJobs,
       });
-      
-      // Emit initial QUEUED events for all models so frontend shows them immediately
+
       for (const modelName of compatibleModels) {
         try {
           const queuedEvent = {
@@ -193,14 +236,19 @@ class MediaService {
             config.MEDIA_PROGRESS_CHANNEL_NAME,
             JSON.stringify(queuedEvent)
           );
-          logger.debug(`[MediaService] Emitted QUEUED event for model ${modelName}`);
+          logger.debug(
+            `[MediaService] Emitted QUEUED event for model ${modelName}`
+          );
         } catch (error) {
-          logger.error(`[MediaService] Failed to emit QUEUED event for ${modelName}:`, error);
+          logger.error(
+            `[MediaService] Failed to emit QUEUED event for ${modelName}:`,
+            error
+          );
         }
       }
-      
+
       logger.info(
-        `[MediaService] Successfully queued run #${runNumber} for media ${media.id} with ${childJobs.length} models.`
+        `[MediaService] Successfully queued run #${nextRunNumber} for media ${media.id} with ${childJobs.length} models.`
       );
     } catch (error) {
       logger.error(
@@ -225,37 +273,31 @@ class MediaService {
       serverStats.models_info
         .filter((m) => {
           if (!m.loaded) return false;
-          
-          // First check basic media type compatibility
-          let isCompatible = false;
+
+          // Handle multimodal models first
+          if (m.isMultiModal) {
+            // A multimodal model requires both video and audio.
+            // It only makes sense for media of type VIDEO.
+            const isCompatible = mediaType === "VIDEO" && hasAudio === true;
+            if (!isCompatible) {
+              logger.info(
+                `[MediaService] Skipping multimodal model ${m.name}: requires video with audio.`
+              );
+            }
+            return isCompatible;
+          }
+
+          // Handle single-modal models
           switch (mediaType) {
-            case "AUDIO":
-              isCompatible = m.isAudio;
-              break;
-            case "IMAGE":
-              isCompatible = m.isImage;
-              break;
             case "VIDEO":
-              isCompatible = m.isVideo;
-              break;
+              return m.isVideo;
+            case "AUDIO":
+              return m.isAudio;
+            case "IMAGE":
+              return m.isImage;
             default:
               return false;
           }
-          
-          if (!isCompatible) return false;
-          
-          // For video media, check if model requires audio and if video has audio
-          if (mediaType === "VIDEO" && m.isAudio && m.isVideo) {
-            // Model requires both video AND audio (like LIP-FD-V1)
-            if (hasAudio === false) {
-              logger.info(
-                `[MediaService] Skipping model ${m.name} - requires audio but video has no audio track`
-              );
-              return false; // Skip this model
-            }
-          }
-          
-          return true;
         })
         .map((m) => m.name) || []
     );

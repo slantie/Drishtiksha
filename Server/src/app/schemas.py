@@ -79,6 +79,7 @@ class ModelInfo(BaseModel):
     isAudio: bool = False
     isVideo: bool = False
     isImage: bool = False
+    isMultiModal: bool = False
     memory_usage_mb: Optional[float] = None
     load_time: Optional[float] = None
     inference_count: Optional[int] = 0

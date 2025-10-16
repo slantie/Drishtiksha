@@ -107,7 +107,7 @@ class ToastOrchestrator {
 
     // SUPPRESSED: No toast spam - ProgressPanel handles this
     // Instead, just mark that we're tracking this media
-    this.mediaToastMap.set(mediaId, 'progress-panel-tracking');
+    this.mediaToastMap.set(mediaId, "progress-panel-tracking");
     console.log(
       `[ToastOrchestrator] ✅ Started tracking media ${mediaId} (no toast - using ProgressPanel)`
     );
@@ -138,7 +138,7 @@ class ToastOrchestrator {
 
     // Mark that we've seen this model (for cleanup purposes)
     if (!this.modelToastMap.has(modelToastKey)) {
-      this.modelToastMap.set(modelToastKey, 'progress-panel-tracking');
+      this.modelToastMap.set(modelToastKey, "progress-panel-tracking");
     }
   }
 
@@ -147,9 +147,9 @@ class ToastOrchestrator {
 
     // SUPPRESSED: No individual model completion toasts - ProgressPanel handles this
     console.log(
-      `[ToastOrchestrator] ✅ Model ${modelName} ${success ? 'completed' : 'failed'}${
-        errorMsg ? `: ${errorMsg}` : ""
-      }`
+      `[ToastOrchestrator] ✅ Model ${modelName} ${
+        success ? "completed" : "failed"
+      }${errorMsg ? `: ${errorMsg}` : ""}`
     );
 
     // Clean up tracking
@@ -160,9 +160,9 @@ class ToastOrchestrator {
     // Show ONLY ONE toast for final completion/failure
     let message;
     if (success) {
-      message = `🎉 Analysis complete for "${filename}"!`;
+      message = `Analysis complete for "${filename}"!`;
     } else {
-      message = `❌ Analysis failed for "${filename}"${
+      message = `Analysis failed for "${filename}"${
         errorMsg ? `: ${errorMsg}` : ""
       }`;
     }
@@ -174,7 +174,9 @@ class ToastOrchestrator {
     });
 
     console.log(
-      `[ToastOrchestrator] ✅ Media processing ${success ? 'completed' : 'failed'}: ${filename}`
+      `[ToastOrchestrator] ✅ Media processing ${
+        success ? "completed" : "failed"
+      }: ${filename}`
     );
 
     // Clean up tracking

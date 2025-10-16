@@ -132,7 +132,7 @@ class SystemMonitor:
             model_infos.append(ModelInfo(
                 name=name, class_name=config.class_name, description=config.description,
                 loaded=(name in loaded_models), device=config.device, model_path=str(config.model_path),
-                isAudio=config.isAudio, isVideo=config.isVideo, isImage=config.isImage
+                isAudio=config.isAudio, isVideo=config.isVideo, isImage=config.isImage, isMultiModal=config.isMultiModal
             ))
         return model_infos
 

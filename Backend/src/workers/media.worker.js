@@ -18,6 +18,7 @@ import logger from "../utils/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const worker = new Worker(
   config.MEDIA_PROCESSING_QUEUE_NAME,
@@ -32,9 +33,9 @@ const worker = new Worker(
         throw new Error(`Unknown job name: ${job.name}`);
     }
   },
-  { 
-    connection: redisConnectionOptionsForBullMQ, 
-    concurrency: 1  // 🔧 FIX: Process models one-by-one to prevent memory issues
+  {
+    connection: redisConnectionOptionsForBullMQ,
+    concurrency: 1, // 🔧 FIX: Process models one-by-one to prevent memory issues
   }
 );
 
@@ -171,11 +172,11 @@ async function handleSingleAnalysis(job) {
           runId: runId,
         }
       );
-      
+
       // Record the error in the database
       await mediaRepository.createAnalysisError(runId, modelName, error);
     }
-    
+
     // Re-throw to let BullMQ handle retries, but the error is now properly recorded
     throw error;
   } finally {
@@ -193,25 +194,42 @@ async function handleSingleAnalysis(job) {
 
 async function handleFinalizeAnalysis(job) {
   const { runId, mediaId } = job.data;
-  
-  logger.info(`[Finalizer] Starting finalization for run ${runId}, media ${mediaId}`);
-  
-  try {
-    const run = await prisma.analysisRun.findUnique({
+  let run = null;
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY_MS = 500;
+
+  logger.info(
+    `[Finalizer] Starting finalization for run ${runId}, media ${mediaId}`
+  );
+
+  // Retry logic to handle race condition between Redis and Postgres
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    run = await prisma.analysisRun.findUnique({
       where: { id: runId },
-      include: { 
+      include: {
         analyses: { select: { status: true, modelName: true } },
-        media: { select: { userId: true, filename: true } }
+        media: { select: { userId: true, filename: true } },
       },
     });
 
-    if (!run) {
-      logger.error(
-        `[Finalizer] Cannot finalize, AnalysisRun ${runId} not found.`
-      );
-      return { status: "error", reason: "AnalysisRun not found." };
+    if (run) {
+      break;
     }
 
+    logger.warn(
+      `[Finalizer] AnalysisRun ${runId} not found on attempt ${attempt}. Retrying in ${RETRY_DELAY_MS}ms...`
+    );
+    await wait(RETRY_DELAY_MS);
+  }
+
+  if (!run) {
+    logger.error(
+      `[Finalizer] Cannot finalize, AnalysisRun ${runId} not found after ${MAX_RETRIES} attempts.`
+    );
+    throw new Error(`AnalysisRun ${runId} not found after retries.`);
+  }
+
+  try {
     const totalAnalyses = run.analyses.length;
     const completedAnalyses = run.analyses.filter(
       (a) => a.status === "COMPLETED"
@@ -219,38 +237,26 @@ async function handleFinalizeAnalysis(job) {
     const failedAnalyses = run.analyses.filter(
       (a) => a.status === "FAILED"
     ).length;
-    const pendingAnalyses = run.analyses.filter(
-      (a) => a.status === "PENDING"
-    ).length;
+    const pendingAnalyses = totalAnalyses - completedAnalyses - failedAnalyses;
 
     logger.info(
-      `[Finalizer] Run ${runId} analysis status: ${completedAnalyses} completed, ${failedAnalyses} failed, ${pendingAnalyses} pending out of ${totalAnalyses} total`
+      `[Finalizer] Run ${runId} status: ${completedAnalyses} completed, ${failedAnalyses} failed, ${pendingAnalyses} pending out of ${totalAnalyses} models.`
     );
 
-    // 🔧 FIX: Determine final status based on what we have
     let finalStatus;
-    if (completedAnalyses === 0 && failedAnalyses === 0) {
-      // No analyses have completed yet - this shouldn't happen in finalizer
-      // but handle it gracefully
-      finalStatus = "PROCESSING";
-      logger.warn(
-        `[Finalizer] Run ${runId} has no completed or failed analyses (${pendingAnalyses} pending). Keeping as PROCESSING.`
-      );
-    } else if (completedAnalyses > 0) {
-      // At least one analysis succeeded - mark as ANALYZED
-      // This is the success case even if some models failed
+    // Improved status determination logic
+    if (completedAnalyses > 0 && pendingAnalyses === 0) {
+      // All jobs are done (either completed or failed), and at least one succeeded.
       finalStatus = "ANALYZED";
-      if (failedAnalyses > 0) {
-        logger.info(
-          `[Finalizer] Run ${runId} has mixed results (${completedAnalyses} completed, ${failedAnalyses} failed). Setting to ANALYZED since we have at least one result.`
-        );
-      }
-    } else {
-      // All analyses failed (completedAnalyses === 0 && failedAnalyses > 0)
+    } else if (completedAnalyses === 0 && pendingAnalyses === 0) {
+      // All jobs are done, and none succeeded.
       finalStatus = "FAILED";
-      logger.warn(
-        `[Finalizer] Run ${runId} has all analyses failed (${failedAnalyses} failed). Setting to FAILED.`
-      );
+    } else if (completedAnalyses > 0 && pendingAnalyses > 0) {
+      // Some succeeded, some still pending - partially analyzed state
+      finalStatus = "PARTIALLY_ANALYZED";
+    } else {
+      // Still processing, finalizer might have run prematurely
+      finalStatus = "PROCESSING";
     }
 
     // Update both run and media status in a transaction for consistency
@@ -259,7 +265,7 @@ async function handleFinalizeAnalysis(job) {
         where: { id: run.id },
         data: { status: finalStatus },
       });
-      
+
       await tx.media.update({
         where: { id: mediaId },
         data: {
@@ -279,11 +285,11 @@ async function handleFinalizeAnalysis(job) {
         mediaId,
         run.media.userId,
         finalStatus === "ANALYZED" ? "ANALYSIS_COMPLETE" : "ANALYSIS_FAILED",
-        finalStatus === "ANALYZED" 
+        finalStatus === "ANALYZED"
           ? `Analysis completed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`
           : failedAnalyses === totalAnalyses
-            ? `All ${totalAnalyses} models failed for "${run.media.filename}"`
-            : `Analysis partially failed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`,
+          ? `All ${totalAnalyses} models failed for "${run.media.filename}"`
+          : `Analysis partially failed for "${run.media.filename}" (${completedAnalyses}/${totalAnalyses} models succeeded)`,
         {
           runId: run.id,
           totalAnalyses,
@@ -299,24 +305,33 @@ async function handleFinalizeAnalysis(job) {
     logger.info(
       `[Finalizer] ✅ Finalized AnalysisRun ${run.id} for media ${mediaId} with status: ${finalStatus} (${completedAnalyses}/${totalAnalyses} completed, ${failedAnalyses} failed)`
     );
-    
-    return { runId, mediaId, finalStatus, completedAnalyses, failedAnalyses, totalAnalyses };
+
+    return {
+      runId,
+      mediaId,
+      finalStatus,
+      completedAnalyses,
+      failedAnalyses,
+      totalAnalyses,
+    };
   } catch (error) {
     logger.error(
       `[Finalizer] ❌ Error finalizing AnalysisRun ${runId}: ${error.message}`,
       { stack: error.stack }
     );
-    
+
     // Ensure media status is set to FAILED even if finalization fails
     try {
       await mediaRepository.update(mediaId, { status: "FAILED" });
-      logger.info(`[Finalizer] Set media ${mediaId} status to FAILED after finalization error`);
+      logger.info(
+        `[Finalizer] Set media ${mediaId} status to FAILED after finalization error`
+      );
     } catch (updateError) {
       logger.error(
         `[Finalizer] Failed to update media ${mediaId} status to FAILED: ${updateError.message}`
       );
     }
-    
+
     throw error;
   }
 }
@@ -366,20 +381,20 @@ worker.on("failed", (job, err) =>
 // Graceful shutdown handler
 const gracefulShutdown = async (signal) => {
   logger.info(`\n${signal} received. Shutting down worker gracefully...`);
-  
+
   try {
     // Stop accepting new jobs
     await worker.close();
     logger.info("[Worker] Stopped accepting new jobs.");
-    
+
     // Close Redis connections
     await redisPublisher.quit();
     logger.info("[Worker] Closed Redis publisher connection.");
-    
+
     // Close Prisma connection
     await prisma.$disconnect();
     logger.info("[Worker] Closed Prisma database connection.");
-    
+
     logger.info("✅ Worker shutdown complete.");
     process.exit(0);
   } catch (error) {

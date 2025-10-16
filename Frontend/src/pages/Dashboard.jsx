@@ -1,10 +1,7 @@
-// src/pages/Dashboard.jsx
-
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Upload,
-  Play,
   ShieldX,
   ShieldCheck,
   HelpCircle,
@@ -15,15 +12,11 @@ import {
   FileAudio,
   FileImage,
   RefreshCw,
-  Loader2, // Added Loader2 for processing stat card
-  CheckCircle, // Added CheckCircle for analyzed stat card
-  AlertTriangle, // Added AlertTriangle for failed stat card
+  Loader2,
+  CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
-import {
-  useMediaQuery,
-  useMediaStats,
-  useDeleteMediaMutation,
-} from "../hooks/useMediaQuery.jsx";
+import { useMediaQuery, useMediaStats } from "../hooks/useMediaQuery.jsx";
 import { PageHeader } from "../components/layout/PageHeader.jsx";
 import { StatCard } from "../components/ui/StatCard";
 import { DataTable } from "../components/ui/DataTable";
@@ -35,7 +28,20 @@ import { DeleteMediaModal } from "../components/media/DeleteMediaModal.jsx";
 import { MediaSearchFilter } from "../components/media/MediaSearchFilter.jsx";
 import { RerunAnalysisModal } from "../components/analysis/RerunAnalysisModal.jsx";
 import { formatDate } from "../utils/formatters.js";
-import DashboardSkeleton from "../components/ui/DashboardSkeleton.jsx";
+import { SkeletonCard } from "../components/ui/SkeletonCard.jsx";
+
+const DashboardSkeleton = () => (
+  <div className="space-y-6">
+    <SkeletonCard className="h-12" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <SkeletonCard className="h-32" />
+      <SkeletonCard className="h-32" />
+      <SkeletonCard className="h-32" />
+      <SkeletonCard className="h-32" />
+    </div>
+    <SkeletonCard className="h-80" />
+  </div>
+);
 
 const MediaTypeIcon = ({ mediaType }) => {
   const iconMap = {
@@ -43,15 +49,14 @@ const MediaTypeIcon = ({ mediaType }) => {
     AUDIO: FileAudio,
     IMAGE: FileImage,
   };
-  
+
   const Icon = iconMap[mediaType] || FileVideo;
-  
+
   return <MediaTypeBadge mediaType={mediaType} icon={Icon} size="sm" />;
 };
 
 const AnalysisSummary = ({ latestRun }) => {
   if (!latestRun || !latestRun.analyses || latestRun.analyses.length === 0) {
-    // If the run status is already failed or partially analyzed (but no completed analyses)
     if (latestRun?.status === "FAILED") {
       return (
         <div className="flex items-center gap-2">
@@ -68,6 +73,8 @@ const AnalysisSummary = ({ latestRun }) => {
       );
     }
     if (latestRun?.status === "PARTIALLY_ANALYZED") {
+      const completedCount =
+        latestRun.analyses?.filter((a) => a.status === "COMPLETED").length || 0;
       return (
         <div className="flex items-center gap-2">
           <HelpCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />
@@ -76,13 +83,12 @@ const AnalysisSummary = ({ latestRun }) => {
               Partial Results
             </span>
             <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
-              {latestRun.analyses?.filter((a) => a.status === "COMPLETED").length} models
+              {completedCount} models
             </span>
           </div>
         </div>
       );
     }
-    // For QUEUED/PROCESSING, or if no analyses yet
     return (
       <span className="text-sm text-light-muted-text dark:text-dark-muted-text italic">
         {latestRun?.status === "QUEUED" ? "⏳ Queued" : "⏳ Processing"}...
@@ -99,43 +105,43 @@ const AnalysisSummary = ({ latestRun }) => {
     );
   }
 
-  const fakes = completed.filter((a) => a.prediction === "FAKE").length;
-  const reals = completed.length - fakes;
+  const totalFakeScore = completed.reduce((sum, analysis) => {
+    const fakeScore =
+      analysis.prediction === "FAKE"
+        ? analysis.confidence
+        : 1 - analysis.confidence;
+    return sum + fakeScore;
+  }, 0);
 
-  let consensus, Icon, color, bgColor;
-  if (fakes > reals) {
+  const averageFakeScore = totalFakeScore / completed.length;
+
+  let consensus, Icon, color;
+  if (averageFakeScore > 0.55) {
     consensus = "Likely Deepfake";
     Icon = ShieldX;
     color = "text-red-600 dark:text-red-400";
-    bgColor = "bg-red-500/10";
-  } else if (reals > fakes) {
+  } else if (averageFakeScore < 0.45) {
     consensus = "Likely Authentic";
     Icon = ShieldCheck;
     color = "text-green-600 dark:text-green-400";
-    bgColor = "bg-green-500/10";
   } else {
     consensus = "Inconclusive";
     Icon = HelpCircle;
     color = "text-yellow-600 dark:text-yellow-400";
-    bgColor = "bg-yellow-500/10";
   }
 
   return (
     <div className="flex items-center gap-2">
       <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
       <div className="flex flex-col">
-        <span className={`text-sm font-medium ${color}`}>
-          {consensus}
-        </span>
+        <span className={`text-sm font-medium ${color}`}>{consensus}</span>
         <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
-          {completed.length} {completed.length === 1 ? 'model' : 'models'} analyzed
+          Avg. Fake Score: {(averageFakeScore * 100).toFixed(1)}%
         </span>
       </div>
     </div>
   );
 };
-
-// --- MAIN DASHBOARD PAGE ---
 
 export const Dashboard = () => {
   const {
@@ -143,7 +149,7 @@ export const Dashboard = () => {
     isLoading,
     isRefetching,
     refetch,
-  } = useMediaQuery(); // Added refetch from useMediaQuery
+  } = useMediaQuery();
   const { stats } = useMediaStats();
   const navigate = useNavigate();
 
@@ -166,7 +172,6 @@ export const Dashboard = () => {
   const filteredMedia = useMemo(() => {
     return mediaItems
       .filter((item) => {
-        // Filter by search term (filename or description)
         if (filters.searchTerm) {
           const searchTermLower = filters.searchTerm.toLowerCase();
           const filenameMatch = item.filename
@@ -178,23 +183,20 @@ export const Dashboard = () => {
           if (!filenameMatch && !descriptionMatch) return false;
         }
 
-        // Filter by media status
         if (filters.status !== "ALL" && item.status !== filters.status)
           return false;
 
-        // Filter by media type
         if (filters.mediaType !== "ALL" && item.mediaType !== filters.mediaType)
           return false;
 
-        // Filter by prediction consensus (from latest run)
         if (filters.prediction !== "ALL") {
           const latestRun = item.analysisRuns?.[0];
-          if (!latestRun) return false; // If no runs, cannot match prediction filter
+          if (!latestRun) return false;
 
           const completedAnalyses =
             latestRun.analyses?.filter((a) => a.status === "COMPLETED") || [];
 
-          if (completedAnalyses.length === 0) return false; // No completed analyses to determine prediction
+          if (completedAnalyses.length === 0) return false;
 
           const fakes = completedAnalyses.filter(
             (a) => a.prediction === "FAKE"
@@ -206,7 +208,7 @@ export const Dashboard = () => {
         }
         return true;
       })
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Always sort by most recent
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [mediaItems, filters]);
 
   const columns = useMemo(
@@ -223,7 +225,9 @@ export const Dashboard = () => {
         header: "File",
         render: (item) => (
           <div className="flex flex-col gap-1 max-w-xs">
-            <span className="font-semibold text-sm truncate">{item.filename}</span>
+            <span className="font-semibold text-sm truncate">
+              {item.filename}
+            </span>
             {item.description && (
               <span className="text-xs text-light-muted-text dark:text-dark-muted-text truncate">
                 {item.description}
@@ -247,15 +251,15 @@ export const Dashboard = () => {
         render: (item) => (
           <AnalysisSummary latestRun={item.analysisRuns?.[0]} />
         ),
-        sortable: false, // This is a complex rendered component, not easily sortable
-        filterable: true, // Filterable by prediction via MediaSearchFilter
+        sortable: false,
+        filterable: true,
       },
       {
         key: "createdAt",
         header: "Uploaded On",
         render: (item) => formatDate(item.createdAt),
         sortable: true,
-        filterable: false, // Dates usually filtered by range, not simple search
+        filterable: false,
       },
       {
         key: "actions",
@@ -319,7 +323,6 @@ export const Dashboard = () => {
     [navigate]
   );
 
-  // If initial loading or no media items at all
   if (isLoading && !mediaItems.length) return <DashboardSkeleton />;
 
   return (
@@ -347,7 +350,7 @@ export const Dashboard = () => {
         <StatCard
           title="Total Files"
           value={stats.total}
-          icon={FileVideo} // More generic icon for total files
+          icon={FileVideo}
           isLoading={isLoading}
           cardColor="blue"
         />
@@ -372,30 +375,6 @@ export const Dashboard = () => {
           isLoading={isLoading}
           cardColor="red"
         />
-        {/* You can still keep these if you want to differentiate total analyses vs total files by status */}
-        {/*
-        <StatCard
-          title="Total Analyses"
-          value={stats.totalAnalyses}
-          icon={ChartNetwork}
-          isLoading={isLoading}
-          cardColor="purple"
-        />
-        <StatCard
-          title="Authentic Results"
-          value={stats.realDetections}
-          icon={ShieldCheck}
-          isLoading={isLoading}
-          cardColor="green"
-        />
-        <StatCard
-          title="Deepfake Results"
-          value={stats.fakeDetections}
-          icon={ShieldX}
-          isLoading={isLoading}
-          cardColor="red"
-        />
-        */}
       </div>
       <MediaSearchFilter
         mediaItems={mediaItems}
@@ -420,7 +399,6 @@ export const Dashboard = () => {
           ),
         }}
       />
-      {/* --- MODALS --- */}
       <UploadModal
         isOpen={modal.type === "upload"}
         onClose={() => setModal({ type: null })}
@@ -434,13 +412,12 @@ export const Dashboard = () => {
         isOpen={modal.type === "delete"}
         onClose={() => setModal({ type: null })}
         media={modal.data}
-        // Removed onDelete prop as it's handled by the hook itself
       />
       <RerunAnalysisModal
         isOpen={modal.type === "rerun"}
         onClose={() => setModal({ type: null })}
         media={modal.data}
-        onAnalysisStart={() => refetch()} // Pass refetch to update media data after rerun
+        onAnalysisStart={() => refetch()}
       />
     </div>
   );
