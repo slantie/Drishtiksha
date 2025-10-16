@@ -151,13 +151,24 @@ class ScatteringWaveV1Config(BaseModelConfig):
     image_size: Tuple[int, int]
 
 class MelSpectrogramCNNConfig(BaseModelConfig):
-    class_name: Literal["MelSpectrogramCNNV1"]
+    # This class name matches the general detector for non-overlapping logic (e.g., V1, V2 in config file)
+    class_name: Literal["MelSpectrogramCNNV1", "MelSpectrogramCNNV2"]
     sampling_rate: int
     n_fft: int
     hop_length: int
     n_mels: int
     dpi: int
     chunk_duration_s: float
+
+class MelSpectrogramCNNv3Config(BaseModelConfig):
+    class_name: Literal["MelSpectrogramCNNV3"]
+    sampling_rate: int
+    n_fft: int
+    hop_length: int
+    n_mels: int
+    dpi: int
+    chunk_duration_s: float
+    chunk_overlap_s: float # <--- NEW PARAMETER
 
 class STFTSpectrogramCNNConfig(BaseModelConfig):
     class_name: Literal["STFTSpectrogramCNNV1"]
@@ -205,6 +216,7 @@ ModelConfig = Annotated[
         EyeblinkModelConfig,
         ScatteringWaveV1Config,
         MelSpectrogramCNNConfig,
+        MelSpectrogramCNNv3Config,
         STFTSpectrogramCNNConfig,
         DistilDIREv1Config,
         MFFMoEV1Config,

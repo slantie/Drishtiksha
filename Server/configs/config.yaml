@@ -125,10 +125,10 @@ models:
     duration_seconds: 2.0
     image_size: [256, 256]
 
-  MEL-SPECTROGRAM-CNN-V1:
-    class_name: "MelSpectrogramCNNV1"
+  MEL-SPECTROGRAM-CNN-V2:
+    class_name: "MelSpectrogramCNNV2"
     description: "Audio deepfake detector using a Wavelet Scattering Transform on Mel Spectrograms."
-    model_path: "models/MEL-Spectrogram-CNN-v1.pth"
+    model_path: "models/MEL-Spectrogram-CNN-v2.pth"
     isAudio: true
     isImage: false
     isVideo: false
@@ -140,10 +140,10 @@ models:
     dpi: 100
     chunk_duration_s: 1.0
 
-  STFT-SPECTROGRAM-CNN-V1:
+  STFT-SPECTROGRAM-CNN-V2:
     class_name: "STFTSpectrogramCNNV1"
     description: "Audio deepfake detector using stacked wideband and narrowband STFT spectrograms."
-    model_path: "models/STFT-Spectrogram-CNN-v1.pth"
+    model_path: "models/STFT-Spectrogram-CNN-v2.pth"
     isAudio: true
     isImage: false
     isVideo: false
@@ -151,6 +151,39 @@ models:
     sampling_rate: 16000
     n_fft_wide: 512
     n_fft_narrow: 2048
+    hop_length: 160
+    img_height: 512
+    img_width: 256
+    dpi: 100
+    chunk_duration_s: 1.0
+
+  MEL-SPECTROGRAM-CNN-V3:
+    class_name: "MelSpectrogramCNNV3"
+    description: "Audio deepfake detector using **overlapping Mel Spectrogram chunks** and a Scattering CNN for improved temporal continuity."
+    model_path: "models/MEL-Spectrogram-CNN-v3.pth"
+    isAudio: true
+    isImage: false
+    isVideo: false
+    # --- Method-specific parameters ---
+    sampling_rate: 16000
+    n_fft: 2048
+    hop_length: 512
+    n_mels: 256
+    dpi: 100
+    chunk_duration_s: 1.0
+    chunk_overlap_s: 0.5 # <--- NEW PARAMETER
+
+  STFT-SPECTROGRAM-CNN-V3:
+    class_name: "STFTSpectrogramCNNV1"
+    description: "Audio deepfake detector using stacked wideband and narrowband STFT spectrograms."
+    model_path: "models/STFT-Spectrogram-CNN-v3.pth"
+    isAudio: true
+    isImage: false
+    isVideo: false
+    # --- Method-specific parameters ---
+    sampling_rate: 16000
+    n_fft_wide: 512
+    n_fft_narrow: 4096
     hop_length: 160
     img_height: 512
     img_width: 256

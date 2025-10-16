@@ -156,7 +156,8 @@ class AudioProperties(BaseModel):
 
 class AudioVisualization(BaseModel):
     spectrogram_url: Optional[str] = None
-    spectrogram_data: Optional[List[List[float]]] = None
+    spectrogram_data: Optional[Union[List[List[float]], List[float]]] = None
+
 
 class AudioAnalysisResult(BaseAnalysisResult):
     """
