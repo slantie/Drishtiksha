@@ -18,7 +18,7 @@ const navItems = [{ path: "/docs/main", label: "Documentation" }]; // Public rou
 const authenticatedNavItems = [
   { path: "/dashboard", label: "Dashboard" },
   { path: "/monitor", label: "System Monitoring" },
-  { path: "/docs/main", label: "Documentation" },
+  { path: "/docs/Overview", label: "Documentation" },
   // { path: "/profile", label: "Profile" },
 ];
 
