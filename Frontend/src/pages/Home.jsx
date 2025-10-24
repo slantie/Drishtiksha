@@ -40,9 +40,9 @@ const projectData = {
 };
 
 const stats = [
-  { icon: Star, value: "98%+", label: "Detection Accuracy" },
+  { icon: Star, value: "80%+", label: "Detection Accuracy" },
   { icon: Clock, value: "< 60s", label: "Average Analysis Time" },
-  { icon: BrainCircuit, value: "5+", label: "Specialized AI Models" },
+  { icon: BrainCircuit, value: "10+", label: "Specialized AI Models" },
 ];
 
 const features = [
@@ -157,7 +157,10 @@ const team = [
     role: "AI/ML Developer",
     avatarUrl:
       "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_2_mnpfhh.jpg",
-    socials: { linkedin: "https://www.linkedin.com/in/oumgadani/" },
+    socials: {
+      github: "https://github.com/Oum-Gadani",
+      linkedin: "https://www.linkedin.com/in/oumgadani/",
+    },
   },
   {
     name: "Raj Mathuria",
@@ -165,6 +168,7 @@ const team = [
     avatarUrl:
       "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_3_yzqouc.jpg",
     socials: {
+      github: "https://github.com/CodeCraftsmanRaj",
       linkedin: "https://www.linkedin.com/in/raj-mathuria-98a710283/",
     },
   },
@@ -414,7 +418,9 @@ const Home = () => {
                   className="flex-shrink-0 flex flex-col items-center justify-center px-10 text-center group"
                 >
                   <tech.icon className="w-20 h-20 text-light-muted-text dark:text-dark-muted-text mx-auto transition-all duration-300 group-hover:text-primary-main group-hover:-translate-y-1" />
-                  <p className="mt-5 text-md font-bold group-hover:text-primary-main">{tech.name}</p>
+                  <p className="mt-5 text-md font-bold group-hover:text-primary-main">
+                    {tech.name}
+                  </p>
                 </div>
               ))}
             </div>

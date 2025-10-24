@@ -6,10 +6,10 @@ body {
     font-family: "Poppins", sans-serif;
 }
 
-::-webkit-scrollbar {
-    width: 0px;
-    height: 0px;
-}
+/* ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+} */
 
 /* Toast theme variables - Aligned with Tailwind config colors */
 :root {
