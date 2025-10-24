@@ -34,7 +34,7 @@ export const formatDate = (dateString) => {
             minute: "2-digit",
             hour12: true,
         });
-    } catch (e) {
+    } catch {
         return "Invalid Date";
     }
 };

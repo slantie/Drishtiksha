@@ -25,3 +25,7 @@ dist-ssr
 coverage/
 *.mp4
 .vite/
+
+# Python scripts output
+scripts/__pycache__/
+scripts/*.pyc

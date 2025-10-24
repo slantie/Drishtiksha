@@ -1,23 +1,25 @@
 // src/components/layout/Header.jsx
 
-import React, { useState, useEffect, useRef } from "react"; // Added useRef
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { User, LogOut, Menu, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "../ThemeToggle";
-import { useAuth } from "../../contexts/AuthContext.jsx";
+import DocsSearch from "../DocsSearch";
+import { useAuth } from "../../hooks/useAuth.js";
 import { Button } from "../ui/Button";
 import { config } from "../../config/env.js";
 
 const projectName = config.VITE_PROJECT_NAME || "Drishtiksha";
 
-// Define navigation items. Could be moved to a separate config file if more complex.
-const navItems = []; // Public routes, e.g., { path: "/about", label: "About" }
+// Define navigation items
+const navItems = [{ path: "/docs/main", label: "Documentation" }]; // Public routes
 
 const authenticatedNavItems = [
   { path: "/dashboard", label: "Dashboard" },
   { path: "/monitor", label: "System Monitoring" },
-  { path: "/profile", label: "Profile" },
+  { path: "/docs/main", label: "Documentation" },
+  // { path: "/profile", label: "Profile" },
 ];
 
 function Header() {
@@ -26,9 +28,13 @@ function Header() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const userMenuRef = useRef(null); // Ref for user dropdown menu
   const mobileMenuRef = useRef(null); // Ref for mobile menu panel
+
+  // Check if we're on a docs page
+  const isDocsPage = location.pathname.startsWith("/docs");
 
   // Handle scroll effect for sticky header
   useEffect(() => {
@@ -157,7 +163,9 @@ function Header() {
             </nav>
 
             {/* Actions */}
-            <div className="hidden lg:flex items-center space-x-3">
+            <div className="hidden lg:flex items-center space-x-2">
+              {/* Show DocsSearch on docs pages */}
+              {isDocsPage && <DocsSearch />}
               <ThemeToggle />
               {isAuthenticated && user ? (
                 <div className="relative" ref={userMenuRef}>
@@ -232,6 +240,8 @@ function Header() {
 
           {/* Mobile Menu Button */}
           <div className="lg:hidden flex items-center gap-2">
+            {/* Show DocsSearch on mobile for docs pages */}
+            {isDocsPage && <DocsSearch />}
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -264,7 +274,7 @@ function Header() {
                 stiffness: 300,
                 damping: 30,
               }}
-              className="absolute bg-light-background dark:bg-dark-background top-0 right-0 h-full w-80 bg-light-background dark:bg-dark-background p-6"
+              className="absolute top-0 right-0 h-full w-80 bg-light-background dark:bg-dark-background p-6"
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside panel
             >
               <div className="flex justify-between items-center mb-8">

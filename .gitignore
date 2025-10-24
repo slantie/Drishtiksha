@@ -6,3 +6,4 @@ database/
 *.whl
 system-instructions.md
 Server/todo.md
+docs/

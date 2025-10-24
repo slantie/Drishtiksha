@@ -1,8 +1,17 @@
 // src/components/auth/SignupForm.jsx
 
 import { useState } from "react";
-import { useAuth } from "../../contexts/AuthContext.jsx";
-import { Eye, EyeOff, Mail, Lock, User, UserPlus, CheckCircle, XCircle } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth.js";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  UserPlus,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { showToast } from "../../utils/toast.jsx";
@@ -175,7 +184,13 @@ const SignupForm = ({ onSwitchToLogin }) => {
             ) : (
               <XCircle className="h-4 w-4 text-red-500" />
             )}
-            <span className={formData.password.length >= 6 ? "text-green-600 dark:text-green-400" : "text-light-muted-text dark:text-dark-muted-text"}>
+            <span
+              className={
+                formData.password.length >= 6
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-light-muted-text dark:text-dark-muted-text"
+              }
+            >
               At least 6 characters
             </span>
           </div>
@@ -186,7 +201,13 @@ const SignupForm = ({ onSwitchToLogin }) => {
               ) : (
                 <XCircle className="h-4 w-4 text-red-500" />
               )}
-              <span className={formData.password === formData.confirmPassword ? "text-green-600 dark:text-green-400" : "text-light-muted-text dark:text-dark-muted-text"}>
+              <span
+                className={
+                  formData.password === formData.confirmPassword
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-light-muted-text dark:text-dark-muted-text"
+                }
+              >
                 Passwords match
               </span>
             </div>
@@ -206,7 +227,9 @@ const SignupForm = ({ onSwitchToLogin }) => {
           leftIcon={<Lock className="h-5 w-5" />}
           rightIcon={passwordToggle}
           minLength={6}
-          error={passwordError && !formData.confirmPassword ? passwordError : ""}
+          error={
+            passwordError && !formData.confirmPassword ? passwordError : ""
+          }
         />
         <Input
           name="confirmPassword"
@@ -228,7 +251,11 @@ const SignupForm = ({ onSwitchToLogin }) => {
         isLoading={isSigningUp}
         className="w-full"
         size="lg"
-        disabled={isSigningUp || formData.password.length < 6 || formData.password !== formData.confirmPassword} // Disable if passwords don't match
+        disabled={
+          isSigningUp ||
+          formData.password.length < 6 ||
+          formData.password !== formData.confirmPassword
+        } // Disable if passwords don't match
       >
         {!isSigningUp && <UserPlus className="w-5 h-5 mr-2" />}
         {isSigningUp ? "Creating Account..." : "Create Account"}

@@ -1,7 +1,7 @@
 // src/components/auth/LoginForm.jsx
 
 import { useState } from "react";
-import { useAuth } from "../../contexts/AuthContext.jsx";
+import { useAuth } from "../../hooks/useAuth.js";
 import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";

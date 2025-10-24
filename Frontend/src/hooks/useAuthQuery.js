@@ -12,7 +12,7 @@ export const useLoginMutation = () => {
   return useMutation({
     mutationFn: authApi.login,
     // onSuccess now only invalidates relevant queries, actual storage/navigation is handled in AuthContext
-    onSuccess: (response) => {
+    onSuccess: () => {
       // The AuthContext's login function handles setting authStorage, localToken, and navigation.
       // This hook's onSuccess will primarily ensure other data (like media lists) are refreshed.
       queryClient.invalidateQueries({ queryKey: queryKeys.media.lists() });

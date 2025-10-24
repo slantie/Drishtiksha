@@ -30,7 +30,7 @@ import {
   CardTitle,
   CardFooter,
 } from "../components/ui/Card";
-import { mediaTypeConfigs } from "../components/ui/Badge";
+import { mediaTypeConfigs } from "../constants/badgeConstants";
 import { PageLoader } from "../components/ui/LoadingSpinner";
 import { MediaPlayer } from "../components/media/MediaPlayer.jsx";
 import { AnalysisInProgress } from "../components/media/AnalysisInProgress.jsx";
@@ -43,7 +43,7 @@ import { EmptyState } from "../components/ui/EmptyState.jsx";
 import { AnalysisResultSummaryCard } from "../components/analysis/charts/AnalysisResultSummaryCard.jsx";
 import { MarkdownPDFService } from "../services/pdf/MarkdownPDFService.js";
 import { MediaDownloadService } from "../services/MediaDownloadService.js";
-import { useAuth } from "../contexts/AuthContext.jsx";
+import { useAuth } from "../hooks/useAuth.js";
 import { showToast } from "../utils/toast.jsx";
 
 const AnalysisRunCard = ({ run, mediaId, isExpanded, onToggle }) => {
@@ -116,7 +116,8 @@ const AnalysisRunCard = ({ run, mediaId, isExpanded, onToggle }) => {
                   >
                     {isDownloading ? (
                       <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />{" "}
+                        Generating...
                       </>
                     ) : (
                       <>
@@ -371,7 +372,10 @@ const Results = () => {
                   </Button>
                   <Button
                     onClick={() =>
-                      MediaDownloadService.downloadMedia(media.url, media.filename)
+                      MediaDownloadService.downloadMedia(
+                        media.url,
+                        media.filename
+                      )
                     }
                     variant="outline"
                     className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
@@ -389,7 +393,7 @@ const Results = () => {
                             // Get the latest/first analysis run
                             const latestRun = media.analysisRuns?.[0];
                             if (!latestRun) {
-                              throw new Error('No analysis run available');
+                              throw new Error("No analysis run available");
                             }
                             await MarkdownPDFService.previewPDF(latestRun.id);
                           } catch (error) {
@@ -406,7 +410,8 @@ const Results = () => {
                       >
                         {pdfGenerating ? (
                           <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Loading...
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />{" "}
+                            Loading...
                           </>
                         ) : (
                           <>
@@ -421,7 +426,7 @@ const Results = () => {
                             // Get the latest/first analysis run
                             const latestRun = media.analysisRuns?.[0];
                             if (!latestRun) {
-                              throw new Error('No analysis run available');
+                              throw new Error("No analysis run available");
                             }
                             await MarkdownPDFService.downloadPDF(latestRun.id);
                           } catch (error) {
@@ -438,7 +443,8 @@ const Results = () => {
                       >
                         {pdfGenerating ? (
                           <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating...
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />{" "}
+                            Generating...
                           </>
                         ) : (
                           <>

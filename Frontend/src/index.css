@@ -2,14 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --color-primary: #8155c6;
+}
+
 body {
     font-family: "Poppins", sans-serif;
 }
 
-/* ::-webkit-scrollbar {
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
     width: 8px;
     height: 8px;
-} */
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: theme('colors.light.secondary');
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.light.text' / 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: theme('colors.dark.secondary');
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.dark.text' / 0.3);
+}
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
 
 /* Toast theme variables - Aligned with Tailwind config colors */
 :root {

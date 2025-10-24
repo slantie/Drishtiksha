@@ -1,12 +1,6 @@
 // src/contexts/AuthContext.jsx
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import {
   useLoginMutation,
   useSignupMutation,
@@ -18,14 +12,8 @@ import { showToast } from "../utils/toast.jsx";
 import { authStorage } from "../utils/authStorage.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
-
-export const AuthContext = createContext(null);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
-  return context;
-};
+import { AuthContext } from "./authContext";
+import { queryKeys } from "../lib/queryKeys.js";
 
 export const AuthProvider = ({ children }) => {
   const queryClient = useQueryClient();
@@ -96,7 +84,7 @@ export const AuthProvider = ({ children }) => {
         queryClient.setQueryData(queryKeys.auth.profile(), newUser); // Optimistically update cache
         showToast.success("Login successful!");
         navigate("/dashboard"); // Centralize navigation
-      } catch (error) {
+      } catch {
         // Error handling is already in useLoginMutation
       }
     },
@@ -110,7 +98,7 @@ export const AuthProvider = ({ children }) => {
         showToast.success("Account created! Please log in to continue.");
         // No token is returned on signup, so no localToken update here
         navigate("/auth?view=login"); // Redirect to login after signup
-      } catch (error) {
+      } catch {
         // Error handling is already in useSignupMutation
       }
     },

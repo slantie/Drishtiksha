@@ -1,11 +1,19 @@
 // src/components/layout/Footer.jsx
 
 import React from "react";
-import { Github, Linkedin, ArrowUp } from "lucide-react";
+import { Github, Linkedin, ArrowUp, BookMarkedIcon } from "lucide-react";
 import { Button } from "../ui/Button";
 import { config } from "../../config/env.js";
 
 const projectName = config.VITE_PROJECT_NAME || "Drishtiksha";
+
+const socialLinks = [
+  {
+    name: "Documentation",
+    url: "/docs",
+    icon: BookMarkedIcon,
+  },
+];
 
 function Footer() {
   const scrollToTop = () => {
@@ -24,7 +32,7 @@ function Footer() {
 
           <div className="flex items-center gap-2 justify-center">
             {/* Social Links */}
-            {/* <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
               {socialLinks.map((link) => (
                 <Button
                   as="a"
@@ -39,7 +47,7 @@ function Footer() {
                   <span>{link.name}</span>
                 </Button>
               ))}
-            </div> */}
+            </div>
             {/* Back to Top */}
             <Button
               variant="outline"

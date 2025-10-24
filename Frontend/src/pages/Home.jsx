@@ -15,6 +15,7 @@ import {
   DatabaseZap,
   LayoutGrid,
   Blend,
+  BookTextIcon,
 } from "lucide-react";
 import {
   SiReact,
@@ -251,6 +252,16 @@ const Home = () => {
             >
               <Link to="/auth?view=login">
                 <Play className="mr-2 h-5 w-5" /> Start Analysis
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              <Link to="/docs/Overview">
+                <BookTextIcon className="mr-2 h-5 w-5" /> Documentation
               </Link>
             </Button>
           </div>

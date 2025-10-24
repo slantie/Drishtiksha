@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run --coverage",
     "preview": "vite preview",
-    "generate-pdf": "node scripts\\md-to-pdf-runner.js"
+    "generate-pdf": "node scripts\\md-to-pdf-runner.js",
+    "docs:generate": "node scripts/generate-docs-manifest.js"
   },
   "dependencies": {
     "@cloudinary/react": "^1.14.3",
@@ -25,6 +26,7 @@
     "cloudinary-video-player": "^2.6.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.12",
+    "gray-matter": "^4.0.3",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.10.3",
     "jspdf": "^3.0.1",
@@ -38,11 +40,14 @@
     "react-dom": "^19.1.0",
     "react-hot-toast": "^2.5.2",
     "react-icons": "^5.5.0",
+    "react-markdown": "^10.1.0",
     "react-pdf": "^10.1.0",
     "react-pdf-tailwind": "^3.0.0",
     "react-player": "^3.3.1",
     "react-router-dom": "^7.6.2",
     "recharts": "^3.1.2",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.1.5"
@@ -73,4 +78,3 @@
     "vitest": "^3.2.4"
   }
 }
-

@@ -81,7 +81,7 @@ docker-compose up --build
 
 Observe the logs in your terminal. After the model loading process completes, you should see the final confirmation messages:
 
-```
+```text
 ...
 22:45:15 | INFO     | src.ml.registry           | ✅ All 7 active models have been loaded successfully.
 22:45:15 | INFO     | src.app.main              | ✅ Drishtiksha: Deepfake Detection startup complete. All active models loaded.
@@ -90,12 +90,11 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
 <!-- You can now access the interactive API documentation at **http://localhost:8000/docs**. -->
 
-<details>
-  <summary><strong>Alternative: Local Development (Without Docker)</strong></summary>
+### Alternative: Local Development (Without Docker)
 
 This method is for developers who prefer to run the Python application directly on their host machine.
 
-1.  **Prerequisites**:
+1. **Prerequisites**:
 
     - **Python 3.12+**
     - **uv** (recommended) or `pip` for package management.
@@ -104,7 +103,7 @@ This method is for developers who prefer to run the Python application directly 
       - On Debian/Ubuntu: `sudo apt-get install build-essential cmake`
       - On Fedora: `sudo dnf install cmake gcc-c++`
 
-2.  **Set Up Virtual Environment & Install Dependencies**:
+2. **Set Up Virtual Environment & Install Dependencies**:
 
     ```bash
     # Create the virtual environment
@@ -118,12 +117,11 @@ This method is for developers who prefer to run the Python application directly 
     uv sync
     ```
 
-3.  **Run the Server**:
+3. **Run the Server**:
+
     ```bash
     uv run uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
     ```
-
-</details>
 
 ## 1. Introduction & Architectural Philosophy
 
@@ -169,21 +167,21 @@ Understanding how the server processes an analysis request reveals its non-block
 
 ![Containerization](https://raw.githubusercontent.com/slantie/Drishtiksha/main/Server/assets/Request-Lifecycle.png)
 
-1.  **API Layer & Authentication**: A request first hits the `POST /analyze` endpoint defined in `src/app/routers/analysis.py`. The `X-API-Key` is immediately extracted from the headers and verified by the `get_api_key` security dependency. Invalid or missing keys are logged, and a `401 Unauthorized` response is sent immediately.
+1. **API Layer & Authentication**: A request first hits the `POST /analyze` endpoint defined in `src/app/routers/analysis.py`. The `X-API-Key` is immediately extracted from the headers and verified by the `get_api_key` security dependency. Invalid or missing keys are logged, and a `401 Unauthorized` response is sent immediately.
 
-2.  **Dependency Injection & File Handling**: Upon successful authentication, FastAPI injects the `process_media_request` dependency. This function efficiently handles the `multipart/form-data` stream, reading the uploaded file in chunks and saving it to a secure, temporary location on disk. This approach is memory-efficient and keeps the routing logic clean and focused on orchestration.
+2. **Dependency Injection & File Handling**: Upon successful authentication, FastAPI injects the `process_media_request` dependency. This function efficiently handles the `multipart/form-data` stream, reading the uploaded file in chunks and saving it to a secure, temporary location on disk. This approach is memory-efficient and keeps the routing logic clean and focused on orchestration.
 
-3.  **Model Retrieval**: The endpoint requests the appropriate model (either from the form data or the configured default) from the singleton `ModelManager` instance. Since all models are eagerly loaded at startup, this is an instantaneous dictionary lookup that retrieves the fully initialized model object from the cache.
+3. **Model Retrieval**: The endpoint requests the appropriate model (either from the form data or the configured default) from the singleton `ModelManager` instance. Since all models are eagerly loaded at startup, this is an instantaneous dictionary lookup that retrieves the fully initialized model object from the cache.
 
-4.  **Asynchronous Execution Offload**: The core of the performance strategy lies here. The model's `analyze()` method is a standard, synchronous Python function that can take seconds or minutes to run. To prevent this from blocking FastAPI's async event loop, it is wrapped in `asyncio.to_thread()`. This delegates the long-running, synchronous inference task to a separate worker thread pool managed by `anyio`, freeing the main process to handle other requests.
+4. **Asynchronous Execution Offload**: The core of the performance strategy lies here. The model's `analyze()` method is a standard, synchronous Python function that can take seconds or minutes to run. To prevent this from blocking FastAPI's async event loop, it is wrapped in `asyncio.to_thread()`. This delegates the long-running, synchronous inference task to a separate worker thread pool managed by `anyio`, freeing the main process to handle other requests.
 
-5.  **Event Publishing (During Inference)**: While the `analyze()` method runs in its separate thread, it can emit progress updates using the `event_publisher`. These type-safe `ProgressEvent` objects are published to a Redis Pub/Sub channel for consumption by other microservices (e.g., a Node.js WebSocket backend).
+5. **Event Publishing (During Inference)**: While the `analyze()` method runs in its separate thread, it can emit progress updates using the `event_publisher`. These type-safe `ProgressEvent` objects are published to a Redis Pub/Sub channel for consumption by other microservices (e.g., a Node.js WebSocket backend).
 
-6.  **Structured Result Generation**: The `analyze()` method completes its execution and returns a single, structured Pydantic object (`VideoAnalysisResult` or `AudioAnalysisResult`) that encapsulates every piece of data from the analysis.
+6. **Structured Result Generation**: The `analyze()` method completes its execution and returns a single, structured Pydantic object (`VideoAnalysisResult` or `AudioAnalysisResult`) that encapsulates every piece of data from the analysis.
 
-7.  **Response Formatting & URL Generation**: Control returns to the main event loop. The router inspects the Pydantic result object. If a visualization was generated, it transforms the temporary file path into a fully qualified, downloadable URL. The result object is then wrapped in the standard `APIResponse` model, which adds metadata like the timestamp and model used.
+7. **Response Formatting & URL Generation**: Control returns to the main event loop. The router inspects the Pydantic result object. If a visualization was generated, it transforms the temporary file path into a fully qualified, downloadable URL. The result object is then wrapped in the standard `APIResponse` model, which adds metadata like the timestamp and model used.
 
-8.  **Graceful Error Handling**: If at any point during this process a known error occurs (e.g., a `MediaProcessingError` from a corrupt file), a specific `try...except` block in the router catches it and raises a corresponding `HTTPException`, returning a clean and informative JSON error to the client. A global exception handler in `main.py` acts as a final safety net for any other unexpected errors.
+8. **Graceful Error Handling**: If at any point during this process a known error occurs (e.g., a `MediaProcessingError` from a corrupt file), a specific `try...except` block in the router catches it and raises a corresponding `HTTPException`, returning a clean and informative JSON error to the client. A global exception handler in `main.py` acts as a final safety net for any other unexpected errors.
 
 ### 2.2. The Model Management System
 
@@ -316,9 +314,9 @@ The server employs a sophisticated, multi-layered, and self-validating configura
 
 Configuration is loaded from three distinct sources, with a clear order of precedence. Settings from a higher level will always override settings from a lower level, allowing for powerful and granular control across different environments.
 
-1.  **System Environment Variables (Highest Priority)**: These are read directly from the host environment. This is the standard method for configuring applications in containerized deployments (e.g., passing variables in `docker-compose.yml` or a Kubernetes deployment manifest).
-2.  **`.env` File (Medium Priority)**: This file is used for local development and contains environment-specific settings (like `API_KEY`) and overrides for the base configuration. This file should **never** be committed to version control.
-3.  **`configs/config.yaml` (Lowest Priority)**: This is the base configuration file and should be committed to version control. It defines the complete list of all available models and their static parameters (e.g., model paths, architectural details, and hyperparameters).
+1. **System Environment Variables (Highest Priority)**: These are read directly from the host environment. This is the standard method for configuring applications in containerized deployments (e.g., passing variables in `docker-compose.yml` or a Kubernetes deployment manifest).
+2. **`.env` File (Medium Priority)**: This file is used for local development and contains environment-specific settings (like `API_KEY`) and overrides for the base configuration. This file should **never** be committed to version control.
+3. **`configs/config.yaml` (Lowest Priority)**: This is the base configuration file and should be committed to version control. It defines the complete list of all available models and their static parameters (e.g., model paths, architectural details, and hyperparameters).
 
 ### 5.2. Pydantic for Validation
 
@@ -471,11 +469,11 @@ The project includes a production-ready, multi-stage `Dockerfile` designed to bu
 - **Stage 1 (The "Builder")**: This temporary build environment starts from a `python:3.12-slim-bookworm` base and installs all the system-level dependencies required for _compiling_ the Python packages (e.g., `build-essential` and `cmake` for `dlib`). It then uses `uv` to install all Python dependencies from `pyproject.toml` into a self-contained virtual environment (`.venv`).
 
 - **Stage 2 (The "Final Image")**: This is the final, lightweight production image. It starts from the same clean `python:3.12-slim-bookworm` base. It then performs the following steps:
-  1.  **Installs Runtime Dependencies**: It installs only the essential system libraries needed to _run_ the application (like `libgl1` for OpenCV and `ffmpeg` for pydub), not the large build tools.
-  2.  **Creates a Non-Root User**: For enhanced security, it creates a dedicated, low-privilege `appuser` and `appgroup`.
-  3.  **Copies Artifacts**: It copies the pre-built `.venv` directory from the `builder` stage and the application source code.
-  4.  **Sets Permissions**: It creates a writable cache directory and ensures the `appuser` owns all the necessary files.
-  5.  **Switches User**: The final `USER` instruction switches the container's execution context to the non-root `appuser`. The application will run under these restricted permissions.
+  1. **Installs Runtime Dependencies**: It installs only the essential system libraries needed to _run_ the application (like `libgl1` for OpenCV and `ffmpeg` for pydub), not the large build tools.
+  2. **Creates a Non-Root User**: For enhanced security, it creates a dedicated, low-privilege `appuser` and `appgroup`.
+  3. **Copies Artifacts**: It copies the pre-built `.venv` directory from the `builder` stage and the application source code.
+  4. **Sets Permissions**: It creates a writable cache directory and ensures the `appuser` owns all the necessary files.
+  5. **Switches User**: The final `USER` instruction switches the container's execution context to the non-root `appuser`. The application will run under these restricted permissions.
 
 This multi-stage process results in a final image that is significantly smaller and more secure than a single-stage build, as it contains no build tools, compilers, or intermediate package caches.
 

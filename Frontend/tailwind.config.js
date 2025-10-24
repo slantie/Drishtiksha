@@ -6,7 +6,7 @@ export default {
         extend: {
             colors: {
                 primary: {
-                    main: "#8155c6",
+                    main: "var(--color-primary, #8155c6)",
                     light: "#ff7070",
                     lighter: "#fc6f6f",
                     // REMOVED: Empty dark and darker keys
