@@ -8,14 +8,26 @@ import { useTheme } from "../hooks/useTheme";
 import { themes } from "../constants/themes";
 
 function ThemeToggle() {
-  const { darkMode, currentTheme, toggleDarkMode, changeTheme } = useTheme();
+  const {
+    darkMode,
+    currentTheme,
+    toggleDarkMode,
+    changeTheme,
+    themeMode,
+    setThemeMode,
+  } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const menuRef = useRef(null);
+  const modeRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowThemeMenu(false);
+      }
+      if (modeRef.current && !modeRef.current.contains(event.target)) {
+        setShowModeMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -86,30 +98,94 @@ function ThemeToggle() {
         </AnimatePresence>
       </div>
 
-      {/* Dark/Light Mode Toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleDarkMode}
-        aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={darkMode ? "moon" : "sun"}
-            variants={iconVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            transition={{ duration: 0.2 }}
-          >
-            {darkMode ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </motion.div>
+      {/* Dark/Light/System Mode Selector */}
+      <div className="relative" ref={modeRef}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowModeMenu((s) => !s)}
+          aria-label="Change color mode"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={darkMode ? "moon" : "sun"}
+              variants={iconVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={{ duration: 0.2 }}
+            >
+              {darkMode ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </Button>
+
+        <AnimatePresence>
+          {showModeMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 mt-2 w-40 bg-light-background dark:bg-dark-background border border-light-secondary dark:border-dark-secondary rounded-lg shadow-lg overflow-hidden z-50"
+            >
+              <div className="p-2">
+                <p className="text-xs font-semibold text-light-muted-text dark:text-dark-muted-text px-2 py-1">
+                  Appearance
+                </p>
+                <button
+                  onClick={() => {
+                    setThemeMode("light");
+                    setShowModeMenu(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    themeMode === "light"
+                      ? "bg-primary-main/10 dark:bg-primary-main/20 text-primary-main font-medium"
+                      : "text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover"
+                  }`}
+                >
+                  <Sun className="h-4 w-4" />
+                  Light
+                </button>
+
+                <button
+                  onClick={() => {
+                    setThemeMode("dark");
+                    setShowModeMenu(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    themeMode === "dark"
+                      ? "bg-primary-main/10 dark:bg-primary-main/20 text-primary-main font-medium"
+                      : "text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover"
+                  }`}
+                >
+                  <Moon className="h-4 w-4" />
+                  Dark
+                </button>
+
+                <button
+                  onClick={() => {
+                    setThemeMode("system");
+                    setShowModeMenu(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    themeMode === "system"
+                      ? "bg-primary-main/10 dark:bg-primary-main/20 text-primary-main font-medium"
+                      : "text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover"
+                  }`}
+                >
+                  <Palette className="h-4 w-4" />
+                  System
+                </button>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
-      </Button>
+      </div>
     </div>
   );
 }

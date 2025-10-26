@@ -12,6 +12,7 @@ import {
   Music,
   XCircle,
   Image as ImageIcon,
+  DownloadIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -167,6 +168,8 @@ export const MediaPlayer = ({ media }) => {
 
     const onLoadedData = () =>
       dispatch({ type: "LOADED_METADATA", payload: element.duration });
+    const onLoadedMeta = () =>
+      dispatch({ type: "LOADED_METADATA", payload: element.duration });
     const onTimeUpdate = () =>
       dispatch({ type: "TIME_UPDATE", payload: element.currentTime });
     const onPlay = () => dispatch({ type: "PLAY" });
@@ -187,6 +190,7 @@ export const MediaPlayer = ({ media }) => {
     };
 
     element.addEventListener("loadeddata", onLoadedData);
+    element.addEventListener("loadedmetadata", onLoadedMeta);
     element.addEventListener("timeupdate", onTimeUpdate);
     element.addEventListener("play", onPlay);
     element.addEventListener("pause", onPause);
@@ -198,6 +202,7 @@ export const MediaPlayer = ({ media }) => {
 
     return () => {
       element.removeEventListener("loadeddata", onLoadedData);
+      element.removeEventListener("loadedmetadata", onLoadedMeta);
       element.removeEventListener("timeupdate", onTimeUpdate);
       element.removeEventListener("play", onPlay);
       element.removeEventListener("pause", onPause);
@@ -244,13 +249,25 @@ export const MediaPlayer = ({ media }) => {
           />
         );
       case "AUDIO":
+        // Render a visual placeholder for the audio file plus a visually-hidden
+        // <audio> element wired to the same ref so our custom controls work.
         return (
-          <audio
-            key={media.url}
-            ref={mediaRef}
-            src={media.url}
-            preload="metadata"
-          />
+          <>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
+              <Music className="w-24 h-24 text-gray-500 mb-4" />
+              <p className="text-white text-center font-semibold">
+                {media.filename || "Audio File"}
+              </p>
+            </div>
+            <audio
+              key={media.url}
+              ref={mediaRef}
+              src={media.url}
+              preload="metadata"
+              className="sr-only"
+              aria-hidden="true"
+            />
+          </>
         );
       case "IMAGE":
         return (
@@ -258,7 +275,7 @@ export const MediaPlayer = ({ media }) => {
             key={media.url}
             src={media.url}
             alt={media.description || media.filename || "Uploaded image"}
-            className="w-full h-full object-contain bg-black"
+            className="max-h-[640px] w-auto max-w-full mx-auto object-contain bg-black"
           />
         );
       default:
@@ -276,23 +293,14 @@ export const MediaPlayer = ({ media }) => {
       ref={containerRef}
       className={`relative group bg-black rounded-lg overflow-hidden focus:outline-none ${
         media.mediaType === "VIDEO"
-          ? "aspect-video max-h-[400px]"
+          ? "aspect-video max-h-[640px]"
           : media.mediaType === "AUDIO"
-          ? "aspect-video max-h-[280px]"
-          : "aspect-square max-h-[400px]"
+          ? "max-h-[160px]"
+          : "max-h-[640px]"
       }`}
       tabIndex={0}
     >
-      {media.mediaType === "AUDIO" ? (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
-          <Music className="w-24 h-24 text-gray-500 mb-4" />
-          <p className="text-white text-center font-semibold">
-            {media.filename || "Audio File"}
-          </p>
-        </div>
-      ) : (
-        renderMediaElement()
-      )}
+      {renderMediaElement()}
 
       {isLoading && isPlayable && !hasError && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none">
@@ -309,105 +317,155 @@ export const MediaPlayer = ({ media }) => {
 
       {isPlayable && !hasError && (
         <div
-          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 transition-opacity duration-300 ${
+          className={`absolute bottom-0 left-0 right-0 p-3 transition-opacity duration-300 ${
             media.mediaType === "AUDIO" || isPlaying === false
               ? "opacity-100"
               : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           }`}
         >
-          <Slider
-            value={[(currentTime / duration) * 100 || 0]}
-            onValueChange={handleSeek}
-            max={100}
-            step={0.1}
-            className="w-full h-2"
-            aria-label="Seek media"
-          />
+          <div className="w-full rounded-t-xl backdrop-blur-sm bg-black/50 border-t border-white/5 p-3">
+            <Slider
+              value={[(currentTime / duration) * 100 || 0]}
+              onValueChange={handleSeek}
+              max={100}
+              step={0.1}
+              thumbSize={media.mediaType === "AUDIO" ? "sm" : "md"}
+              className={`${
+                media.mediaType === "AUDIO" ? "h-1" : "h-2"
+              } w-full rounded-full`}
+              aria-label="Seek media"
+            />
 
-          <div className="flex items-center justify-between text-white mt-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={togglePlayPause}
-                aria-label={isPlaying ? "Pause" : "Play"}
-              >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </Button>
-              <div className="flex items-center gap-2 group/volume">
+            <div className="flex items-center justify-between text-white mt-2">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    if (mediaRef.current) mediaRef.current.muted = !isMuted;
-                  }}
-                  aria-label={isMuted ? "Unmute" : "Mute"}
+                  className="hover:bg-dark-hover"
+                  onClick={togglePlayPause}
+                  aria-label={isPlaying ? "Pause" : "Play"}
                 >
-                  {isMuted || volume === 0 ? (
-                    <VolumeX className="h-5 w-5" />
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5" />
                   ) : (
-                    <Volume2 className="h-5 w-5" />
+                    <Play className="h-5 w-5" />
                   )}
                 </Button>
-                <Slider
-                  value={[isMuted ? 0 : volume]}
-                  onValueChange={handleVolumeChange}
-                  max={1}
-                  step={0.05}
-                  className="w-0 group-hover/volume:w-20 h-1 transition-all duration-300"
-                  aria-label="Volume control"
-                />
-              </div>
-              <span className="text-sm font-mono">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                {/* Volume group: slider hidden until hover or focus inside this group for a tidy UI. */}
+                <div
+                  className={`volume-group flex items-center gap-2 ${
+                    media.mediaType === "AUDIO"
+                      ? "volume-audio"
+                      : "volume-video"
+                  }`}
+                >
+                  <style>{`\
+                    .volume-group { position: relative; display: inline-flex; align-items: center; }
+                    .volume-group .volume-slider { width: 0; opacity: 0; pointer-events: none; overflow: hidden; transition: width .18s ease, opacity .18s ease; }
+                    .volume-group.volume-audio:hover .volume-slider, .volume-group.volume-audio:focus-within .volume-slider { width: 5rem; opacity: 1; pointer-events: auto; }
+                    .volume-group.volume-video:hover .volume-slider, .volume-group.volume-video:focus-within .volume-slider { width: 7rem; opacity: 1; pointer-events: auto; }
+                    .volume-group .volume-slider > * { width: 100%; }
+                  `}</style>
+
                   <Button
                     variant="ghost"
-                    className="w-20"
-                    aria-label="Playback speed"
+                    size="icon"
+                    className="hover:bg-dark-hover"
+                    onClick={() => {
+                      if (mediaRef.current) mediaRef.current.muted = !isMuted;
+                    }}
+                    aria-label={isMuted ? "Unmute" : "Mute"}
                   >
-                    {playbackRate}x
+                    {isMuted || volume === 0 ? (
+                      <VolumeX className="h-5 w-5" />
+                    ) : (
+                      <Volume2 className="h-5 w-5" />
+                    )}
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {playbackRates.map((rate) => (
-                    <DropdownMenuItem
-                      key={rate}
-                      onSelect={() => {
-                        if (mediaRef.current)
-                          mediaRef.current.playbackRate = rate;
-                        dispatch({ type: "SET_PLAYBACK_RATE", payload: rate });
-                      }}
+
+                  <div className="volume-slider">
+                    <Slider
+                      value={[isMuted ? 0 : volume]}
+                      onValueChange={handleVolumeChange}
+                      max={1}
+                      step={0.05}
+                      thumbSize={media.mediaType === "AUDIO" ? "md" : "sm"}
+                      className={`h-1 transition-all duration-200 rounded-full`}
+                      aria-label="Volume control"
+                    />
+                  </div>
+                </div>
+                <span className="text-sm font-mono">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className=" hover:bg-dark-hover"
+                      aria-label="Playback speed"
                     >
-                      {rate}x
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {media.mediaType === "VIDEO" && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleFullScreen}
-                  aria-label={
-                    isFullScreen ? "Exit fullscreen" : "Enter fullscreen"
-                  }
-                >
-                  {isFullScreen ? (
-                    <Minimize className="h-5 w-5" />
-                  ) : (
-                    <Maximize className="h-5 w-5" />
-                  )}
-                </Button>
-              )}
+                      {playbackRate}x
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {playbackRates.map((rate) => (
+                      <DropdownMenuItem
+                        key={rate}
+                        onSelect={() => {
+                          if (mediaRef.current)
+                            mediaRef.current.playbackRate = rate;
+                          dispatch({
+                            type: "SET_PLAYBACK_RATE",
+                            payload: rate,
+                          });
+                        }}
+                      >
+                        {rate}x
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Download button */}
+                {media?.url && (
+                  <a
+                    href={media.url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2"
+                    aria-label="Download media"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-dark-hover"
+                    >
+                      <DownloadIcon className="h-5 w-5" />
+                    </Button>
+                  </a>
+                )}
+                {media.mediaType === "VIDEO" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleFullScreen}
+                    className="hover:bg-dark-hover"
+                    aria-label={
+                      isFullScreen ? "Exit fullscreen" : "Enter fullscreen"
+                    }
+                  >
+                    {isFullScreen ? (
+                      <Minimize className="h-5 w-5" />
+                    ) : (
+                      <Maximize className="h-5 w-5" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

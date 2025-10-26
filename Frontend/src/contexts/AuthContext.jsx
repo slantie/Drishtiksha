@@ -82,13 +82,19 @@ export const AuthProvider = ({ children }) => {
         authStorage.set({ token: newToken, user: newUser, rememberMe: true });
         setLocalToken(newToken); // Update local token state
         queryClient.setQueryData(queryKeys.auth.profile(), newUser); // Optimistically update cache
+        // Ensure the profile query is populated and components re-render
+        try {
+          await refetchProfile();
+        } catch {
+          // swallow — we already optimistically updated cache
+        }
         showToast.success("Login successful!");
         navigate("/dashboard"); // Centralize navigation
       } catch {
         // Error handling is already in useLoginMutation
       }
     },
-    [loginMutation, queryClient, navigate]
+    [loginMutation, queryClient, navigate, refetchProfile]
   );
 
   const signup = useCallback(

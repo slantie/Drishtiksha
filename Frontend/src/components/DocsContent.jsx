@@ -50,7 +50,7 @@ const DocsContent = ({ onToggleSidebar }) => {
 
         // Redirect to README if no path
         if (!path) {
-          navigate("/docs/main", { replace: true });
+          navigate("/docs/Overview", { replace: true });
           return;
         }
 
@@ -275,7 +275,7 @@ const DocsContent = ({ onToggleSidebar }) => {
             the URL or navigate using the sidebar.
           </p>
           <button
-            onClick={() => navigate("/docs/main")}
+            onClick={() => navigate("/docs/Overview")}
             className="px-6 py-2 bg-primary-main text-white rounded-lg hover:bg-primary-dark transition-colors"
           >
             Go to Documentation Home
@@ -599,7 +599,7 @@ const DocsContent = ({ onToggleSidebar }) => {
                   <img
                     src={src}
                     alt={alt}
-                    className="rounded-lg shadow-sm my-6 border border-light-secondary dark:border-dark-secondary"
+                    className="bg-white rounded-xl shadow-sm my-6 border p-4 border-light-secondary dark:border-dark-secondary"
                   />
                 ),
               }}

@@ -50,19 +50,35 @@ DropdownMenuSubContent.displayName =
   DropdownMenuPrimitive.SubContent.displayName;
 
 const DropdownMenuContent = React.forwardRef(
-  ({ className, sideOffset = 4, ...props }, ref) => (
-    <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content
-        ref={ref}
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 min-w-[8rem] overflow-hidden rounded-md border border-light-secondary dark:border-dark-secondary bg-light-background dark:bg-dark-background p-1 text-light-text dark:text-dark-text shadow-lg animate-in fade-in-80",
-          className
-        )}
-        {...props}
-      />
-    </DropdownMenuPrimitive.Portal>
-  )
+  ({ className, sideOffset = 4, ...props }, ref) => {
+    // If the player (or any element) is in fullscreen, portals appended to <body>
+    // won't be visible because only the fullscreen element and its descendants
+    // are rendered. Detect an active fullscreen element and use it as the
+    // portal container so dropdowns appear correctly in fullscreen mode.
+    let portalContainer = undefined;
+    try {
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        portalContainer = document.fullscreenElement;
+      }
+    } catch {
+      // defensive: some environments may restrict access to document.fullscreenElement
+      portalContainer = undefined;
+    }
+
+    return (
+      <DropdownMenuPrimitive.Portal container={portalContainer}>
+        <DropdownMenuPrimitive.Content
+          ref={ref}
+          sideOffset={sideOffset}
+          className={cn(
+            "z-50 min-w-[8rem] overflow-hidden rounded-md border border-light-secondary dark:border-dark-secondary bg-light-background dark:bg-dark-background p-1 text-light-text dark:text-dark-text shadow-lg animate-in fade-in-80",
+            className
+          )}
+          {...props}
+        />
+      </DropdownMenuPrimitive.Portal>
+    );
+  }
 );
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 

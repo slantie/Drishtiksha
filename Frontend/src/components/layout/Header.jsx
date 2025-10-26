@@ -13,7 +13,7 @@ import { config } from "../../config/env.js";
 const projectName = config.VITE_PROJECT_NAME || "Drishtiksha";
 
 // Define navigation items
-const navItems = [{ path: "/docs/main", label: "Documentation" }]; // Public routes
+const navItems = [{ path: "/docs/Overview", label: "Documentation" }]; // Public routes
 
 const authenticatedNavItems = [
   { path: "/dashboard", label: "Dashboard" },
@@ -163,10 +163,9 @@ function Header() {
             </nav>
 
             {/* Actions */}
-            <div className="hidden lg:flex items-center space-x-2">
+            <div className="hidden lg:flex items-center">
               {/* Show DocsSearch on docs pages */}
               {isDocsPage && <DocsSearch />}
-              <ThemeToggle />
               {isAuthenticated && user ? (
                 <div className="relative" ref={userMenuRef}>
                   {" "}
@@ -192,7 +191,7 @@ function Header() {
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="absolute right-0 mt-2 w-64 bg-light-background dark:bg-dark-muted-background rounded-lg shadow-lg border border-light-secondary dark:border-dark-secondary overflow-hidden"
+                        className="absolute right-0 mt-2 w-64 bg-light-background dark:bg-dark-muted-background rounded-lg shadow-lg border border-light-secondary dark:border-dark-secondary overflow-visible z-50"
                       >
                         <div className="p-4 border-b border-light-secondary dark:border-dark-secondary">
                           <p className="font-semibold">
@@ -201,6 +200,15 @@ function Header() {
                           <p className="text-sm text-light-muted-text dark:text-dark-muted-text">
                             {user.email}
                           </p>
+                        </div>
+                        {/* Theme selector placed in profile dropdown */}
+                        <div className="p-2 border-b border-light-secondary dark:border-dark-secondary">
+                          <div className="px-1 py-1">
+                            <p className="text-xs text-light-muted-text dark:text-dark-muted-text font-semibold mb-2">
+                              Appearance
+                            </p>
+                            <ThemeToggle />
+                          </div>
                         </div>
                         <div className="p-2">
                           <button
@@ -239,10 +247,10 @@ function Header() {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center">
             {/* Show DocsSearch on mobile for docs pages */}
             {isDocsPage && <DocsSearch />}
-            <ThemeToggle />
+            {/* ThemeToggle moved into user menu for authenticated users */}
             <Button
               variant="ghost"
               size="icon"
@@ -274,7 +282,7 @@ function Header() {
                 stiffness: 300,
                 damping: 30,
               }}
-              className="absolute top-0 right-0 h-full w-80 bg-light-background dark:bg-dark-background p-6"
+              className="absolute top-0 right-0 h-full w-80 bg-light-background dark:bg-dark-background p-6 overflow-visible z-50"
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside panel
             >
               <div className="flex justify-between items-center mb-8">
@@ -344,12 +352,13 @@ function Header() {
                 {/* Add profile/logout for mobile if authenticated */}
                 {isAuthenticated && (
                   <div className="mt-4 pt-4 border-t border-light-secondary dark:border-dark-secondary">
-                    {/* <button
-                      onClick={handleProfileClick}
-                      className="w-full text-left flex items-center gap-2 p-2 rounded-md hover:bg-light-hover dark:hover:bg-dark-hover text-md font-semibold"
-                    >
-                      <User className="h-5 w-5" /> Profile
-                    </button> */}
+                    {/* Profile / Appearance for mobile */}
+                    <div className="px-2 py-2">
+                      <p className="text-sm text-light-muted-text dark:text-dark-muted-text font-medium mb-2">
+                        Appearance
+                      </p>
+                      <ThemeToggle />
+                    </div>
                     <button
                       onClick={handleLogoutClick}
                       className="w-full text-left flex items-center gap-2 p-2 rounded-md hover:bg-light-hover dark:hover:bg-dark-hover text-red-500 text-md font-semibold"

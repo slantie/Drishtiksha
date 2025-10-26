@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Overview",
+    "path": "Overview",
+    "displayPath": "/docs/Overview",
+    "category": "root"
+  },
+  {
+    "title": "Overview",
+    "path": "backend/Overview",
+    "displayPath": "/docs/backend/Overview",
+    "category": "backend"
+  },
+  {
+    "title": "Overview",
+    "path": "frontend/Overview",
+    "displayPath": "/docs/frontend/Overview",
+    "category": "frontend"
+  },
+  {
+    "title": "Overview",
+    "path": "server/Overview",
+    "displayPath": "/docs/server/Overview",
+    "category": "server"
+  }
+]

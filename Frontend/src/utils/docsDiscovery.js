@@ -40,7 +40,7 @@ export const getStaticDocsList = () => {
     // {
     //   title: "Getting Started",
     //   path: "main",
-    //   displayPath: "/docs/main",
+    //   displayPath: "/docs/Overview",
     //   category: "root",
     // },
     {

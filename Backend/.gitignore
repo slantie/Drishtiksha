@@ -1,9 +1,14 @@
 node_modules
-# Keep environment variables out of version control
-.env
+
+database/
+
+public/media/
+
+temp/uploads/
 
 /generated/prisma
-uploads
+
+.env
 *.mp4
 *.mp3
 *.jpg

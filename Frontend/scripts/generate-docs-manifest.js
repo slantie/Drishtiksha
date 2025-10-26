@@ -17,6 +17,9 @@ const __dirname = path.dirname(__filename);
 const DOCS_SOURCE_DIR = path.join(__dirname, '..', 'docs');
 const DOCS_PUBLIC_DIR = path.join(__dirname, '..', 'public', 'docs');
 const MANIFEST_PATH = path.join(DOCS_PUBLIC_DIR, 'manifest.json');
+const ASSETS_SOURCE_DIR = path.join(__dirname, '..', 'assets', 'docs');
+const ASSETS_PUBLIC_DIR = path.join(__dirname, '..', 'public', 'assets', 'docs');
+const SERVER_ASSETS_DIR = path.join(__dirname, '..', '..', 'Server', 'assets');
 
 /**
  * Extract the first H1 heading from a markdown file to use as title
@@ -93,7 +96,7 @@ function scanDirectory(dir, baseDir = dir, category = 'root') {
         
         // Special handling for Overview.md files
         if (filename.toLowerCase() === 'overview') {
-          title = `${generateCategoryLabel(category)} Overview`;
+          title = `Overview`;
         }
         
         // Special handling for README.md files
@@ -101,7 +104,7 @@ function scanDirectory(dir, baseDir = dir, category = 'root') {
           if (category === 'root') {
             title = 'Getting Started';
           } else {
-            title = `${generateCategoryLabel(category)} Overview`;
+            title = `Overview`;
           }
         }
         
@@ -202,17 +205,78 @@ function generateManifest() {
   
   // Check if source docs directory exists
   if (!fs.existsSync(DOCS_SOURCE_DIR)) {
-    console.error(`❌ Error: Source docs directory not found: ${DOCS_SOURCE_DIR}`);
-    return;
+    console.log(`ℹ️ Source docs directory not found: ${DOCS_SOURCE_DIR}`);
+    console.log('ℹ️ Falling back to existing public/docs for manifest generation.');
+  } else {
+    console.log('📄 Copying markdown files to public/docs/...\n');
+    copyMarkdownFiles(DOCS_SOURCE_DIR, DOCS_PUBLIC_DIR);
   }
-  
-  console.log('📄 Copying markdown files to public/docs/...\n');
-  copyMarkdownFiles(DOCS_SOURCE_DIR, DOCS_PUBLIC_DIR);
+
+  // Copy documentation image assets so markdown references to /assets/docs/* resolve
+  try {
+    if (fs.existsSync(ASSETS_SOURCE_DIR)) {
+      console.log('📦 Copying documentation assets to public/assets/docs/...\n');
+      // ensure dest exists
+      fs.mkdirSync(ASSETS_PUBLIC_DIR, { recursive: true });
+      // recursive copy of files and folders
+      const copyRecursive = (src, dest) => {
+        const items = fs.readdirSync(src);
+        for (const it of items) {
+          const s = path.join(src, it);
+          const d = path.join(dest, it);
+          const st = fs.statSync(s);
+          if (st.isDirectory()) {
+            if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+            copyRecursive(s, d);
+          } else {
+            fs.copyFileSync(s, d);
+            // show relative path for user
+            console.log(`  Copied asset: ${path.relative(path.join(__dirname, '..'), s)}`);
+          }
+        }
+      };
+      copyRecursive(ASSETS_SOURCE_DIR, ASSETS_PUBLIC_DIR);
+    } else {
+      console.log('ℹ️ No documentation assets found at', ASSETS_SOURCE_DIR);
+    }
+  } catch (err) {
+    console.error('Error copying documentation assets:', err.message);
+  }
+
+  // Also copy any images from the Server assets folder into public/assets/docs/server
+  try {
+    if (fs.existsSync(SERVER_ASSETS_DIR)) {
+      const serverDest = path.join(ASSETS_PUBLIC_DIR, 'server');
+      fs.mkdirSync(serverDest, { recursive: true });
+      const serverItems = fs.readdirSync(SERVER_ASSETS_DIR);
+      serverItems.forEach((it) => {
+        const s = path.join(SERVER_ASSETS_DIR, it);
+        const d = path.join(serverDest, it);
+        const st = fs.statSync(s);
+        if (st.isFile()) {
+          const ext = path.extname(it).toLowerCase();
+          if (['.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif'].includes(ext)) {
+            fs.copyFileSync(s, d);
+            console.log(`  Copied server asset: ${path.relative(path.join(__dirname, '..'), s)}`);
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Error copying server assets:', err.message);
+  }
   
   console.log('\n📊 Generating manifest...\n');
   
-  // Scan for markdown files
-  let entries = scanDirectory(DOCS_SOURCE_DIR);
+  // Scan for markdown files - prefer source docs, otherwise use public/docs as the source
+  let entries = [];
+  if (fs.existsSync(DOCS_SOURCE_DIR)) {
+    entries = scanDirectory(DOCS_SOURCE_DIR);
+  } else if (fs.existsSync(DOCS_PUBLIC_DIR)) {
+    entries = scanDirectory(DOCS_PUBLIC_DIR, DOCS_PUBLIC_DIR);
+  } else {
+    entries = [];
+  }
   
   // Sort entries
   entries = sortEntries(entries);
