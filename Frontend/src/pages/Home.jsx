@@ -146,8 +146,7 @@ const team = [
   {
     name: "Kandarp Gajjar",
     role: "AI/ML & Full-Stack Developer",
-    avatarUrl:
-      "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_1_erlley.jpg",
+    avatarUrl: "assets/docs/Member-1.jpg",
     socials: {
       github: "https://github.com/slantie",
       linkedin: "https://www.linkedin.com/in/kandarpgajjar/",
@@ -156,8 +155,7 @@ const team = [
   {
     name: "Oum Gadani",
     role: "AI/ML Developer",
-    avatarUrl:
-      "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_2_mnpfhh.jpg",
+    avatarUrl: "assets/docs/Member-2.jpg",
     socials: {
       github: "https://github.com/Oum-Gadani",
       linkedin: "https://www.linkedin.com/in/oumgadani/",
@@ -166,8 +164,7 @@ const team = [
   {
     name: "Raj Mathuria",
     role: "AI/ML Developer",
-    avatarUrl:
-      "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573128/Member_3_yzqouc.jpg",
+    avatarUrl: "assets/docs/Member-3.jpg",
     socials: {
       github: "https://github.com/CodeCraftsmanRaj",
       linkedin: "https://www.linkedin.com/in/raj-mathuria-98a710283/",
@@ -176,8 +173,7 @@ const team = [
   {
     name: "Vishwajit Sarnobat",
     role: "AI/ML Developer",
-    avatarUrl:
-      "https://res.cloudinary.com/dcsvkcoym/image/upload/v1755573129/Member_4_tntyts.jpg",
+    avatarUrl: "assets/docs/Member-4.jpg",
     socials: {
       github: "https://github.com/vishwajitsarnobat",
       linkedin: "https://www.linkedin.com/in/vishwajitsarnobat/",

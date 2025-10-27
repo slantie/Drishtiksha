@@ -92,7 +92,9 @@ export const buildSidebarStructure = (files) => {
       if (!categories[category]) {
         categories[category] = {};
       }
-      const filename = pathParts[pathParts.length - 1].replace(".md", "").toLowerCase();
+      const filename = pathParts[pathParts.length - 1]
+        .replace(".md", "")
+        .toLowerCase();
       categories[category][filename] = null;
     }
   });
@@ -110,34 +112,49 @@ export const buildSidebarStructure = (files) => {
  * @param {string} filePath - Current file path (e.g., "backend/main")
  * @returns {string} Updated markdown with fixed image paths
  */
-export const updateImagePaths = (content, filePath) => {
-  // Get the depth of the file to calculate relative path
-  const depth = (filePath.match(/\//g) || []).length;
-  const prefix = depth > 0 ? "../".repeat(depth) : "";
+// utils/docsDiscovery.js
+export const updateImagePaths = (content, filePath = "") => {
+  if (!content) return content;
 
-  // Match markdown image syntax: ![alt](path)
-  // Replace relative image paths with assets/docs paths
-  const imageRegex = /!\[([^\]]*)\]\((?!https?:\/\/)(?!\/\/)(\.\/)?(.*?)\)/g;
-  return content.replace(imageRegex, (match, alt, dot, path) => {
-    // If path starts with ./, remove it
-    let cleanPath = path.startsWith("./") ? path.slice(2) : path;
+  // -----------------------------------------------------------------
+  // Helper – turn a relative image path into the final public URL
+  // -----------------------------------------------------------------
+  const makeAssetUrl = (relPath) => {
+    if (typeof relPath !== "string" || relPath.trim() === "") return undefined;
 
-      // If it's a relative path, convert it to use assets/docs
-      if (!cleanPath.startsWith("/")) {
-        // Construct the correct path based on file location
-        const category = filePath.split("/")[0];
-        if (filePath.includes("/")) {
-          // File is in a subdirectory
-          return `![${alt}](/assets/docs/${category}/${cleanPath})`;
-        } else {
-          // Root level file
-          return `![${alt}](/assets/docs/${cleanPath})`;
-        }
-      }
+    // Strip leading ./ or .\
+    const clean = relPath.replace(/^(\.\/|\.\\)/, "").trim();
+    if (!clean) return undefined;
 
-      return match;
-    }
-  );
+    const parts = filePath.split("/");
+    const isRoot = parts.length <= 1;
+    const category = isRoot ? "" : parts[0];
+
+    const base = isRoot ? "/assets/docs" : `/assets/docs/${category}`;
+    console.log(`${base}/${clean}`.replace(/\/+/g, "/"));
+    return `${base}/${clean}`.replace(/\/+/g, "/"); // no double slashes
+  };
+
+  // -----------------------------------------------------------------
+  // 1. Markdown images:  ![alt](relative/path.jpg)
+  // -----------------------------------------------------------------
+  const mdRegex = /!\[([^\]]*)\]\((?!https?:\/\/)(?!data:)(?!\/)(.*?)\)/g;
+  content = content.replace(mdRegex, (match, alt, relPath) => {
+    const url = makeAssetUrl(relPath);
+    return url ? `![${alt}](${url})` : match;
+  });
+
+  // -----------------------------------------------------------------
+  // 2. HTML <img> tags:  <img ... src="relative/path.jpg" …>
+  // -----------------------------------------------------------------
+  const htmlRegex =
+    /<img\s+([^>]*?)src=["'](?!(https?:\/\/|data:|\/))(.*?)(["'][^>]*?)>/gi;
+  content = content.replace(htmlRegex, (match, before, relPath, after) => {
+    const url = makeAssetUrl(relPath);
+    return url ? `<img ${before}src="${url}"${after}>` : match;
+  });
+
+  return content;
 };
 
 /**

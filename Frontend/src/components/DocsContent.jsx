@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
 import {
   Copy,
   Check,
@@ -10,11 +9,15 @@ import {
   Menu,
   ChevronDown,
   FileText,
+  SearchIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { updateImagePaths } from "../utils/docsDiscovery";
 import "highlight.js/styles/atom-one-dark.css";
 import { Button } from "../components/ui/Button";
+import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 // Helper function to generate heading ID
 const generateHeadingId = (text) => {
@@ -283,7 +286,7 @@ const DocsContent = ({ onToggleSidebar }) => {
       <div className="flex-1 p-8 lg:p-12 flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="h-8 w-8 text-red-500" />
+            <SearchIcon className="h-8 w-8 text-red-500" />
           </div>
           <h1 className="text-2xl font-bold text-light-text dark:text-dark-text mb-2">
             Documentation Not Found
@@ -350,7 +353,7 @@ const DocsContent = ({ onToggleSidebar }) => {
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
+              rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeHighlight]}
               components={{
                 h1: ({ children, ...props }) => {
                   // Extract text for ID generation - handle nested elements and code blocks
@@ -617,7 +620,7 @@ const DocsContent = ({ onToggleSidebar }) => {
                   <img
                     src={src}
                     alt={alt}
-                    className="bg-white rounded-xl shadow-sm my-6 border p-4 border-light-secondary dark:border-dark-secondary"
+                    className="bg-white rounded-xl shadow-sm my-6 border border-light-secondary dark:border-dark-secondary"
                   />
                 ),
               }}

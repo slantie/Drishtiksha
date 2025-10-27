@@ -1,33 +1,27 @@
 [
   {
     "title": "Overview",
-    "path": "Overview",
-    "displayPath": "/docs/Overview",
-    "category": "root"
+    "path": "frontend/Overview",
+    "displayPath": "/docs/frontend/Overview",
+    "category": "frontend"
   },
   {
-    "title": "Executive Summary",
-    "path": "Executive-Summary",
-    "displayPath": "/docs/Executive-Summary",
-    "category": "root"
+    "title": "Component Architecture",
+    "path": "frontend/Component-Architecture",
+    "displayPath": "/docs/frontend/Component-Architecture",
+    "category": "frontend"
   },
   {
-    "title": "Future Roadmap",
-    "path": "Roadmap",
-    "displayPath": "/docs/Roadmap",
-    "category": "root"
+    "title": "State Management",
+    "path": "frontend/State-Management",
+    "displayPath": "/docs/frontend/Management",
+    "category": "frontend"
   },
   {
-    "title": "Project Summary",
-    "path": "Summary",
-    "displayPath": "/docs/Summary",
-    "category": "root"
-  },
-  {
-    "title": "System Architecture",
-    "path": "System-Architecture",
-    "displayPath": "/docs/System-Architecture",
-    "category": "root"
+    "title": "Real-time Communication",
+    "path": "frontend/Realtime-Communication",
+    "displayPath": "/docs/frontend/Realtime-Communication",
+    "category": "frontend"
   },
   {
     "title": "Overview",
@@ -48,16 +42,22 @@
     "category": "backend"
   },
   {
-    "title": "Database Schema & Prisma",
-    "path": "backend/Database-Schema",
-    "displayPath": "/docs/backend/Database-Schema",
+    "title": "Middleware & Authentication",
+    "path": "backend/Middleware",
+    "displayPath": "/docs/backend/Middleware",
     "category": "backend"
   },
   {
-    "title": "Overview",
-    "path": "frontend/Overview",
-    "displayPath": "/docs/frontend/Overview",
-    "category": "frontend"
+    "title": "Services & Business Logic Layer",
+    "path": "backend/Services",
+    "displayPath": "/docs/backend/Services",
+    "category": "backend"
+  },
+    {
+    "title": "WebSocket & Real-time Updates",
+    "path": "backend/WebSocket",
+    "displayPath": "/docs/backend/WebSocket",
+    "category": "backend"
   },
   {
     "title": "Overview",
@@ -160,6 +160,36 @@
     "path": "models/STFT-Spectrogram-CNN",
     "displayPath": "/docs/models/STFT-Spectrogram-CNN",
     "category": "models"
+  },
+  {
+    "title": "Project Overview",
+    "path": "Overview",
+    "displayPath": "/docs/Overview",
+    "category": "root"
+  },
+  {
+    "title": "Executive Summary",
+    "path": "Executive-Summary",
+    "displayPath": "/docs/Executive-Summary",
+    "category": "root"
+  },
+  {
+    "title": "Future Roadmap",
+    "path": "Roadmap",
+    "displayPath": "/docs/Roadmap",
+    "category": "root"
+  },
+  {
+    "title": "Project Summary",
+    "path": "Summary",
+    "displayPath": "/docs/Summary",
+    "category": "root"
+  },
+  {
+    "title": "System Architecture",
+    "path": "System-Architecture",
+    "displayPath": "/docs/System-Architecture",
+    "category": "root"
   },
   {
     "title": "About the Team",
