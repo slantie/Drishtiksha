@@ -1,5 +1,5 @@
 # Frontend
-Start-Process powershell -ArgumentList "npm i; npm run dev" -WorkingDirectory "$PWD\Frontend"
+Start-Process powershell -ArgumentList "npm i; npm run dev -- --host" -WorkingDirectory "$PWD\Frontend"
 
 # Backend
 Start-Process powershell -ArgumentList "npm i; npm run dev:full" -WorkingDirectory "$PWD\Backend"
