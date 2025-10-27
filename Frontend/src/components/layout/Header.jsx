@@ -167,7 +167,7 @@ function Header() {
               {/* Show DocsSearch on docs pages */}
               {isDocsPage && <DocsSearch />}
               {isAuthenticated && user ? (
-                <div className="relative" ref={userMenuRef}>
+                <div className="relative ml-2" ref={userMenuRef}>
                   {" "}
                   {/* Attach ref here */}
                   <button

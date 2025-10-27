@@ -6,7 +6,7 @@ import { ThemeContext } from "./context";
 
 // themeMode: 'light' | 'dark' | 'system'
 export const ThemeProvider = ({ children }) => {
-  const [themeMode, setThemeMode] = useState("system");
+  const [themeMode, setThemeMode] = useState("light");
   const [currentTheme, setCurrentTheme] = useState("purple");
 
   const applyTheme = useCallback((themeName) => {
@@ -32,7 +32,7 @@ export const ThemeProvider = ({ children }) => {
     const storedDarkMode = localStorage.getItem("darkMode");
     const storedTheme = localStorage.getItem("colorTheme") || "purple";
 
-    let initialMode = "system";
+    let initialMode = "light";
     if (storedMode) initialMode = storedMode;
     else if (storedDarkMode === "true") initialMode = "dark";
     else if (storedDarkMode === "false") initialMode = "light";

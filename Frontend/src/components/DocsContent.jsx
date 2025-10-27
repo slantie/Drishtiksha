@@ -85,11 +85,29 @@ const DocsContent = ({ onToggleSidebar }) => {
         setContent(processedContent);
 
         // Extract headings for table of contents
-        const headingRegex = /^(#{1,3})\s+(.+)$/gm;
+        // Only extract headings that are NOT inside code blocks
         const extractedHeadings = [];
+
+        // Split content by code blocks (both ``` and indented code blocks)
+        const codeBlockRegex = /```[\s\S]*?```|^( {4}|\t).*$/gm;
+        let contentWithoutCode = processedContent.replace(codeBlockRegex, "");
+
+        // Now extract headings from content without code blocks
+        const headingRegex = /^(#{1,3})\s+(.+)$/gm;
         let match;
-        while ((match = headingRegex.exec(processedContent)) !== null) {
-          const text = match[2].replace(/`([^`]+)`/g, "$1"); // Remove backticks from heading text
+        while ((match = headingRegex.exec(contentWithoutCode)) !== null) {
+          let text = match[2];
+
+          // Clean up markdown formatting from heading text
+          text = text
+            .replace(/\*\*(.+?)\*\*/g, "$1") // Remove bold **text**
+            .replace(/\*(.+?)\*/g, "$1") // Remove italic *text*
+            .replace(/__(.+?)__/g, "$1") // Remove bold __text__
+            .replace(/_(.+?)_/g, "$1") // Remove italic _text_
+            .replace(/`([^`]+)`/g, "$1") // Remove inline code `text`
+            .replace(/\[(.+?)\]\(.+?\)/g, "$1") // Remove links [text](url)
+            .trim();
+
           extractedHeadings.push({
             level: match[1].length,
             text: text,

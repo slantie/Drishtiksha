@@ -6,9 +6,51 @@
     "category": "root"
   },
   {
+    "title": "Executive Summary",
+    "path": "Executive-Summary",
+    "displayPath": "/docs/Executive-Summary",
+    "category": "root"
+  },
+  {
+    "title": "Future Roadmap",
+    "path": "Roadmap",
+    "displayPath": "/docs/Roadmap",
+    "category": "root"
+  },
+  {
+    "title": "Project Summary",
+    "path": "Summary",
+    "displayPath": "/docs/Summary",
+    "category": "root"
+  },
+  {
+    "title": "System Architecture",
+    "path": "System-Architecture",
+    "displayPath": "/docs/System-Architecture",
+    "category": "root"
+  },
+  {
     "title": "Overview",
     "path": "backend/Overview",
     "displayPath": "/docs/backend/Overview",
+    "category": "backend"
+  },
+  {
+    "title": "Architecture & System Design",
+    "path": "backend/Architecture",
+    "displayPath": "/docs/backend/Architecture",
+    "category": "backend"
+  },
+  {
+    "title": "API Routes & Endpoints",
+    "path": "backend/API-Routes",
+    "displayPath": "/docs/backend/API-Routes",
+    "category": "backend"
+  },
+  {
+    "title": "Database Schema & Prisma",
+    "path": "backend/Database-Schema",
+    "displayPath": "/docs/backend/Database-Schema",
     "category": "backend"
   },
   {
@@ -22,5 +64,107 @@
     "path": "server/Overview",
     "displayPath": "/docs/server/Overview",
     "category": "server"
+  },
+  {
+    "title": "BaseModel Contract & Detector Pattern",
+    "path": "server/BaseModel-Contract",
+    "displayPath": "/docs/server/BaseModel-Contract",
+    "category": "server"
+  },
+  {
+    "title": "API Endpoints & Schemas",
+    "path": "server/API-Endpoints",
+    "displayPath": "/docs/server/API-Endpoints",
+    "category": "server"
+  },
+  {
+    "title": "Event Publisher & Progress Tracking",
+    "path": "server/Event-Publisher",
+    "displayPath": "/docs/server/Event-Publisher",
+    "category": "server"
+  },
+  {
+    "title": "Model Registry & Manager",
+    "path": "server/Model-Registry",
+    "displayPath": "/docs/server/Model-Registry",
+    "category": "server"
+  },
+  {
+    "title": "Configuration System",
+    "path": "server/Configuration-System",
+    "displayPath": "/docs/server/Configuration-System",
+    "category": "server"
+  },
+    {
+    "title": "ColorCues-LSTM Model",
+    "path": "models/ColorCues-LSTM",
+    "displayPath": "/docs/models/ColorCues-LSTM",
+    "category": "models"
+  },
+  {
+    "title": "Cross-EfficientNet-ViT Model",
+    "path": "models/Cross-EfficientNet-ViT",
+    "displayPath": "/docs/models/Cross-EfficientNet-ViT",
+    "category": "models"
+  },
+  {
+    "title": "DistilDIRE Model",
+    "path": "models/DistilDIRE",
+    "displayPath": "/docs/models/DistilDIRE",
+    "category": "models"
+  },
+  {
+    "title": "EfficientNet-B7 (V1)",
+    "path": "models/EfficientNet-B7",
+    "displayPath": "/docs/models/EfficientNet-B7",
+    "category": "models"
+  },
+  {
+    "title": "EyeBlink-CNN-LSTM Model",
+    "path": "models/EyeBlink-CNN-LSTM",
+    "displayPath": "/docs/models/EyeBlink-CNN-LSTM",
+    "category": "models"
+  },
+  {
+    "title": "LipFD Model (Lips Are Lying)",
+    "path": "models/LipFD",
+    "displayPath": "/docs/models/LipFD",
+    "category": "models"
+  },
+  {
+    "title": "MEL-Spectrogram-CNN Model",
+    "path": "models/MEL-Spectrogram-CNN",
+    "displayPath": "/docs/models/MEL-Spectrogram-CNN",
+    "category": "models"
+  },
+  {
+    "title": "MFF-MoE (V1)",
+    "path": "models/MFF-MoE",
+    "displayPath": "/docs/models/MFF-MoE",
+    "category": "models"
+  },
+  {
+    "title": "Scattering-Wave Model",
+    "path": "models/Scattering-Wave",
+    "displayPath": "/docs/models/Scattering-Wave",
+    "category": "models"
+  },
+  {
+    "title": "SIGLIP-LSTM (V1/V3/V4)",
+    "path": "models/SIGLIP-LSTM",
+    "displayPath": "/docs/models/SIGLIP-LSTM",
+    "category": "models"
+  },
+  {
+    "title": "STFT-Spectrogram-CNN Model",
+    "path": "models/STFT-Spectrogram-CNN",
+    "displayPath": "/docs/models/STFT-Spectrogram-CNN",
+    "category": "models"
+  },
+  {
+    "title": "About the Team",
+    "path": "Team",
+    "displayPath": "/docs/Team",
+    "category": "root"
   }
 ]

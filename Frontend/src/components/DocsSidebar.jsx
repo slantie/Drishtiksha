@@ -17,9 +17,10 @@ const DocsSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
-    backend: true,
-    frontend: true,
-    server: true,
+    backend: false,
+    frontend: false,
+    server: false,
+    models: false,
   });
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [docsStructure, setDocsStructure] = useState({
@@ -47,14 +48,24 @@ const DocsSidebar = () => {
               isFile: true,
             };
           } else {
-            // Categorized file
-            const category = pathParts[0];
-            if (!structure[category]) {
-              structure[category] = {};
+            // Nested file - build the structure recursively
+            let current = structure;
+
+            // Navigate through all path parts except the last one (which is the file)
+            for (let i = 0; i < pathParts.length - 1; i++) {
+              const part = pathParts[i];
+              if (!current[part]) {
+                current[part] = {};
+              }
+              current = current[part];
             }
-            structure[category][pathParts[pathParts.length - 1]] = {
+
+            // Add the file at the final level
+            const fileName = pathParts[pathParts.length - 1];
+            current[fileName] = {
               title: file.title,
               isFile: true,
+              fullPath: file.path,
             };
           }
         });
@@ -74,9 +85,11 @@ const DocsSidebar = () => {
     const items = [];
     const addItems = (node, path = "") => {
       Object.keys(node).forEach((key) => {
-        const fullPath = path ? `${path}/${key}` : key;
         const nodeData = node[key];
         const isFile = nodeData && nodeData.isFile === true;
+
+        // Use fullPath from manifest if available, otherwise construct it
+        const fullPath = nodeData?.fullPath || (path ? `${path}/${key}` : key);
 
         if (isFile) {
           // File
@@ -158,9 +171,12 @@ const DocsSidebar = () => {
 
   const renderTree = (node, path = "", level = 0) => {
     return Object.keys(node).map((key) => {
-      const fullPath = path ? `${path}/${key}` : key;
       const nodeData = node[key];
       const isFile = nodeData && nodeData.isFile === true;
+
+      // Use fullPath from manifest if available, otherwise construct it
+      const fullPath = nodeData?.fullPath || (path ? `${path}/${key}` : key);
+
       const isActive = location.pathname === `/docs/${fullPath}`;
       const isExpanded = expandedSections[key];
 
@@ -177,7 +193,7 @@ const DocsSidebar = () => {
 
         return (
           <motion.li
-            key={key}
+            key={fullPath}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             className={`${level > 0 && !collapsed ? "ml-7" : ""}`}
@@ -188,7 +204,7 @@ const DocsSidebar = () => {
                 collapsed ? "justify-center" : "gap-3"
               } px-4 py-2.5 rounded-full text-sm transition-all duration-200 relative overflow-hidden ${
                 isActive
-                  ? "bg-gradient-to-r from-primary-main/10 to-primary-main/5 dark:from-primary-main/20 dark:to-primary-main/10 text-primary-main font-medium shadow-sm border-primary-main"
+                  ? "bg-gradient-to-r from-primary-main/10 to-primary-main/5 dark:from-primary-main/20 dark:to-primary-main/10 text-primary-main font-medium border-primary-main"
                   : isFocused
                   ? "bg-primary-main/5 dark:bg-primary-main/10 border border-primary-main/20"
                   : "text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover"
@@ -218,7 +234,7 @@ const DocsSidebar = () => {
           key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, " ");
 
         return (
-          <li key={key} className={`${level > 0 && !collapsed ? "" : ""}`}>
+          <li key={fullPath} className={`${level > 0 && !collapsed ? "" : ""}`}>
             <Button
               variant="ghost"
               onClick={() => toggleSection(key)}
