@@ -95,7 +95,13 @@
     "displayPath": "/docs/server/Configuration-System",
     "category": "server"
   },
-    {
+  {
+    "title": "Drishtiksha CLI",
+    "path": "server/Drishtiksha-CLI",
+    "displayPath": "/docs/server/Drishtiksha-CLI",
+    "category": "server"
+  },
+  {
     "title": "ColorCues-LSTM Model",
     "path": "models/ColorCues-LSTM",
     "displayPath": "/docs/models/ColorCues-LSTM",
@@ -159,6 +165,12 @@
     "title": "STFT-Spectrogram-CNN Model",
     "path": "models/STFT-Spectrogram-CNN",
     "displayPath": "/docs/models/STFT-Spectrogram-CNN",
+    "category": "models"
+  },
+  {
+    "title": "Audio-MFT-CRNN Model",
+    "path": "models/Audio-MFT-CRNN",
+    "displayPath": "/docs/models/Audio-MFT-CRNN",
     "category": "models"
   },
   {
