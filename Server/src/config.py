@@ -205,6 +205,46 @@ class LipFDv1Config(BaseModelConfig):
     class_name: Literal["LipFDetectorV1"]
     model_definition: LipFDv1ArchConfig
 
+class PreprocessingParamsConfig(BaseModel):
+    sampling_rate: int
+    chunk_duration_s: float
+    chunk_overlap_s: float
+
+class MfccConfig(BaseModel):
+    enabled: bool
+    n_mfcc: int
+    include_deltas: bool
+
+class ChromaFeaturesConfig(BaseModel):
+    enabled: bool
+    n_chroma: int
+
+class SpectralContrastConfig(BaseModel):
+    enabled: bool
+    n_bands: int
+
+class ZeroCrossingRateConfig(BaseModel):
+    enabled: bool
+
+class FeatureExtractionConfig(BaseModel):
+    mfcc: MfccConfig
+    chroma_features: ChromaFeaturesConfig
+    spectral_contrast: SpectralContrastConfig
+    zero_crossing_rate: ZeroCrossingRateConfig
+
+class CombinedVectorModelConfig(BaseModel):
+    shared_hop_length: int
+    mel_n_fft: int
+    n_mels: int
+    stft_n_fft_wide: int
+    stft_n_fft_narrow: int
+
+class AudioMFTCRNNConfig(BaseModelConfig):
+    class_name: Literal["AudioMFTCRNNV1"]
+    preprocessing_params: PreprocessingParamsConfig
+    feature_extraction: FeatureExtractionConfig
+    combined_vector_model: CombinedVectorModelConfig
+
 # A Discriminated Union to validate and parse the correct model config.
 ModelConfig = Annotated[
     Union[
@@ -221,7 +261,8 @@ ModelConfig = Annotated[
         DistilDIREv1Config,
         MFFMoEV1Config,
         CrossEfficientViTConfig,
-        LipFDv1Config
+        LipFDv1Config,
+        AudioMFTCRNNConfig
     ],
     Field(discriminator="class_name"),
 ]

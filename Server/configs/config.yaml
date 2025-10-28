@@ -305,3 +305,38 @@ models:
       arch: "CLIP:ViT-L/14"
       n_extract: 200
       window_len: 5
+
+  AUDIO-MFT-CRNN-V1:
+    class_name: "AudioMFTCRNNV1" # Must match the detector class name
+    description: "Audio Multi-Feature Temporal CRNN for detecting audio deepfakes."
+    model_path: "models/Audio-MFT-CRNN-v1.pth"
+    isAudio: true
+    isVideo: false
+    isImage: false
+
+    # --- Parameters ported directly from the source project ---
+    preprocessing_params:
+      sampling_rate: 16000
+      chunk_duration_s: 1.0
+      chunk_overlap_s: 0.5
+
+    feature_extraction:
+      mfcc:
+        enabled: true
+        n_mfcc: 20
+        include_deltas: true
+      chroma_features:
+        enabled: true
+        n_chroma: 12
+      spectral_contrast:
+        enabled: true
+        n_bands: 6
+      zero_crossing_rate:
+        enabled: true
+
+    combined_vector_model:
+      shared_hop_length: 512
+      mel_n_fft: 2048
+      n_mels: 256
+      stft_n_fft_wide: 512
+      stft_n_fft_narrow: 2048
