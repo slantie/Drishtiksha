@@ -1,13 +1,29 @@
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/assets/fonts/Poppins-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/DMMono-Regular.ttf') format('truetype');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-    --color-primary: #8155c6;
-}
-
 body {
     font-family: "Poppins", sans-serif;
+}
+
+:root {
+    --color-primary: #8155c6;
 }
 
 /* Custom Scrollbar Styles */

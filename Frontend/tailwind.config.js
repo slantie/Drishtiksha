@@ -49,6 +49,7 @@ export default {
             fontFamily: {
                 sans: [
                     "Poppins",
+                    "DM Mono",
                     "ui-sans-serif",
                     "system-ui",
                     "-apple-system",
