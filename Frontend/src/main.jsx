@@ -15,6 +15,9 @@ document.title = `${projectName} - ${projectDesc}`;
 ReactDOM.createRoot(document.getElementById("root")).render(
   <QueryClientProvider client={queryClient}>
     <App />
-    <ReactQueryDevtools initialIsOpen={false} />
+    <ReactQueryDevtools
+      initialIsOpen={false}
+      toggleButtonProps={{ style: { display: "none" } }}
+    />
   </QueryClientProvider>
 );

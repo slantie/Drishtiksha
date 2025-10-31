@@ -24,6 +24,12 @@
     "category": "frontend"
   },
   {
+    "title": "Browser Extension",
+    "path": "frontend/Browser-Extension",
+    "displayPath": "/docs/frontend/Browser-Extension",
+    "category": "frontend"
+  },
+  {
     "title": "Overview",
     "path": "backend/Overview",
     "displayPath": "/docs/backend/Overview",
@@ -53,7 +59,7 @@
     "displayPath": "/docs/backend/Services",
     "category": "backend"
   },
-    {
+  {
     "title": "WebSocket & Real-time Updates",
     "path": "backend/WebSocket",
     "displayPath": "/docs/backend/WebSocket",

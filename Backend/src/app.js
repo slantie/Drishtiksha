@@ -17,7 +17,14 @@ import pdfRoutes from "./api/pdf/pdf.routes.js";
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: config.FRONTEND_URL, credentials: true }));
+app.use(
+  cors({
+    origin: config.FRONTEND_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use("/api", apiRateLimiter);
 app.use(morgan("dev", { stream: logger.stream }));
 app.use(express.json({ limit: "20kb" }));

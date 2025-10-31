@@ -1,0 +1,44 @@
+<!-- File: BrowserExtension/popup/popup.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Drishtiksha Status</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="../icons/Icon-512.png" alt="Drishtiksha Logo" class="logo">
+            <h1>Drishtiksha</h1>
+        </div>
+        
+        <div class="status-section">
+            <div id="status-indicator" class="status-indicator checking"></div>
+            <p id="status-text" class="status-text">Checking authentication...</p>
+            <div id="login-prompt" class="login-prompt" style="display: none;">
+                <p>Not logged in? <a href="http://192.168.1.51:5173/auth" target="_blank">Log in now</a> to get started.</p>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>How to Use</h3>
+            <ol>
+                <li>Right-click any <strong>image</strong> on any website</li>
+                <li>Select "<strong>Analyze with Drishtiksha</strong>"</li>
+                <li>Monitor progress via notifications</li>
+                <li>Check your dashboard for results & history</li>
+            </ol>
+            <p class="note"><strong>Note</strong>: This extension uses your existing Drishtiksha session for authentication.</p>
+        </div>
+
+        <a href="#" id="dashboard-link" class="button" target="_blank">
+            <span>Go to Dashboard</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </a>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

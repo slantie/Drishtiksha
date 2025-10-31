@@ -65,75 +65,73 @@ const AnalysisRunCard = ({ run, mediaId, isExpanded, onToggle }) => {
 
   return (
     <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
-      <button
+      <CardHeader
         onClick={onToggle}
-        className="w-full text-left hover:bg-light-card-hover dark:hover:bg-dark-card-hover transition-colors duration-150"
+        className="cursor-pointer hover:bg-light-card-hover dark:hover:bg-dark-card-hover transition-colors duration-150"
       >
-        <CardHeader className="cursor-pointer">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                Run #{run.runNumber}
-                <ChevronDown
-                  className={`h-5 w-5 text-light-muted-text dark:text-dark-muted-text transition-transform duration-300 ${
-                    isExpanded ? "rotate-0" : "-rotate-90"
-                  }`}
-                />
-              </CardTitle>
-              <StatusBadge status={run.status} />
-              {run.analyses?.length > 0 && (
-                <Badge
-                  variant="secondary"
-                  size="sm"
-                  className="transition-opacity duration-200"
-                >
-                  {run.analyses.length}{" "}
-                  {run.analyses.length === 1 ? "Analysis" : "Analyses"}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {run.analyses?.length > 0 && (
-                <>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Link to={`/results/${mediaId}/runs/${run.id}`}>
-                      <Layers className="h-4 w-4 mr-2" /> View Details
-                    </Link>
-                  </Button>
-                  <Button
-                    onClick={handleDownloadReport}
-                    variant="outline"
-                    size="sm"
-                    disabled={isDownloading}
-                    aria-label={`Download report for Run #${run.runNumber}`}
-                    className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    {isDownloading ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />{" "}
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" /> PDF
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
-              <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
-                {formatDate(run.createdAt)}
-              </span>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              Run #{run.runNumber}
+              <ChevronDown
+                className={`h-5 w-5 text-light-muted-text dark:text-dark-muted-text transition-transform duration-300 ${
+                  isExpanded ? "rotate-0" : "-rotate-90"
+                }`}
+              />
+            </CardTitle>
+            <StatusBadge status={run.status} />
+            {run.analyses?.length > 0 && (
+              <Badge
+                variant="secondary"
+                size="sm"
+                className="transition-opacity duration-200"
+              >
+                {run.analyses.length}{" "}
+                {run.analyses.length === 1 ? "Analysis" : "Analyses"}
+              </Badge>
+            )}
           </div>
-        </CardHeader>
-      </button>
+          <div className="flex items-center gap-2">
+            {run.analyses?.length > 0 && (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Link to={`/results/${mediaId}/runs/${run.id}`}>
+                    <Layers className="h-4 w-4 mr-2" /> View Details
+                  </Link>
+                </Button>
+                <Button
+                  onClick={handleDownloadReport}
+                  variant="outline"
+                  size="sm"
+                  disabled={isDownloading}
+                  aria-label={`Download report for Run #${run.runNumber}`}
+                  className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  {isDownloading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />{" "}
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" /> PDF
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+            <span className="text-xs text-light-muted-text dark:text-dark-muted-text">
+              {formatDate(run.createdAt)}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
       <div
         className={`transition-all duration-300 ease-in-out ${
           isExpanded

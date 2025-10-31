@@ -6,7 +6,7 @@ import { verifyToken } from '../utils/jwt.js';
 import { userRepository } from '../repositories/user.repository.js';
 
 // This is a placeholder for a central constants file if we need one later.
-const AUTH_COOKIE_NAME = 'accessToken'; 
+const AUTH_COOKIE_NAME = 'authToken'; 
 
 export const authenticateToken = asyncHandler(async (req, res, next) => {
     // Check for token in standard Authorization header first, then fallback to cookie.

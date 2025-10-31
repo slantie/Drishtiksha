@@ -8,6 +8,7 @@ import queryClient from "./queryClient.js"; // Ensure this import is explicit
 const axiosInstance = axios.create({
   baseURL: config.VITE_BACKEND_URL, // Use the validated config directly
   timeout: 60000,
+  withCredentials: true, // Key addition: Enables sending/receiving cookies cross-origin
 });
 
 axiosInstance.interceptors.request.use(

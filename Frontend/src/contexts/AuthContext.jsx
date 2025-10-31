@@ -57,8 +57,6 @@ export const AuthProvider = ({ children }) => {
     } else {
       socketService.disconnect();
     }
-    // Cleanup on unmount or token change
-    return () => socketService.disconnect();
   }, [localToken]);
 
   // --- Effect to handle profile query errors (e.g., expired session) ---

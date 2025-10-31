@@ -67,8 +67,8 @@ const startServer = async () => {
             }
         }, 10000); // Wait 10 seconds after startup
 
-        httpServer.listen(PORT, () => {
-            logger.info(`🚀 Server is running at: http://localhost:${PORT}`);
+        httpServer.listen(PORT, '0.0.0.0', () => {
+            logger.info(`🚀 Server is running and accessible on your network at port: ${PORT}`);
             logger.info(`   Environment: ${config.NODE_ENV}`);
         });
         

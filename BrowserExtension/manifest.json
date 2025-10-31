@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Drishtiksha Analysis",
+  "version": "2.0.0",
+  "description": "Right-click any media (images, videos, audio) on the web to analyze it for deepfakes with the Drishtiksha platform.",
+  "icons": {
+    "16": "icons/Icon-16.png",
+    "48": "icons/Icon-48.png",
+    "128": "icons/Icon-128.png",
+    "512": "icons/Icon-512.png"
+  },
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["http://192.168.1.51:5173/*"],
+      "js": ["content.js"]
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/Icon-16.png",
+      "48": "icons/Icon-48.png",
+      "128": "icons/Icon-128.png",
+      "512": "icons/Icon-512.png"
+    }
+  },
+
+  "permissions": [
+    "contextMenus",
+    "notifications",
+    "storage",
+    "cookies",
+    "scripting",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "http://192.168.1.51/*",
+    "http://192.168.1.51:3000/*",
+    "<all_urls>"
+  ]
+}

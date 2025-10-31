@@ -4,6 +4,7 @@ import { authService } from '../../services/auth.service.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import logger from '../../utils/logger.js';
+import jwt from 'jsonwebtoken';
 
 const signup = asyncHandler(async (req, res) => {
     const { user, token } = await authService.registerUser(req.body);
@@ -14,6 +15,19 @@ const signup = asyncHandler(async (req, res) => {
 const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const { user, token } = await authService.loginUser(email, password);
+
+    const decodedToken = jwt.decode(token);
+    const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        expires: new Date(decodedToken.exp * 1000),
+    };
+
+    res.cookie('authToken', token, cookieOptions); 
+    logger.info(`[Auth] [Extension] authToken cookie for extension added.`);
+
     logger.info(`[Auth] User logged in: ${user.email} (ID: ${user.id})`);
     res.status(200).json(new ApiResponse(200, { user, token }, 'Login successful'));
 });
@@ -22,6 +36,7 @@ const logout = asyncHandler(async (req, res) => {
     if (req.user) {
         logger.info(`[Auth] User logged out: ${req.user.email} (ID: ${req.user.id})`);
     }
+    res.clearCookie('authToken');
     res.status(200).json(new ApiResponse(200, null, 'Logout successful'));
 });
 
