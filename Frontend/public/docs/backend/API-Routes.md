@@ -34,29 +34,29 @@ All endpoints are prefixed with `/api/v1` for versioning. Future breaking change
 ### JWT-Based Authentication
 
 ```text
-┌──────────────┐                                    ┌──────────────┐
-│   Client     │                                    │   Backend    │
-└──────┬───────┘                                    └──────┬───────┘
-       │                                                   │
-       │  1. POST /api/v1/auth/signup                     │
-       │     { email, password, firstName, lastName }     │
-       ├──────────────────────────────────────────────────►
-       │                                                   │
-       │  2. Response: { token, user }                    │
-       │◄──────────────────────────────────────────────────┤
-       │                                                   │
-       │  3. Store token in localStorage                  │
-       │     or sessionStorage                             │
-       │                                                   │
-       │  4. All subsequent requests include:             │
-       │     Authorization: Bearer <token>                │
-       ├──────────────────────────────────────────────────►
-       │                                                   │
-       │  5. Backend verifies token via                   │
-       │     authenticateToken middleware                 │
-       │                                                   │
-       │  6. Attaches user to req.user                    │
-       │◄──────────────────────────────────────────────────┤
+          ┌──────────────┐                                    ┌──────────────┐
+          │   Client     │                                    │   Backend    │
+          └──────┬───────┘                                    └──────┬───────┘
+                │                                                   │
+                │  1. POST /api/v1/auth/signup                      │
+                │     { email, password, firstName, lastName }      │
+                ├──────────────────────────────────────────────────►│
+                │                                                   │
+                │  2. Response: { token, user }                     │
+                │◄──────────────────────────────────────────────────┤
+                │                                                   │
+                │  3. Store token in localStorage                   │
+                │     or sessionStorage                             │
+                │                                                   │
+                │  4. All subsequent requests include:              │
+                │     Authorization: Bearer <token>                 │
+                ├──────────────────────────────────────────────────►│
+                │                                                   │
+                │  5. Backend verifies token via                    │
+                │     authenticateToken middleware                  │
+                │                                                   │
+                │  6. Attaches user to req.user                     │
+                │◄──────────────────────────────────────────────────┤
 ```
 
 **Token Storage**: Store JWT token in `localStorage` or `sessionStorage`  

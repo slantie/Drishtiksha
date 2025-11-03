@@ -22,7 +22,7 @@
 
 **Project Name**: Drishtiksha  
 **Version**: 3.0  
-**Timeline**: Development initiated in 2024, Production release in 2025  
+**Timeline**: Development initiated in 2024, Production release in 2025
 **Status**: Production-Ready  
 **Purpose**: Enterprise-grade deepfake detection across video, audio, and image media
 

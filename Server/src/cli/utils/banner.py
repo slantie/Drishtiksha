@@ -28,7 +28,7 @@ def print_banner():
     """Print the Drishtiksha CLI banner."""
     console.print(BANNER_ASCII, style="bold cyan", highlight=False)
     console.print(
-        f"[dim]Version 3.0.0  •  Powered by AI  •  Built with ❤️  by Slantie[/dim]\n",
+        f"Version 3.0.0  •  Powered by AI\n",
         justify="leftcenter"
     )
 

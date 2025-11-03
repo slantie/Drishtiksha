@@ -92,10 +92,10 @@ This is the configuration and entry point of the extension.
     *   `notifications`: To show pop-up alerts.
     *   `storage`: For the extension to store its own settings (optional).
     *   `cookies`: **This is a fallback/alternative authentication method and is not used in the primary message-passing flow.**
-*   **`"content_scripts": [...]`**: This is a critical section. It tells Chrome to inject `content.js` **only** into pages matching your web app's URL (`http://192.168.1.51:5173/*`).
+*   **`"content_scripts": [...]`**: This is a critical section. It tells Chrome to inject `content.js` **only** into pages matching your web app's URL (`http://localhost:5173/*`).
 *   **`"host_permissions": [...]`**: Grants the extension the necessary network access:
-    *   `"http://192.168.1.51/*"`: Allows the content script to be injected.
-    *   `"http://192.168.1.51:3000/*"`: Allows `background.js` to make API calls to your backend.
+    *   `"http://localhost/*"`: Allows the content script to be injected.
+    *   `"http://localhost:3000/*"`: Allows `background.js` to make API calls to your backend.
     *   `"<all_urls>"`: Allows `background.js` to `fetch` media from any website on the internet.
 
 ### 3.2. `background.js` (The Core Logic)

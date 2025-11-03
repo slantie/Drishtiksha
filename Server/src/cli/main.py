@@ -38,38 +38,25 @@ class DrishtikshaCLI(click.Group):
 @click.pass_context
 def cli(ctx, debug):
     """
-    [bold cyan]Drishtiksha[/bold cyan] - Professional Deepfake Detection CLI
-    
-    Analyze videos, images, and audio files for deepfake content using
-    state-of-the-art machine learning models.
-    
-    [bold]Quick Start:[/bold]
-    
-      [cyan]# Analyze a single file[/cyan]
-      $ drishtiksha analyze video.mp4
-      
-      [cyan]# Interactive mode (recommended for beginners)[/cyan]
-      $ drishtiksha interactive
-      
-      [cyan]# Batch analyze multiple files[/cyan]
-      $ drishtiksha batch ./media_folder/
-    
-    [bold]Examples:[/bold]
-    
-      [dim]# Analyze with specific model[/dim]
-      $ drishtiksha analyze video.mp4 --model EFFICIENTNET-B7-V1
-      
-      [dim]# Generate visualization[/dim]
-      $ drishtiksha analyze video.mp4 --visualize
-      
-      [dim]# Export results to JSON[/dim]
-      $ drishtiksha analyze video.mp4 --output results.json
-      
-      [dim]# Check system status[/dim]
-      $ drishtiksha stats
-    
-    Use [bold]drishtiksha COMMAND --help[/bold] for detailed command information.
+    Drishtiksha - Deepfake Detection CLI
     """
+    # \n
+    # Analyze videos, images, and audio files for deepfake content using
+    # state-of-the-art machine learning models.\n
+    # \n
+    # Quick Start:\n
+    #   $ drishtiksha analyze video.mp4\n
+    #   $ drishtiksha interactive\n
+    #   $ drishtiksha batch ./media_folder/\n
+    
+    # Examples:\n
+    #   $ drishtiksha analyze video.mp4 --model EFFICIENTNET-B7-V1\n
+    #   $ drishtiksha analyze video.mp4 --visualize\n
+    #   $ drishtiksha analyze video.mp4 --output results.json\n
+    #   $ drishtiksha stats\n
+    
+    # Use drishtiksha COMMAND --help for detailed command information.\n
+
     ctx.ensure_object(dict)
     ctx.obj['DEBUG'] = debug
     
@@ -94,10 +81,10 @@ def main():
         # validate_environment()
         cli(obj={})
     except KeyboardInterrupt:
-        console.print("\n[yellow]⚠️  Operation cancelled by user.[/yellow]")
+        console.print("\n⚠️  Operation cancelled by user.")
         sys.exit(130)
     except Exception as e:
-        console.print(f"\n[bold red]❌ Fatal Error:[/bold red] {str(e)}")
+        console.print(f"\n❌ Fatal Error: {str(e)}")
         sys.exit(1)
 
 

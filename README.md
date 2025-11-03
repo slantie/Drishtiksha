@@ -1,286 +1,149 @@
-# Drishtiksha 🚀
+# Drishtiksha: A Real-Time Deepfake Detection Platform
 
-A modern full-stack web application starter template built with **React**, **Node.js**, **Express**, **Prisma**, and **Tailwind CSS**. This starter pack provides a complete development environment with authentication, database integration, and a beautiful dark/light theme system.
+**Drishtiksha** is a comprehensive, enterprise-grade platform designed for the detection and forensic analysis of deepfakes in digital media. It is architected as a robust, scalable system of microservices, combining a modern web interface, a powerful backend orchestrator, and an extensible AI inference engine.
 
-## ✨ Features
+The platform's core mandate is to provide a seamless, end-to-end workflow for users to upload media (video, audio, and images), receive real-time feedback on the analysis progress, and explore detailed, multi-model forensic reports. It is designed from the ground up to handle computationally expensive, long-running AI tasks in a non-blocking, asynchronous manner, ensuring a responsive and reliable user experience.
 
-- 🎨 **Modern UI/UX** - Beautiful responsive design with dark/light theme
-- ⚡ **Fast Development** - Hot reload with Vite for frontend and Nodemon for backend
-- 🔐 **Authentication System** - JWT-based user authentication
-- 🗃️ **Database Integration** - Prisma ORM with SQLite (easily configurable for other databases)
-- 📱 **Responsive Design** - Mobile-first approach with Tailwind CSS
-- 🛠️ **Interactive Setup Guide** - Built-in setup wizard for easy project initialization
-- 🔧 **Developer Experience** - ESLint, PostCSS, and modern tooling
-- 🌙 **Theme System** - Seamless dark/light mode switching
-- 📊 **Health Monitoring** - Backend health check endpoints
+### Key Features
 
-## 🛠️ Tech Stack
-
-### Frontend
-- **React 19** - Latest React with modern features
-- **Vite** - Fast build tool and development server
-- **Tailwind CSS** - Utility-first CSS framework
-- **React Router** - Client-side routing
-- **Lucide React** - Beautiful icon library
-- **React Hot Toast** - Elegant toast notifications
-- **Framer Motion** - Smooth animations
-
-### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web application framework
-- **Prisma ORM** - Modern database toolkit
-- **JWT** - JSON Web Token authentication
-- **bcryptjs** - Password hashing
-- **CORS** - Cross-origin resource sharing
-- **SQLite** - Default database (configurable)
-
-## 📁 Project Structure
-
-```
-├── Frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── Header.jsx
-│   │   │   │   └── Footer.jsx
-│   │   │   └── ThemeToggle.jsx
-│   │   ├── pages/
-│   │   │   ├── Home.jsx
-│   │   │   └── Setup.jsx
-│   │   ├── providers/
-│   │   ├── utils/
-│   │   └── assets/
-│   ├── public/
-│   ├── package.json
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── .env
-│
-├── Backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   └── authController.js
-│   │   ├── middleware/
-│   │   │   ├── auth.js
-│   │   │   └── validation.js
-│   │   ├── routes/
-│   │   │   └── authRoutes.js
-│   │   ├── config/
-│   │   │   └── database.js
-│   │   └── utils/
-│   ├── prisma/
-│   │   └── schema.prisma
-│   ├── package.json
-│   ├── server.js
-│   └── .env
-│
-└── README.md
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-- **Node.js** (v18.0.0 or higher) - [Download](https://nodejs.org/)
-- **npm** (v8.0.0 or higher) - Comes with Node.js
-- **Git** (Latest version) - [Download](https://git-scm.com/)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/slantie/StarterKit.git
-   cd starter-pack
-   ```
-
-2. **Frontend Setup**
-   ```bash
-   cd Frontend
-   npm install
-   cp .env.example .env  # Create environment file
-   npm run dev           # Start development server on :5173
-   ```
-
-3. **Backend Setup** (Open a new terminal)
-   ```bash
-   cd Backend
-   npm install
-   cp .env.example .env  # Create environment file
-   npm run dev           # Start backend server on :3000
-   ```
-
-4. **Database Setup** (In the Backend directory)
-   ```bash
-   npm run db:generate   # Generate Prisma client
-   npm run db:push       # Create database tables
-   npm run db:studio     # (Optional) Open Prisma Studio
-   ```
-
-5. **Verify Installation**
-   - Frontend: [http://localhost:5173](http://localhost:5173)
-   - Backend Health: [http://localhost:3000/api/health](http://localhost:3000/api/health)
-   - Interactive Setup Guide: [http://localhost:5173/setup](http://localhost:5173/setup)
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-#### Frontend (.env)
-```env
-# Project Configuration
-VITE_PROJECT_NAME="Your Project Name"
-VITE_BACKEND_URL="http://localhost:3000"
-VITE_NODE_ENV="development"
-
-# Development Server
-PORT=5173
-NODE_ENV="development"
-```
-
-#### Backend (.env)
-```env
-# Server Configuration
-PORT=3000
-NODE_ENV="development"
-
-# Database
-DATABASE_URL="file:./dev.db"
-
-# Authentication
-JWT_SECRET="your-super-secret-jwt-key-here"
-
-# CORS
-FRONTEND_URL="http://localhost:5173"
-```
-
-### Database Configuration
-
-The project uses SQLite by default, but you can easily switch to other databases by updating the `DATABASE_URL` in your Backend `.env` file:
-
-```env
-# PostgreSQL
-DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
-
-# MySQL
-DATABASE_URL="mysql://user:password@localhost:3306/dbname"
-
-# MongoDB
-DATABASE_URL="mongodb://localhost:27017/dbname"
-```
-
-## 📋 Available Scripts
-
-### Frontend Scripts
-```bash
-npm run dev         # Start development server
-npm run build       # Build for production
-npm run preview     # Preview production build
-npm run lint        # Run ESLint
-```
-
-### Backend Scripts
-```bash
-npm run dev         # Start development server with nodemon
-npm start           # Start production server
-npm run db:generate # Generate Prisma client
-npm run db:push     # Push schema to database
-npm run db:studio   # Open Prisma Studio
-```
-
-## 🎨 Customization
-
-### Theme Configuration
-
-The project includes a comprehensive theme system defined in [`tailwind.config.js`](Frontend/tailwind.config.js):
-
-```javascript
-// Custom color palette
-colors: {
-  primary: {
-    main: "#f56565",
-    light: "#ff7070",
-    // ... more variants
-  },
-  dark: {
-    text: "#DFDFD6",
-    background: "#1B1B1F",
-    // ... dark theme colors
-  },
-  light: {
-    text: "#3C3C43",
-    background: "#FFFFFF",
-    // ... light theme colors
-  }
-}
-```
-
-### Adding New Pages
-
-1. Create a new component in [`Frontend/src/pages/`](Frontend/src/pages/)
-2. Add routing in your main App component
-3. Update navigation in [`Header.jsx`](Frontend/src/components/layout/Header.jsx)
-
-## 📱 Features Overview
-
-### Interactive Setup Guide
-The project includes a comprehensive setup guide accessible at `/setup` that provides:
-- Step-by-step installation instructions
-- Environment variable configuration
-- Health check monitoring
-- Command copying functionality
-- Progress tracking
-
-### Authentication System
-- JWT-based authentication
-- Password hashing with bcryptjs
-- Protected routes middleware
-- User session management
-
-### Theme System
-- Automatic dark/light mode detection
-- Manual theme switching
-- Consistent color palette
-- Responsive design patterns
-
-## 🔧 Development
-
-### Code Style
-- ESLint configuration included
-- Consistent formatting with Prettier (recommended)
-- Modern JavaScript/React patterns
-- Modular component architecture
-
-### Git Workflow
-The project includes comprehensive `.gitignore` files for both frontend and backend:
-- Node modules exclusion
-- Environment variables protection
-- Build artifacts ignored
-- Development files excluded
-
-## 🚀 Deployment
-
-### Frontend Deployment (Vercel/Netlify)
-```bash
-npm run build
-# Deploy the `dist` folder
-```
-
-### Backend Deployment (Railway/Heroku)
-```bash
-# Update DATABASE_URL for production database
-# Set JWT_SECRET to a secure random string
-# Configure environment variables in your hosting platform
-```
-
-## 🔗 Links
-
-- [Frontend Development Server](http://localhost:5173)
-- [Backend API Health Check](http://localhost:3000/api/health)
-- [Interactive Setup Guide](http://localhost:5173/setup)
+*   **Microservice Architecture:** A decoupled system with a React frontend, Node.js backend, and Python ML server for independent scaling and maintenance.
+*   **Asynchronous Job Queueing:** Utilizes **BullMQ** and **Redis** to manage long-running analysis tasks, ensuring the API remains highly responsive.
+*   **Real-Time Progress Updates:** A **WebSocket** and **Redis Pub/Sub** system provides granular, real-time feedback to the user on analysis progress.
+*   **Extensible AI Core:** The Python server features an automated **Model Registry** that dynamically discovers and loads any compatible AI model, making the system future-proof.
+*   **Multi-Modal Analysis:** Supports video, audio, and image analysis with a suite of specialized, state-of-the-art AI models.
+*   **Rich Data Visualization:** The frontend presents complex forensic data through interactive charts, graphs, and temporal analysis timelines.
+*   **Multiple Client Interfaces:** The platform can be accessed via a responsive **web application**, a powerful **Command-Line Interface (CLI)**, and a convenient **Browser Extension**.
+*   **Containerized & DevOps-Ready:** The entire platform is fully containerized with **Docker** and orchestrated with Docker Compose for consistent, one-command deployment.
 
 ---
 
-**Happy Coding!** 🎉
+## System Architecture
 
-Built with ❤️ using modern web technologies
+The Drishtiksha platform is composed of three primary services that communicate via REST APIs, WebSockets, and a Redis message broker. This decoupled architecture ensures scalability, resilience, and maintainability.
+
+
+```text
+         ┌───────────────────────────┐      ┌───────────────────────────┐
+         │ Browser Extension Client  │      │   React Web Application   │
+         └─────────────┬─────────────┘      └─────────────┬─────────────┘
+                       │                                  │
+                       │ REST API (for analysis)          │ REST API & WebSockets
+                       │                                  │
+         ┌─────────────▼──────────────────────────────────▼───────────────────┐
+         │                          Backend (Node.js)                         │
+         │       ─ API Gateway, Auth, Job Orchestration, Real-Time ─          │
+         ├──────────────────────────────┬──────────────────────────────┬──────┘
+         │                              │                              │      
+         │       BullMQ Jobs            │      Redis Pub/Sub           │ HTTP 
+         │                              │                              │ REST 
+         │                              │                              │ API  
+         │                              │                              │      
+┌────────▼────────┐          ┌──────────▼──────────┐          ┌────────▼────────┐
+│  PostgreSQL DB  │          │    Redis Server     │◄────────►│   ML Server     │
+│ (Users, Media,  │          │ (Queue & Pub/Sub)   │          │   (Python)      │
+│  Analysis Data) │          └─────────────────────┘          │ (AI Inference)  │
+└─────────────────┘                                           └─────────────────┘
+
+```
+
+---
+
+## Technology Stack
+
+| Module | Category | Technologies |
+| :--- | :--- | :--- |
+| **Frontend** | UI/UX & State | React 19, Vite, Tailwind CSS, TanStack React Query, Socket.IO, Recharts |
+| **Backend** | API & Orchestration | Node.js, Express.js, Prisma, PostgreSQL, BullMQ, Redis, Socket.IO |
+| **ML Server** | AI & Inference | Python, FastAPI, PyTorch, Librosa, OpenCV, Timm, Transformers |
+| **Browser Extension** | Integration | Manifest V3 APIs, JavaScript, HTML/CSS |
+| **Infrastructure** | DevOps | Docker, Docker Compose, Nginx |
+
+---
+
+## Modules Overview
+
+The project is divided into four primary, independent modules:
+
+### 1. **Backend** (Node.js) - *The Orchestrator*
+
+The central nervous system of the platform. It handles user authentication, provides the main REST API, manages the asynchronous job queue, and pushes real-time updates to the frontend. It orchestrates the entire analysis workflow without performing any heavy computation itself.
+
+### 2. **Frontend** (React) - *The User Interface*
+
+A sophisticated single-page application that provides a rich, responsive, and real-time user experience. It allows users to manage their media, upload new files, and explore detailed, interactive visualizations of the analysis results.
+
+### 3. **Server** (Python) - *The AI Core*
+
+A high-performance, specialized microservice built with FastAPI. It hosts the suite of AI models and exposes them via a secure REST API. Its sole purpose is to perform deepfake detection inference, accepting a media file and returning a structured JSON report.
+
+### 4. **Browser Extension** - *The Productivity Tool*
+
+A lightweight Chrome extension that integrates the Drishtiksha service directly into the user's browsing experience. It allows users to right-click any media on any website and send it for analysis with a single click, using their existing web application session for authentication.
+
+---
+
+## Quick Start (Docker)
+
+The entire Drishtiksha platform is containerized and can be run with a single command. This is the recommended method for both development and deployment.
+
+### 1. Prerequisites
+
+*   **Docker & Docker Compose** installed on your system.
+*   **Git** for cloning the repository.
+*   **Model Weights:** You must manually download the required `.pth` and `.dat` model files and place them in the `Server/models/` directory.
+
+### 2. Clone the Repository
+
+```bash
+git clone https://github.com/slantie/drishtiksha.git
+cd drishtiksha
+```
+
+### 3. Configure the Environment
+
+Create a single `.env` file in the project root by copying the provided Docker example.
+
+```bash
+cp .env.docker.example .env
+```
+
+Open the `.env` file and **change the default passwords and secret keys**. The network URLs are pre-configured to work within the Docker Compose environment.
+
+### 4. Build and Run the Platform
+
+Use the provided Docker Compose command to build all images and start all services (Frontend, Backend, ML Server, Database, Redis) in the background.
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+```
+
+### 5. Access the Application
+
+Once all containers are up and running, you can access the platform:
+
+*   **Frontend Web Application:** [http://localhost:5173](http://localhost:5173)
+*   **Backend API Health:** [http://localhost:3000](http://localhost:3000)
+*   **ML Server Health:** [http://localhost:8000](http://localhost:8000)
+*   **Prisma Studio (Database GUI):** Run `docker-compose -f docker-compose.yml -f docker-compose.local.yml --profile studio up -d` and access [http://localhost:5555](http://localhost:5555).
+
+---
+
+## Project Structure
+
+```text
+.
+├── Backend/          # Node.js API, Worker, and Orchestration Layer
+├── BrowserExtension/ # Chrome Extension for in-browser analysis
+├── Frontend/         # React Single-Page Application (UI/UX)
+├── Server/           # Python FastAPI ML Inference Server (AI Core)
+│
+├── docker-compose.yml        # Base Docker Compose configuration
+├── docker-compose.local.yml  # Local development overrides (e.g., database)
+└── .env.docker.example       # Template for Docker environment configuration
+```
+
+---
+
+## Vision & Conclusion
+
+Drishtiksha is more than a deepfake detection tool; it is a complete, production-ready platform built on modern software engineering principles. Its microservice architecture ensures scalability and maintainability, while its asynchronous, event-driven nature provides a seamless user experience for complex computational tasks. The project serves as a powerful demonstration of how to integrate cutting-edge AI into a robust and user-friendly full-stack application.
