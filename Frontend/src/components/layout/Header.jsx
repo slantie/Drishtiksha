@@ -134,7 +134,7 @@ function Header() {
             onClick={() => navigate("/")}
             aria-label={`${projectName} Home`}
           >
-            <img src="/Logo.svg" alt="Logo" className="w-10 h-10" />
+            <img src="/Logo.png" alt="Logo" className="w-10 h-10" />
             <span className="text-xl font-bold tracking-tight">
               {projectName}
             </span>

@@ -35,7 +35,7 @@ import { config } from "../config/env.js";
 
 const projectData = {
   name: config.VITE_PROJECT_NAME || "Drishtiksha",
-  tagline: "Authenticity in the Age of AI.",
+  tagline: config.VITE_PROJECT_DESC || "Authenticity in the Age of AI.",
   description:
     "A state-of-the-art platform leveraging a multi-model AI architecture to deliver fast, accurate, and detailed forensic analysis of digital media.",
 };
@@ -230,7 +230,7 @@ const Home = () => {
         ref={(el) => (sectionsRef.current.hero = el)}
         className="w-full min-h-screen flex flex-col justify-center items-center text-center py-24 px-4 sm:px-6 lg:px-8 space-y-12"
       >
-        <div className="max-w-screen-lg mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="max-w-screen-xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tighter mb-6">
             {projectData.name}
             <span className="block text-primary-main mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
