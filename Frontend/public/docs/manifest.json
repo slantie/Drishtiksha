@@ -208,11 +208,5 @@
     "path": "System-Architecture",
     "displayPath": "/docs/System-Architecture",
     "category": "root"
-  },
-  {
-    "title": "About the Team",
-    "path": "Team",
-    "displayPath": "/docs/Team",
-    "category": "root"
   }
 ]

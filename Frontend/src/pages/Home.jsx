@@ -142,45 +142,6 @@ const models = [
   },
 ];
 
-const team = [
-  {
-    name: "Kandarp Gajjar",
-    role: "AI/ML & Full-Stack Developer",
-    avatarUrl: "assets/docs/Member-1.jpg",
-    socials: {
-      github: "https://github.com/slantie",
-      linkedin: "https://www.linkedin.com/in/kandarpgajjar/",
-    },
-  },
-  {
-    name: "Oum Gadani",
-    role: "AI/ML Developer",
-    avatarUrl: "assets/docs/Member-2.jpg",
-    socials: {
-      github: "https://github.com/Oum-Gadani",
-      linkedin: "https://www.linkedin.com/in/oumgadani/",
-    },
-  },
-  {
-    name: "Raj Mathuria",
-    role: "AI/ML Developer",
-    avatarUrl: "assets/docs/Member-3.jpg",
-    socials: {
-      github: "https://github.com/CodeCraftsmanRaj",
-      linkedin: "https://www.linkedin.com/in/raj-mathuria-98a710283/",
-    },
-  },
-  {
-    name: "Vishwajit Sarnobat",
-    role: "AI/ML Developer",
-    avatarUrl: "assets/docs/Member-4.jpg",
-    socials: {
-      github: "https://github.com/vishwajitsarnobat",
-      linkedin: "https://www.linkedin.com/in/vishwajitsarnobat/",
-    },
-  },
-];
-
 const techStack = [
   { icon: SiReact, name: "React" },
   { icon: SiVite, name: "Vite" },
@@ -448,81 +409,6 @@ const Home = () => {
                   <tech.icon className="w-12 h-12 sm:w-16 sm:h-16 text-light-muted-text dark:text-dark-muted-text transition-all duration-300 hover:text-primary-main" />
                 </div>
                 <p className="mt-3 text-sm font-bold">{tech.name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Team Section */}
-      <section
-        id="team"
-        ref={(el) => (sectionsRef.current.team = el)}
-        className="w-full min-h-screen flex flex-col justify-center items-center py-24 px-4 sm:px-6 lg:px-8 space-y-12"
-      >
-        <div className="max-w-screen-xl mx-auto text-center">
-          <div
-            className={`mb-4 transition-all duration-700 ${
-              isVisible("team")
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-            }`}
-          >
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4 text-primary-main">
-              Meet The Team
-            </h2>
-            <p className="text-lg sm:text-xl text-light-muted-text dark:text-dark-muted-text max-w-3xl mx-auto">
-              Passionate experts dedicated to building the future of digital
-              media authenticity.
-            </p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-12">
-            {team.map((member, index) => (
-              <div
-                key={member.name}
-                className={`transition-all duration-700 ${
-                  isVisible("team")
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <Card className="text-center p-6 w-full h-full flex flex-col items-center justify-center transition-all duration-300 hover:shadow-xl hover:border-primary-main/30 hover:-translate-y-2 group">
-                  <div className="relative mb-4">
-                    <img
-                      src={member.avatarUrl}
-                      alt={member.name}
-                      className="w-32 h-32 rounded-full mx-auto border-4 border-primary-main/20 object-cover transition-all duration-300 group-hover:border-primary-main/50 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 rounded-full bg-primary-main/0 group-hover:bg-primary-main/10 transition-all duration-300" />
-                  </div>
-                  <h3 className="text-lg font-semibold">{member.name}</h3>
-                  <p className="text-primary-main mb-4">{member.role}</p>
-                  <div className="flex justify-center space-x-4">
-                    {member.socials.github && (
-                      <a
-                        href={member.socials.github}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-light-muted-text hover:text-primary-main transition-all duration-200 hover:scale-125"
-                        aria-label={`${member.name} on GitHub`}
-                      >
-                        <Github className="h-6 w-6" />
-                      </a>
-                    )}
-                    {member.socials.linkedin && (
-                      <a
-                        href={member.socials.linkedin}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-light-muted-text hover:text-primary-main transition-all duration-200 hover:scale-125"
-                        aria-label={`${member.name} on LinkedIn`}
-                      >
-                        <Linkedin className="h-6 w-6" />
-                      </a>
-                    )}
-                  </div>
-                </Card>
               </div>
             ))}
           </div>
