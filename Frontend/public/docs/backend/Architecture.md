@@ -24,30 +24,30 @@
 ### High-Level Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        Drishtiksha Platform                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌───────────────┐      ┌───────────────┐      ┌─────────────┐ │
-│  │   Frontend    │◄────►│    Backend    │◄────►│   Server    │ │
-│  │  (React 19)   │      │  (Express.js) │      │  (FastAPI)  │ │
-│  │               │      │               │      │             │ │
-│  │ • UI/UX       │      │ • Auth        │      │ • ML Models │ │
-│  │ • WebSocket   │      │ • API Gateway │      │ • Inference │ │
-│  │ • State Mgmt  │      │ • Job Queue   │      │ • Progress  │ │
-│  └───────────────┘      └───────────────┘      └─────────────┘ │
-│         │                       │                      │         │
-│         │                       │                      │         │
-│         └───────────────────────┴──────────────────────┘         │
-│                                 │                                │
-│                    ┌────────────┴────────────┐                  │
-│                    │                         │                  │
-│              ┌─────▼──────┐           ┌─────▼──────┐           │
-│              │ PostgreSQL │           │   Redis    │           │
-│              │  (Prisma)  │           │ (Pub/Sub)  │           │
-│              └────────────┘           └────────────┘           │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘
+          ┌─────────────────────────────────────────────────────────────────┐
+          │                        Drishtiksha Platform                     │
+          ├─────────────────────────────────────────────────────────────────┤
+          │                                                                 │
+          │  ┌───────────────┐      ┌───────────────┐      ┌─────────────┐  │
+          │  │   Frontend    │◄────►│    Backend    │◄────►│   Server    │  │
+          │  │  (React 19)   │      │  (Express.js) │      │  (FastAPI)  │  │
+          │  │               │      │               │      │             │  │
+          │  │ • UI/UX       │      │ • Auth        │      │ • ML Models │  │
+          │  │ • WebSocket   │      │ • API Gateway │      │ • Inference │  │
+          │  │ • State Mgmt  │      │ • Job Queue   │      │ • Progress  │  │
+          │  └───────────────┘      └───────────────┘      └─────────────┘  │
+          │         │                       │                      │        │
+          │         │                       │                      │        │
+          │         └───────────────────────┴──────────────────────┘        │
+          │                                 │                               │
+          │                    ┌────────────┴────────────┐                  │
+          │                    │                         │                  │
+          │              ┌─────▼──────┐            ┌─────▼──────┐           │
+          │              │ PostgreSQL │            │   Redis    │           │
+          │              │  (Prisma)  │            │ (Pub/Sub)  │           │
+          │              └────────────┘            └────────────┘           │
+          │                                                                 │
+          └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Core Responsibilities
@@ -472,21 +472,21 @@ socket.on("progress_update", (data) => {
 #### Event Flow
 
 ```text
-┌─────────────┐   Pub/Sub    ┌─────────────┐  WebSocket  ┌─────────────┐
-│   Server    │─────────────►│   Backend   │────────────►│  Frontend   │
-│  (FastAPI)  │   (Redis)    │ (Express.js)│ (Socket.io) │   (React)   │
-└─────────────┘              └─────────────┘             └─────────────┘
-     │                              │                          │
-     │ 1. Analyze video             │                          │
-     │ 2. Publish progress          │                          │
-     │ ─────────────────────────────►                          │
-     │                              │ 3. Convert & emit        │
-     │                              │ ─────────────────────────►
-     │                              │                          │
-     │ 4. Publish completion        │                          │
-     │ ─────────────────────────────►                          │
-     │                              │ 5. Emit final update     │
-     │                              │ ─────────────────────────►
+        ┌─────────────┐   Pub/Sub    ┌─────────────┐  WebSocket  ┌─────────────┐
+        │   Server    │─────────────►│   Backend   │────────────►│  Frontend   │
+        │  (FastAPI)  │   (Redis)    │ (Express.js)│ (Socket.io) │   (React)   │
+        └─────────────┘              └─────────────┘             └─────────────┘
+            │                              │                          │
+            │ 1. Analyze video             │                          │
+            │ 2. Publish progress          │                          │
+            │ ─────────────────────────────►                          │
+            │                              │ 3. Convert & emit        │
+            │                              │ ─────────────────────────►
+            │                              │                          │
+            │ 4. Publish completion        │                          │
+            │ ─────────────────────────────►                          │
+            │                              │ 5. Emit final update     │
+            │                              │ ─────────────────────────►
 ```
 
 #### Redis Event Format (Server → Backend)
@@ -554,66 +554,66 @@ export function initializeRedisListener(io) {
 ### Media Upload & Analysis Flow
 
 ```text
-┌─────────────┐
-│  Frontend   │
-│   (React)   │
-└──────┬──────┘
-       │ 1. POST /api/v1/media/upload (multipart/form-data)
-       │    Authorization: Bearer <jwt_token>
-       │    file: video.mp4
-       │    description: "Test video"
-       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       Backend (Express.js)                   │
-├─────────────────────────────────────────────────────────────┤
-│  2. Middleware Stack:                                        │
-│     - authMiddleware: Verify JWT, extract user              │
-│     - multerMiddleware: Parse multipart, save to temp       │
-│     - validationMiddleware: Validate file type/size         │
-│                                                               │
-│  3. mediaController.uploadMedia()                            │
-│     ├─ Call mediaService.createAndAnalyzeMedia()            │
-│     │  ├─ Upload to storage (local/Cloudinary)              │
-│     │  ├─ Extract metadata (FFprobe)                        │
-│     │  ├─ Create Media record in PostgreSQL                 │
-│     │  └─ Queue AnalysisRun job in BullMQ                   │
-│     └─ Return { success: true, media: {...} }               │
-│                                                               │
-│  4. BullMQ Worker (media.worker.js):                        │
-│     ├─ Receive job { mediaId, runId, userId }               │
-│     ├─ Create DeepfakeAnalysis records (1 per model)        │
-│     ├─ For each active model:                               │
-│     │  ├─ Call modelAnalysisService.runAnalysis()           │
-│     │  │  └─ POST to Server /analyze                        │
-│     │  ├─ Save result to DeepfakeAnalysis                   │
-│     │  └─ Update AnalysisRun status                         │
-│     └─ Finalize: Update Media status to "ANALYZED"          │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       │ 5. During analysis, Server publishes
-                       │    progress events to Redis channel
-                       ▼
-            ┌─────────────────────┐
-            │   Redis Pub/Sub     │
-            │  (media-progress)   │
-            └─────────┬───────────┘
-                      │
-                      │ 6. event.service.js listens to Redis
-                      │    and emits WebSocket events
-                      ▼
-            ┌──────────────────────┐
-            │ Socket.io Emit       │
-            │ to user's room       │
-            └─────────┬────────────┘
-                      │
-                      │ 7. progress_update event
-                      │    { mediaId, event, data }
-                      ▼
-            ┌──────────────────────┐
-            │    Frontend (React)  │
-            │  Updates UI in       │
-            │  real-time           │
-            └──────────────────────┘
+                  ┌─────────────┐
+                  │  Frontend   │
+                  │   (React)   │
+                  └──────┬──────┘
+                        │ 1. POST /api/v1/media/upload (multipart/form-data)
+                        │    Authorization: Bearer <jwt_token>
+                        │    file: video.mp4
+                        │    description: "Test video"
+                        ▼
+      ┌─────────────────────────────────────────────────────────────┐
+      │                       Backend (Express.js)                  │
+      ├─────────────────────────────────────────────────────────────┤
+      │  2. Middleware Stack:                                       │
+      │     - authMiddleware: Verify JWT, extract user              │
+      │     - multerMiddleware: Parse multipart, save to temp       │
+      │     - validationMiddleware: Validate file type/size         │
+      │                                                             │
+      │  3. mediaController.uploadMedia()                           │
+      │     ├─ Call mediaService.createAndAnalyzeMedia()            │
+      │     │  ├─ Upload to storage (local/Cloudinary)              │
+      │     │  ├─ Extract metadata (FFprobe)                        │
+      │     │  ├─ Create Media record in PostgreSQL                 │
+      │     │  └─ Queue AnalysisRun job in BullMQ                   │
+      │     └─ Return { success: true, media: {...} }               │
+      │                                                             │
+      │  4. BullMQ Worker (media.worker.js):                        │
+      │     ├─ Receive job { mediaId, runId, userId }               │
+      │     ├─ Create DeepfakeAnalysis records (1 per model)        │
+      │     ├─ For each active model:                               │
+      │     │  ├─ Call modelAnalysisService.runAnalysis()           │
+      │     │  │  └─ POST to Server /analyze                        │
+      │     │  ├─ Save result to DeepfakeAnalysis                   │
+      │     │  └─ Update AnalysisRun status                         │
+      │     └─ Finalize: Update Media status to "ANALYZED"          │
+      └──────────────────┬──────────────────────────────────────────┘
+                        │
+                        │ 5. During analysis, Server publishes
+                        │    progress events to Redis channel
+                        ▼
+              ┌─────────────────────┐
+              │   Redis Pub/Sub     │
+              │  (media-progress)   │
+              └─────────┬───────────┘
+                        │
+                        │ 6. event.service.js listens to Redis
+                        │    and emits WebSocket events
+                        ▼
+              ┌──────────────────────┐
+              │ Socket.io Emit       │
+              │ to user's room       │
+              └─────────┬────────────┘
+                        │
+                        │ 7. progress_update event
+                        │    { mediaId, event, data }
+                        ▼
+              ┌──────────────────────┐
+              │    Frontend (React)  │
+              │  Updates UI in       │
+              │  real-time           │
+              └──────────────────────┘
 ```
 
 ### API Request Flow (General)
@@ -888,22 +888,22 @@ startServer();
 ### BullMQ Architecture
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│                      BullMQ Queue System                      │
-├──────────────────────────────────────────────────────────────┤
-│                                                                │
-│  ┌─────────────┐      ┌──────────────┐      ┌─────────────┐ │
-│  │  Producer   │─────►│     Queue    │─────►│   Worker    │ │
-│  │ (API Route) │      │    (Redis)   │      │ (Processor) │ │
-│  └─────────────┘      └──────────────┘      └─────────────┘ │
-│         │                     │                      │        │
-│         │                     │                      │        │
-│         │ Add job             │ Store job            │ Process│
-│         │                     │                      │        │
-│         ▼                     ▼                      ▼        │
-│  { mediaId, runId }    Redis List + Hash     Run ML models   │
-│                                                                │
-└──────────────────────────────────────────────────────────────┘
+          ┌───────────────────────────────────────────────────────────────┐
+          │                      BullMQ Queue System                      │
+          ├───────────────────────────────────────────────────────────────┤
+          │                                                               │
+          │   ┌─────────────┐      ┌──────────────┐      ┌─────────────┐  │
+          │   │  Producer   │─────►│     Queue    │─────►│   Worker    │  │
+          │   │ (API Route) │      │    (Redis)   │      │ (Processor) │  │
+          │   └─────────────┘      └──────────────┘      └─────────────┘  │
+          │         │                     │                      │        │
+          │         │                     │                      │        │
+          │         │ Add job             │ Store job            │ Process│
+          │         │                     │                      │        │
+          │         ▼                     ▼                      ▼        │
+          │  { mediaId, runId }    Redis List + Hash     Run ML models    │
+          │                                                               │
+          └───────────────────────────────────────────────────────────────┘
 ```
 
 ### Media Worker

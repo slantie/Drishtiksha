@@ -56,7 +56,7 @@ This guide provides the quickest path for a new developer to get the project run
 2. **Clone the Repository**:
 
     ```bash
-    git clone https://github.com/slantie/StarterKit.git
+    git clone https://github.com/slantie/Drishtiksha.git
     cd slantie-drishtiksha/Backend
     ```
 
